@@ -21,6 +21,7 @@
         ['route' => 'exports.index',   'label' => 'Exports',       'perm' => 'exports.view'],
         ['route' => 'masterdata',      'label' => 'Master Data',   'perm' => 'masterdata.view'],
         ['route' => 'model-prices',    'label' => 'Model Prices',  'perm' => 'masterdata.view'],
+        ['route' => 'schemes.index',   'label' => 'Schemes',       'perm' => 'settings.manage'],
         ['route' => 'settings.index',  'label' => 'Settings',      'perm' => 'settings.manage'],
         ['route' => 'users.index',     'label' => 'Users',         'perm' => 'users.manage'],
     ];

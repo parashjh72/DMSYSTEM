@@ -2,10 +2,12 @@
 
 namespace App\Services\Export;
 
+use App\Models\Scheme;
 use App\Services\Reporting\PriceService;
 use App\Services\Reporting\QuickReportService;
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\ReportService;
+use App\Services\Reporting\SchemeService;
 use App\Services\Reporting\StockReportService;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -28,6 +30,7 @@ class ExportDefinition
         private readonly StockReportService $stock,
         private readonly QuickReportService $quick,
         private readonly PriceService $prices,
+        private readonly SchemeService $schemes,
     ) {}
 
     /**
@@ -57,6 +60,7 @@ class ExportDefinition
                 $this->quick->zeroStockSoldNotSellThrough($filters, PHP_INT_MAX),
                 ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Activated', 'In stock', 'Sell-thru']),
             'quick_act_value' => $this->valueRows($filters),
+            'scheme_achievement' => $this->schemeRows($filters),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
 
@@ -161,6 +165,27 @@ class ExportDefinition
         $rows = (function () use ($data) {
             foreach ($data as $r) {
                 yield [$r['model'], $r['qty'], $r['total_value'], $r['avg_price'], $r['price_range'], $r['unpriced_qty']];
+            }
+        })();
+
+        return [$header, $rows];
+    }
+
+    private function schemeRows(ReportFilters $f): array
+    {
+        $scheme = Scheme::with('slabs')->where('uuid', $f->schemeUuid)->firstOrFail();
+        $data = $this->schemes->achievement($scheme, $f->rdCode);
+
+        $header = ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Qualified Qty',
+            'Qualified Value', 'Slab', 'Payout %', 'Payout Amount', 'Reward'];
+
+        $rows = (function () use ($data) {
+            foreach ($data as $r) {
+                yield [
+                    $r['rt_code'], $r['rt_name'], $r['rd_code'], $r['rd_name'], $r['qty'],
+                    $r['qualified_value'], $r['slab_no'] ?? '—', $r['payout_percent'],
+                    $r['payout_amount'], $r['reward'] ?? '',
+                ];
             }
         })();
 

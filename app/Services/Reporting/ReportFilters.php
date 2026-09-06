@@ -31,6 +31,7 @@ class ReportFilters
         public ?string $valueFrom = null,        // value report date range
         public ?string $valueTo = null,
         public ?string $valueBasis = null,       // activation_date | st_date
+        public ?string $schemeUuid = null,       // scheme achievement export
     ) {}
 
     public static function fromArray(array $data): self
@@ -59,6 +60,7 @@ class ReportFilters
             valueFrom: $clean('value_from'),
             valueTo: $clean('value_to'),
             valueBasis: $clean('value_basis'),
+            schemeUuid: $clean('scheme_uuid'),
         );
     }
 
@@ -85,6 +87,7 @@ class ReportFilters
             'value_from' => $this->valueFrom,
             'value_to' => $this->valueTo,
             'value_basis' => $this->valueBasis,
+            'scheme_uuid' => $this->schemeUuid,
         ], fn ($v) => $v !== null);
     }
 
