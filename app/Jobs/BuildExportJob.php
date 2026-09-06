@@ -97,7 +97,7 @@ class BuildExportJob implements ShouldQueue
 
     /**
      * @param  array<int,array<int,mixed>>|iterable  $rows
-     * @param  list<array{name:string,header:list<string>,indexes:list<int>}>  $extraSheets
+     * @param  list<array{name:string,header:list<string>,rows:list<list<mixed>>}>  $extraSheets
      * @return int data rows written on the first sheet
      */
     private function writeXlsx(string $path, array $header, iterable $rows, array $extraSheets = []): int
@@ -111,12 +111,8 @@ class BuildExportJob implements ShouldQueue
         $count = $this->writeSheet($writer, $writer->getCurrentSheet(), 'Detail', $header, $matrix);
 
         foreach ($extraSheets as $spec) {
-            $projected = array_map(
-                fn ($row) => array_map(fn ($i) => array_values($row)[$i] ?? '', $spec['indexes']),
-                $matrix,
-            );
             $writer->addNewSheetAndMakeItCurrent();
-            $this->writeSheet($writer, $writer->getCurrentSheet(), $spec['name'], $spec['header'], $projected);
+            $this->writeSheet($writer, $writer->getCurrentSheet(), $spec['name'], $spec['header'], $spec['rows']);
         }
 
         $writer->close();

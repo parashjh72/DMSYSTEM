@@ -27,8 +27,8 @@ class ExportDefinition
     ) {}
 
     /**
-     * @return array{0: list<string>, 1: iterable<array<int,mixed>>, 2: list<array{name:string,header:list<string>,indexes:list<int>}>}
-     *                                                                                                                                  [header, rows, extraSheets] — extraSheets only used by the XLSX writer
+     * @return array{0: list<string>, 1: iterable<array<int,mixed>>, 2: list<array{name:string,header:list<string>,rows:list<list<mixed>>}>}
+     *                                                                                                                                       [header, rows, extraSheets] — extraSheets are extra XLSX tabs with their own precomputed rows
      */
     public function build(string $type, ReportFilters $filters, callable $onProgress): array
     {
@@ -115,18 +115,30 @@ class ExportDefinition
 
         $matrix = array_map(fn ($r) => array_map(fn ($k) => $r[$k] ?? 0, $dataKeys), $rows);
 
-        // Second XLSX sheet for RT: same data without the RD Code and RT Name columns.
+        // Second XLSX sheet for RT: RT Code + RT Name only, one row per RT code
+        // (rows for the same retailer under different distributors are summed).
         $extraSheets = [];
         if ($scope === 'rt') {
-            $drop = ['RD Code', 'RT Name'];
-            $keepIdx = array_values(array_filter(
-                array_keys($header),
-                fn ($i) => ! in_array($header[$i], $drop, true),
-            ));
+            $numericCount = count($matrix ? $matrix[0] : []) - count($keyCols); // models (+Other) + Total
+            $byRt = [];
+            foreach ($matrix as $row) {
+                $rtCode = $row[2];
+                $byRt[$rtCode] ??= ['name' => $row[3], 'nums' => array_fill(0, $numericCount, 0)];
+                foreach (array_slice($row, count($keyCols)) as $i => $v) {
+                    $byRt[$rtCode]['nums'][$i] += (int) $v;
+                }
+            }
+
+            $compact = [];
+            foreach ($byRt as $rtCode => $g) {
+                $compact[] = array_merge([$rtCode, $g['name']], $g['nums']);
+            }
+            usort($compact, fn ($a, $b) => end($b) <=> end($a)); // by Total
+
             $extraSheets[] = [
-                'name' => 'Compact',
-                'header' => array_map(fn ($i) => $header[$i], $keepIdx),
-                'indexes' => $keepIdx,
+                'name' => 'By retailer',
+                'header' => array_merge(['RT Code', 'RT Name'], $models, $hasOther ? ['Other'] : [], ['Total']),
+                'rows' => $compact,
             ];
         }
 
