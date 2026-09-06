@@ -39,9 +39,14 @@ class Reports extends Component
         'activation' => ['Activation', 'activationWise', null],
     ];
 
-    public function mount(): void
+    public function mount(FilterOptions $options): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
+
+        // Restore the retailer combobox text when arriving with ?f[rt_code]=...
+        if (($code = $this->f['rt_code'] ?? null) && $this->rtSearch === '') {
+            $this->rtSearch = $options->retailerLabel($code);
+        }
     }
 
     public function updatedType(): void
@@ -95,14 +100,33 @@ class Reports extends Component
         $this->redirectRoute('exports.index', navigate: true);
     }
 
-    /** Narrow the retailer list when a distributor is chosen. */
     public function updated(string $property): void
     {
+        // Choosing a distributor resets the retailer.
         if ($property === 'f.rd_code') {
             $this->f['rt_code'] = null;
             $this->rtSearch = '';
             $this->resetPage();
         }
+
+        // Typing in the retailer box invalidates a prior pick until one is re-chosen.
+        if ($property === 'rtSearch' && ($this->f['rt_code'] ?? null)) {
+            $this->f['rt_code'] = null;
+            $this->resetPage();
+        }
+    }
+
+    /** Pick a retailer from the combobox dropdown ('' = clear). */
+    public function selectRt(string $code, FilterOptions $options): void
+    {
+        if ($code === '') {
+            $this->f['rt_code'] = null;
+            $this->rtSearch = '';
+        } else {
+            $this->f['rt_code'] = $code;
+            $this->rtSearch = $options->retailerLabel($code);
+        }
+        $this->resetPage();
     }
 
     public function render(ReportService $reports, FilterOptions $options)
@@ -110,12 +134,17 @@ class Reports extends Component
         $method = self::TYPES[$this->type][1];
         $filters = ReportFilters::fromArray($this->f);
 
-        $rt = $options->retailers($this->f['rd_code'] ?? null, $this->rtSearch);
+        $selectedRt = $this->f['rt_code'] ?? null;
+
+        // When the box still shows the chosen retailer's label, treat it as "no
+        // query" so the dropdown offers the full list to switch from.
+        $query = ($selectedRt && $this->rtSearch === $options->retailerLabel($selectedRt))
+            ? null
+            : $this->rtSearch;
+
+        $rt = $options->retailers($this->f['rd_code'] ?? null, $query);
         $rtOptions = $rt['options'];
 
-        // Keep the currently selected retailer visible even if it falls outside
-        // the current search results.
-        $selectedRt = $this->f['rt_code'] ?? null;
         if ($selectedRt && ! isset($rtOptions[$selectedRt])) {
             $rtOptions = [$selectedRt => $options->retailerLabel($selectedRt)] + $rtOptions;
         }

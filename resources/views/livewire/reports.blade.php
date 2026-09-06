@@ -61,19 +61,40 @@
                     @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
                 </select>
             </div>
-            <div>
+            <div x-data="{ open: false }" @click.outside="open = false" class="relative">
                 <label class="label">Retailer (RT)</label>
-                <input type="search" class="input mb-1" placeholder="Search RT code or name…"
-                       wire:model.live.debounce.350ms="rtSearch">
-                <select class="input" wire:model="f.rt_code" size="1">
-                    <option value="">{{ ($f['rd_code'] ?? '') !== '' ? 'All retailers for this RD' : 'All retailers' }}</option>
-                    @foreach ($rtOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
-                </select>
-                @if ($rtTruncated)
-                    <p class="mt-1 text-xs text-amber-600">Showing first {{ \App\Services\Reporting\FilterOptions::RT_LIMIT }} — refine the search.</p>
-                @elseif ($rtSearch !== '' && count($rtOptions) === 0)
-                    <p class="mt-1 text-xs text-gray-400">No retailer matches “{{ $rtSearch }}”.</p>
-                @endif
+                <div class="relative">
+                    <input type="text" autocomplete="off" class="input pr-8"
+                           placeholder="{{ ($f['rd_code'] ?? '') !== '' ? 'Type retailer for this RD…' : 'Type RT code or name…' }}"
+                           wire:model.live.debounce.300ms="rtSearch"
+                           @focus="open = true" @click="open = true" @keydown.escape="open = false"
+                           x-on:input="open = true">
+                    @if (($f['rt_code'] ?? '') !== '')
+                        <button type="button" title="Clear"
+                                class="absolute inset-y-0 right-2 my-auto h-4 w-4 text-gray-400 hover:text-gray-600"
+                                wire:click="selectRt('')" @click="open = false">&times;</button>
+                    @endif
+                </div>
+
+                <div x-show="open" x-transition.opacity x-cloak
+                     class="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-gray-200">
+                    <button type="button" wire:click="selectRt('')" @click="open = false"
+                            class="block w-full px-3 py-1.5 text-left text-gray-500 hover:bg-indigo-50">
+                        All retailers{{ ($f['rd_code'] ?? '') !== '' ? ' for this RD' : '' }}
+                    </button>
+                    @forelse ($rtOptions as $code => $label)
+                        <button type="button" wire:key="rt-{{ $code }}"
+                                wire:click="selectRt('{{ $code }}')" @click="open = false"
+                                class="block w-full px-3 py-1.5 text-left hover:bg-indigo-50 {{ ($f['rt_code'] ?? '') === (string) $code ? 'bg-indigo-50 font-medium text-indigo-700' : '' }}">
+                            {{ $label }}
+                        </button>
+                    @empty
+                        <div class="px-3 py-1.5 text-gray-400">No match for “{{ $rtSearch }}”.</div>
+                    @endforelse
+                    @if ($rtTruncated)
+                        <div class="px-3 py-1 text-xs text-amber-600">Showing first {{ \App\Services\Reporting\FilterOptions::RT_LIMIT }} — keep typing.</div>
+                    @endif
+                </div>
             </div>
         </div>
         <div class="mt-4 flex gap-3">
