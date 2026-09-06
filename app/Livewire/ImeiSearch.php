@@ -6,34 +6,62 @@ use App\Models\SalesActivationRecord;
 use App\Support\Imei;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 
 #[Layout('components.layouts.app')]
 #[Title('IMEI Search')]
 class ImeiSearch extends Component
 {
-    #[Url]
-    public string $q = '';
+    /** Raw pasted text — one IMEI per line, or space / comma / semicolon separated. */
+    public string $imeis = '';
+
+    /** Upper bound on how many IMEIs one search will look up. */
+    public const MAX = 2000;
 
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
     }
 
+    public function clear(): void
+    {
+        $this->imeis = '';
+    }
+
     public function render()
     {
-        $record = null;
-        $searched = false;
+        $tokens = preg_split('/[\s,;]+/', trim($this->imeis), -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
-        if (($clean = Imei::clean($this->q)) !== '') {
-            $searched = true;
-            // Exact, indexed unique lookup — near-instant regardless of table size.
-            $record = SalesActivationRecord::with(['firstImportBatch', 'lastImportBatch'])
-                ->where('imei', $clean)
-                ->first();
+        // clean + dedupe, preserving first-seen order
+        $wanted = [];
+        foreach ($tokens as $token) {
+            $clean = Imei::clean($token);
+            if ($clean !== '' && ! in_array($clean, $wanted, true)) {
+                $wanted[] = $clean;
+            }
         }
 
-        return view('livewire.imei-search', compact('record', 'searched'));
+        $capped = count($wanted) > self::MAX;
+        $wanted = array_slice($wanted, 0, self::MAX);
+
+        $records = collect();
+        if ($wanted !== []) {
+            $records = SalesActivationRecord::query()
+                ->whereIn('imei', $wanted)          // exact, indexed unique lookup
+                ->orderBy('imei')
+                ->get();
+        }
+
+        $found = $records->pluck('imei')->all();
+        $unmatched = array_values(array_diff($wanted, $found));
+
+        return view('livewire.imei-search', [
+            'records' => $records,
+            'searched' => $wanted !== [],
+            'totalWanted' => count($wanted),
+            'foundCount' => count($found),
+            'unmatched' => $unmatched,
+            'capped' => $capped,
+        ]);
     }
 }
