@@ -54,12 +54,15 @@ class SpreadsheetReader
      */
     public function dataRows(int $startRow = 1, ?int $endRow = null): Generator
     {
+        $isHeader = true;
         $dataIndex = 0;
         foreach ($this->rows() as $row) {
-            $dataIndex++; // becomes 1 on the first data row
-            if ($dataIndex < 1) {
+            if ($isHeader) {          // first row is the header — never a data row
+                $isHeader = false;
+
                 continue;
             }
+            $dataIndex++;             // 1-based over data rows
             if ($dataIndex < $startRow) {
                 continue;
             }

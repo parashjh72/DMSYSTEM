@@ -67,6 +67,7 @@ return [
         'rt_name' => ['rt name', 'rtname', 'retailer name', 'retailer'],
         'st_date' => ['st date', 'stdate', 'sell through date', 'sellthrough date', 'sell-thru date', 'st'],
         'activation_date' => ['activation', 'activation date', 'activated on', 'act date'],
+        'sell_in_date' => ['sell in', 'sell-in', 'sellin', 'sell in date', 'si date', 'nd to rd date'],
         'source' => ['source', 'data source', 'src'],
     ],
 

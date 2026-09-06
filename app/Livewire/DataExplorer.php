@@ -71,7 +71,7 @@ class DataExplorer extends Component
         $dir = $this->dir === 'asc' ? 'asc' : 'desc';
 
         $query = DB::table('sales_activation_records')
-            ->select(['id', 'imei', 'model', 'tso', 'rd_code', 'rt_code', 'st_date', 'activation_date', 'activation_days', 'source', 'last_import_batch_id']);
+            ->select(['id', 'imei', 'model', 'tso', 'rd_code', 'rt_code', 'st_date', 'activation_date', 'sell_in_date', 'activation_days', 'source', 'last_import_batch_id']);
 
         ReportFilters::fromArray($this->f)->apply($query);
 

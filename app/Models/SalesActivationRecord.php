@@ -23,7 +23,7 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'imei', 'model', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
-    'st_date', 'activation_date', 'source',
+    'st_date', 'activation_date', 'sell_in_date', 'source',
     'first_import_batch_id', 'last_import_batch_id',
 ])]
 class SalesActivationRecord extends Model
@@ -33,6 +33,7 @@ class SalesActivationRecord extends Model
         return [
             'st_date' => 'date',
             'activation_date' => 'date',
+            'sell_in_date' => 'date',
             'activation_days' => 'integer',
             'is_activated' => 'boolean',
         ];

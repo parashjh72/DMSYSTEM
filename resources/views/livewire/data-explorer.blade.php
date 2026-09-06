@@ -18,6 +18,8 @@
             <div><label class="label">ST date to</label><input type="date" class="input" wire:model="f.st_date_to"></div>
             <div><label class="label">Activation from</label><input type="date" class="input" wire:model="f.activation_date_from"></div>
             <div><label class="label">Activation to</label><input type="date" class="input" wire:model="f.activation_date_to"></div>
+            <div><label class="label">Sell-In from</label><input type="date" class="input" wire:model="f.sell_in_date_from"></div>
+            <div><label class="label">Sell-In to</label><input type="date" class="input" wire:model="f.sell_in_date_to"></div>
             <div>
                 <label class="label">Activation status</label>
                 <select class="input" wire:model="f.activation_status">
@@ -43,7 +45,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    @foreach (['imei' => 'IMEI', 'model' => 'Model', 'tso' => 'TSO', 'rd_code' => 'RD', 'rt_code' => 'RT', 'st_date' => 'ST Date', 'activation_date' => 'Activation', 'activation_days' => 'Days', 'source' => 'Source'] as $col => $label)
+                    @foreach (['imei' => 'IMEI', 'model' => 'Model', 'tso' => 'TSO', 'rd_code' => 'RD', 'rt_code' => 'RT', 'st_date' => 'ST Date', 'activation_date' => 'Activation', 'sell_in_date' => 'Sell-In', 'activation_days' => 'Days', 'source' => 'Source'] as $col => $label)
                         <th class="th cursor-pointer select-none" wire:click="sortBy('{{ $col }}')">
                             {{ $label }}
                             @if ($sort === $col) <span class="text-gray-400">{{ $dir === 'asc' ? '▲' : '▼' }}</span> @endif
@@ -62,6 +64,7 @@
                     <td class="td">{{ $r->rt_code }}</td>
                     <td class="td">{{ $r->st_date }}</td>
                     <td class="td">{{ $r->activation_date ?? '—' }}</td>
+                    <td class="td">{{ $r->sell_in_date ?? '—' }}</td>
                     <td class="td">{{ $r->activation_days ?? '—' }}</td>
                     <td class="td">{{ $r->source }}</td>
                     <td class="td text-gray-400">#{{ $r->last_import_batch_id }}</td>

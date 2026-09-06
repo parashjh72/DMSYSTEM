@@ -19,6 +19,7 @@
                     'Source' => $record->source,
                     'ST date' => $record->st_date?->toDateString(),
                     'Activation date' => $record->activation_date?->toDateString() ?? 'Not activated',
+                    'Sell-In date' => $record->sell_in_date?->toDateString() ?? '—',
                     'Activation lag' => $record->activation_days !== null ? $record->activation_days.' days' : '—',
                 ] as $label => $value)
                     <div>

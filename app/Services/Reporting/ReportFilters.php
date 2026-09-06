@@ -15,6 +15,8 @@ class ReportFilters
         public ?string $stDateTo = null,
         public ?string $activationDateFrom = null,
         public ?string $activationDateTo = null,
+        public ?string $sellInDateFrom = null,
+        public ?string $sellInDateTo = null,
         public ?string $tso = null,
         public ?string $rdCode = null,
         public ?string $rdName = null,
@@ -36,6 +38,8 @@ class ReportFilters
             stDateTo: $clean('st_date_to'),
             activationDateFrom: $clean('activation_date_from'),
             activationDateTo: $clean('activation_date_to'),
+            sellInDateFrom: $clean('sell_in_date_from'),
+            sellInDateTo: $clean('sell_in_date_to'),
             tso: $clean('tso'),
             rdCode: $clean('rd_code'),
             rdName: $clean('rd_name'),
@@ -55,6 +59,8 @@ class ReportFilters
             'st_date_to' => $this->stDateTo,
             'activation_date_from' => $this->activationDateFrom,
             'activation_date_to' => $this->activationDateTo,
+            'sell_in_date_from' => $this->sellInDateFrom,
+            'sell_in_date_to' => $this->sellInDateTo,
             'tso' => $this->tso,
             'rd_code' => $this->rdCode,
             'rd_name' => $this->rdName,
@@ -74,6 +80,8 @@ class ReportFilters
             ->when($this->stDateTo, fn ($q, $v) => $q->where('st_date', '<=', $v))
             ->when($this->activationDateFrom, fn ($q, $v) => $q->where('activation_date', '>=', $v))
             ->when($this->activationDateTo, fn ($q, $v) => $q->where('activation_date', '<=', $v))
+            ->when($this->sellInDateFrom, fn ($q, $v) => $q->where('sell_in_date', '>=', $v))
+            ->when($this->sellInDateTo, fn ($q, $v) => $q->where('sell_in_date', '<=', $v))
             ->when($this->tso, fn ($q, $v) => $q->where('tso', $v))
             ->when($this->rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($this->rdName, fn ($q, $v) => $q->where('rd_name', 'like', $v.'%'))

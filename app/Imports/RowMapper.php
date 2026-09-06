@@ -49,6 +49,7 @@ class RowMapper
 
         $record['st_date'] = DateNormalizer::toDate($this->cell($row, 'st_date'));
         $record['activation_date'] = DateNormalizer::toDate($this->cell($row, 'activation_date'));
+        $record['sell_in_date'] = DateNormalizer::toDate($this->cell($row, 'sell_in_date'));
 
         return $record;
     }
