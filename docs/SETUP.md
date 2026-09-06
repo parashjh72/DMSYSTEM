@@ -28,13 +28,19 @@ Dev default is `QUEUE_CONNECTION=database` — no Redis needed, and jobs survive
 crash in the `jobs` table. Run a worker:
 
 ```bash
+# development — reloads code on every job, so edits take effect without a restart
+php artisan queue:listen --queue=imports,summaries,exports,default --timeout=3600
+
+# production — faster, but holds code in memory: run `php artisan queue:restart`
+# after every deploy or the workers keep running the old code
 php artisan queue:work --queue=imports,summaries,exports,default
 ```
 
 Production: set `QUEUE_CONNECTION=redis`, install Redis, and run the worker under
 Supervisor (or `composer require laravel/horizon` once Redis is present). Keep the
 `imports` queue on its own worker so a 10-lakh file cannot starve interactive
-exports.
+exports. **Deploy step:** `php artisan queue:restart` — `queue:work` caches code in
+memory and will otherwise run stale jobs/services after a release.
 
 ## Scheduler
 
