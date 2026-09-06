@@ -1,0 +1,103 @@
+<div>
+    <h1 class="text-xl font-semibold tracking-tight">Imports</h1>
+    <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
+
+    @can('imports.create')
+    <div class="card mt-6">
+        @if (! $review)
+            <label class="label">Upload a file</label>
+            <input type="file" wire:model="file" accept=".csv,.txt,.xlsx"
+                   class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-indigo-700">
+            <div wire:loading wire:target="file" class="mt-2 text-sm text-gray-500">Uploading &amp; sniffing headers…</div>
+            @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+        @else
+            <h2 class="text-sm font-semibold">Review column mapping</h2>
+            <p class="mt-1 text-xs text-gray-500">Detected headers: {{ implode(', ', $review['headers']) }}</p>
+
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                @foreach ($fields as $field)
+                    <div class="flex items-center gap-3">
+                        <span class="w-32 text-sm font-medium text-gray-700">{{ $field }}</span>
+                        <select class="input"
+                                wire:change="setMapping('{{ $field }}', $event.target.value)">
+                            <option value="">— not mapped —</option>
+                            @foreach ($review['headers'] as $i => $h)
+                                <option value="{{ $i }}" @selected(($review['map'][$field] ?? null) === $i)>{{ $h ?: "(column $i)" }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endforeach
+            </div>
+
+            @if ($review['missing'])
+                <p class="mt-3 text-sm text-red-600">Unmapped required field(s): {{ implode(', ', $review['missing']) }}</p>
+            @endif
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                <div>
+                    <label class="label">Import mode</label>
+                    <select wire:model="mode" class="input">
+                        <option value="upsert">Insert new & update existing</option>
+                        <option value="insert_new">Insert new only</option>
+                        <option value="skip_existing">Skip existing IMEIs</option>
+                        <option value="update_existing">Update existing only</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="label">Rows per chunk</label>
+                    <select wire:model="chunkSize" class="input">
+                        <option value="2000">2,000 (shared / low memory)</option>
+                        <option value="5000">5,000 (default)</option>
+                        <option value="10000">10,000</option>
+                        <option value="25000">25,000 (dedicated server)</option>
+                        <option value="50000">50,000 (import box)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-5 flex gap-3">
+                <button class="btn-primary" wire:click="startImport"
+                        @disabled(!empty($review['missing']))>Start import</button>
+                <button class="btn-ghost" wire:click="cancelReview">Cancel</button>
+            </div>
+        @endif
+    </div>
+    @endcan
+
+    <div class="card mt-6 overflow-x-auto p-0">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="th">File</th><th class="th">Status</th><th class="th">Rows</th>
+                    <th class="th">New / Upd / Skip</th><th class="th">Invalid / Dup</th>
+                    <th class="th">By</th><th class="th">Started</th><th class="th"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+            @forelse ($batches as $b)
+                <tr wire:key="b-{{ $b->id }}">
+                    <td class="td max-w-[220px] truncate">{{ $b->original_filename }}</td>
+                    <td class="td">
+                        <span class="badge {{ match($b->status->value) {
+                            'completed' => 'bg-green-100 text-green-800',
+                            'completed_with_errors' => 'bg-amber-100 text-amber-800',
+                            'failed' => 'bg-red-100 text-red-800',
+                            'processing','queued' => 'bg-blue-100 text-blue-800',
+                            default => 'bg-gray-100 text-gray-700',
+                        } }}">{{ $b->status->label() }}</span>
+                    </td>
+                    <td class="td">{{ number_format($b->total_rows) }}</td>
+                    <td class="td">{{ number_format($b->inserted_rows) }} / {{ number_format($b->updated_rows) }} / {{ number_format($b->skipped_rows) }}</td>
+                    <td class="td">{{ number_format($b->invalid_rows) }} / {{ number_format($b->duplicate_rows) }}</td>
+                    <td class="td">{{ $b->creator?->name ?? '—' }}</td>
+                    <td class="td text-gray-400">{{ $b->started_at?->diffForHumans() ?? '—' }}</td>
+                    <td class="td"><a class="text-indigo-600" href="{{ route('imports.show', $b->uuid) }}" wire:navigate>Details</a></td>
+                </tr>
+            @empty
+                <tr><td class="td text-gray-400" colspan="8">No imports yet.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-3">{{ $batches->links() }}</div>
+</div>
