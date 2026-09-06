@@ -1,6 +1,13 @@
 <div>
-    <h1 class="text-xl font-semibold tracking-tight">Stock Report</h1>
-    <p class="mt-1 text-sm text-gray-500">Unsold inventory — devices that are not yet activated.</p>
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-semibold tracking-tight">Stock Report</h1>
+            <p class="mt-1 text-sm text-gray-500">Unsold inventory — devices that are not yet activated.</p>
+        </div>
+        @can('exports.create')
+            <button class="btn-ghost" wire:click="export">Export → CSV</button>
+        @endcan
+    </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-2" wire:loading.class="opacity-50" wire:target="type">
         @foreach (\App\Livewire\StockReport::TYPES as $key => $label)
@@ -102,6 +109,32 @@
                 <tr><td class="td text-gray-400" colspan="6">No stock for this selection.</td></tr>
             @endforelse
             </tbody>
+            @if ($rows->isNotEmpty())
+                <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                    @switch($type)
+                        @case('rd')
+                            <tr>
+                                <td class="td" colspan="3">Total (all rows)</td>
+                                <td class="td text-right">{{ number_format((int) $summary->rd_stock) }}</td>
+                            </tr>
+                            @break
+                        @case('rt')
+                            <tr>
+                                <td class="td" colspan="5">Total (all rows)</td>
+                                <td class="td text-right">{{ number_format((int) $summary->rt_stock) }}</td>
+                            </tr>
+                            @break
+                        @case('model')
+                            <tr>
+                                <td class="td">Total (all models)</td>
+                                <td class="td text-right">{{ number_format((int) $summary->rd_stock) }}</td>
+                                <td class="td text-right">{{ number_format((int) $summary->rt_stock) }}</td>
+                                <td class="td text-right">{{ number_format((int) $summary->total_stock) }}</td>
+                            </tr>
+                            @break
+                    @endswitch
+                </tfoot>
+            @endif
         </table>
     </div>
     <div class="mt-3">{{ $rows->links() }}</div>

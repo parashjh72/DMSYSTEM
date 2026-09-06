@@ -4,6 +4,7 @@ namespace App\Services\Export;
 
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\ReportService;
+use App\Services\Reporting\StockReportService;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -20,7 +21,10 @@ use InvalidArgumentException;
  */
 class ExportDefinition
 {
-    public function __construct(private readonly ReportService $reports) {}
+    public function __construct(
+        private readonly ReportService $reports,
+        private readonly StockReportService $stock,
+    ) {}
 
     /** @return array{0: list<string>, 1: iterable<array<int,mixed>>} [header, rows] */
     public function build(string $type, ReportFilters $filters, callable $onProgress): array
@@ -37,6 +41,12 @@ class ExportDefinition
                 ['Model', 'Total IMEI', 'Activated', 'Not Activated', 'Activation %']),
             'date_report' => $this->grouped($this->reports->dateWise($filters, PHP_INT_MAX),
                 ['ST Date', 'Total Sell-Through', 'Activated', 'Not Activated', 'Activation %']),
+            'stock_rd' => $this->grouped($this->stock->rdWise($filters->rdCode, PHP_INT_MAX),
+                ['RD Code', 'RD Name', 'Model', 'Qty']),
+            'stock_rt' => $this->grouped($this->stock->rtWise($filters->rdCode, $filters->rtCode, PHP_INT_MAX),
+                ['RD Code', 'RD Name', 'RT Code', 'RT Name', 'Model', 'Qty']),
+            'stock_model' => $this->grouped($this->stock->modelWise($filters->rdCode, PHP_INT_MAX),
+                ['Model', 'RD stock', 'RT stock', 'Total stock']),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
     }

@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
+use App\Services\Export\ExportService;
 use App\Services\Reporting\FilterOptions;
+use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\StockReportService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -50,6 +52,21 @@ class StockReport extends Component
     public function updatedRtCode(): void
     {
         $this->resetPage();
+    }
+
+    public function export(ExportService $exports)
+    {
+        abort_unless(auth()->user()?->can('exports.create'), 403);
+
+        $exportType = ['rd' => 'stock_rd', 'rt' => 'stock_rt', 'model' => 'stock_model'][$this->type];
+        $filters = ReportFilters::fromArray([
+            'rd_code' => $this->rdCode,
+            'rt_code' => $this->type === 'rt' ? $this->rtCode : null,
+        ]);
+
+        $exports->queue($exportType, $filters, auth()->id());
+        session()->flash('status', 'Stock export queued — track it on the Exports page.');
+        $this->redirectRoute('exports.index', navigate: true);
     }
 
     public function render(StockReportService $stock, FilterOptions $options)
