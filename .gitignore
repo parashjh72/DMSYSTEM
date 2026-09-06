@@ -1,0 +1,10 @@
+/vendor
+/node_modules
+/.env
+/storage/*.key
+/public/build
+/public/hot
+/public/storage
+.DS_Store
+/storage/app/imports/*
+/storage/app/exports/*
