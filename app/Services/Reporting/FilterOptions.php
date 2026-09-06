@@ -38,23 +38,51 @@ class FilterOptions
             ->all());
     }
 
-    /**
-     * code => "code — name". Optionally scoped to one distributor so the RT list
-     * stays short when an RD is already picked.
-     *
-     * @return array<string,string>
-     */
-    public function retailers(?string $rdCode = null): array
-    {
-        $key = 'filters:rt:'.($rdCode ?: 'all');
+    /** Hard ceiling on how many RT options are handed to a <select>. */
+    public const RT_LIMIT = 200;
 
-        return Cache::remember($key, self::TTL, fn () => DB::table('retailers')
-            ->when($rdCode, fn ($q) => $q->where('rd_code', $rdCode))
-            ->orderBy('code')
-            ->limit(5000)
-            ->get(['code', 'name'])
-            ->mapWithKeys(fn ($r) => [$r->code => trim($r->code.' — '.($r->name ?? ''), ' —')])
-            ->all());
+    /**
+     * code => "code — name". Optionally scoped to one distributor, and/or filtered
+     * by a search term (matches RT code or name). Capped at RT_LIMIT rows.
+     *
+     * A search query is not cached (open-ended); the unfiltered list per RD is.
+     *
+     * @return array{options: array<string,string>, truncated: bool}
+     */
+    public function retailers(?string $rdCode = null, ?string $search = null): array
+    {
+        $search = $search !== null ? trim($search) : null;
+
+        $build = function () use ($rdCode, $search) {
+            $rows = DB::table('retailers')
+                ->when($rdCode, fn ($q) => $q->where('rd_code', $rdCode))
+                ->when($search, fn ($q, $s) => $q->where(fn ($w) => $w
+                    ->where('code', 'like', $s.'%')
+                    ->orWhere('name', 'like', '%'.$s.'%')))
+                ->orderBy('code')
+                ->limit(self::RT_LIMIT + 1)
+                ->get(['code', 'name']);
+
+            return [
+                'options' => $rows->take(self::RT_LIMIT)
+                    ->mapWithKeys(fn ($r) => [$r->code => trim($r->code.' — '.($r->name ?? ''), ' —')])
+                    ->all(),
+                'truncated' => $rows->count() > self::RT_LIMIT,
+            ];
+        };
+
+        if ($search !== null && $search !== '') {
+            return $build();
+        }
+
+        return Cache::remember('filters:rt:'.($rdCode ?: 'all'), self::TTL, $build);
+    }
+
+    public function retailerLabel(string $code): string
+    {
+        $name = DB::table('retailers')->where('code', $code)->value('name');
+
+        return trim($code.' — '.($name ?? ''), ' —');
     }
 
     public function forget(): void

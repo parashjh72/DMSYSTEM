@@ -26,6 +26,9 @@ class Reports extends Component
 
     public ?string $activePreset = null;
 
+    /** Typeahead query for the retailer dropdown. */
+    public string $rtSearch = '';
+
     /** report key => [label, service method, export type] */
     public const TYPES = [
         'rd' => ['RD-wise', 'rdWise', 'rd_report'],
@@ -55,6 +58,7 @@ class Reports extends Component
     {
         $this->f = [];
         $this->activePreset = null;
+        $this->rtSearch = '';
         $this->resetPage();
     }
 
@@ -96,6 +100,7 @@ class Reports extends Component
     {
         if ($property === 'f.rd_code') {
             $this->f['rt_code'] = null;
+            $this->rtSearch = '';
             $this->resetPage();
         }
     }
@@ -105,13 +110,24 @@ class Reports extends Component
         $method = self::TYPES[$this->type][1];
         $filters = ReportFilters::fromArray($this->f);
 
+        $rt = $options->retailers($this->f['rd_code'] ?? null, $this->rtSearch);
+        $rtOptions = $rt['options'];
+
+        // Keep the currently selected retailer visible even if it falls outside
+        // the current search results.
+        $selectedRt = $this->f['rt_code'] ?? null;
+        if ($selectedRt && ! isset($rtOptions[$selectedRt])) {
+            $rtOptions = [$selectedRt => $options->retailerLabel($selectedRt)] + $rtOptions;
+        }
+
         return view('livewire.reports', [
             'rows' => $reports->{$method}($filters, 50),
             'lag' => $reports->lagDistribution($filters),
             'tsoOptions' => $options->tso(),
             'modelOptions' => $options->models(),
             'rdOptions' => $options->distributors(),
-            'rtOptions' => $options->retailers($this->f['rd_code'] ?? null),
+            'rtOptions' => $rtOptions,
+            'rtTruncated' => $rt['truncated'],
         ]);
     }
 }

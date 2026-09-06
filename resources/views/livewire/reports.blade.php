@@ -63,10 +63,17 @@
             </div>
             <div>
                 <label class="label">Retailer (RT)</label>
-                <select class="input" wire:model="f.rt_code">
+                <input type="search" class="input mb-1" placeholder="Search RT code or name…"
+                       wire:model.live.debounce.350ms="rtSearch">
+                <select class="input" wire:model="f.rt_code" size="1">
                     <option value="">{{ ($f['rd_code'] ?? '') !== '' ? 'All retailers for this RD' : 'All retailers' }}</option>
                     @foreach ($rtOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
                 </select>
+                @if ($rtTruncated)
+                    <p class="mt-1 text-xs text-amber-600">Showing first {{ \App\Services\Reporting\FilterOptions::RT_LIMIT }} — refine the search.</p>
+                @elseif ($rtSearch !== '' && count($rtOptions) === 0)
+                    <p class="mt-1 text-xs text-gray-400">No retailer matches “{{ $rtSearch }}”.</p>
+                @endif
             </div>
         </div>
         <div class="mt-4 flex gap-3">
