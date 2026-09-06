@@ -23,6 +23,8 @@ class Reports extends Component
     #[Url]
     public array $f = [];
 
+    public ?string $activePreset = null;
+
     /** report key => [label, service method, export type] */
     public const TYPES = [
         'rd' => ['RD-wise', 'rdWise', 'rd_report'],
@@ -51,6 +53,29 @@ class Reports extends Component
     public function resetFilters(): void
     {
         $this->f = [];
+        $this->activePreset = null;
+        $this->resetPage();
+    }
+
+    /** Quick date-range presets. `date` reports filter on activation_date, everything else on st_date. */
+    public function datePreset(string $preset): void
+    {
+        $now = now();
+
+        [$from, $to] = match ($preset) {
+            'today' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'yesterday' => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay()],
+            'last7' => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay()],
+            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+            'last_month' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()],
+            default => [null, null],
+        };
+
+        $prefix = $this->type === 'activation' ? 'activation_date' : 'st_date';
+
+        $this->f["{$prefix}_from"] = $from?->toDateString();
+        $this->f["{$prefix}_to"] = $to?->toDateString();
+        $this->activePreset = $preset;
         $this->resetPage();
     }
 

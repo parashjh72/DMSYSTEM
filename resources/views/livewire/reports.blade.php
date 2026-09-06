@@ -18,7 +18,24 @@
     </div>
 
     <div class="card mt-4">
-        <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-gray-500">Quick range
+                ({{ $type === 'activation' ? 'activation date' : 'ST date' }}):</span>
+            @foreach ([
+                'today' => 'Today', 'yesterday' => 'Yesterday', 'last7' => 'Last 7 days',
+                'this_month' => 'This month', 'last_month' => 'Last month',
+            ] as $key => $label)
+                <button wire:click="datePreset('{{ $key }}')"
+                        class="rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition
+                        {{ $activePreset === $key
+                            ? 'bg-indigo-600 text-white ring-indigo-600'
+                            : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                    {{ $label }}
+                </button>
+            @endforeach
+        </div>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <div><label class="label">ST date from</label><input type="date" class="input" wire:model="f.st_date_from"></div>
             <div><label class="label">ST date to</label><input type="date" class="input" wire:model="f.st_date_to"></div>
             <div><label class="label">Activation from</label><input type="date" class="input" wire:model="f.activation_date_from"></div>
