@@ -104,8 +104,15 @@ class DashboardService
 
     public function forget(): void
     {
-        foreach (['kpis', 'lag'] as $k) {
-            Cache::forget("dashboard:{$k}");
+        $keys = ['dashboard:kpis', 'dashboard:lag'];
+        foreach ([14, 30, 60, 90] as $d) {
+            $keys[] = "dashboard:series:{$d}";
         }
+        foreach (['rd', 'rt', 'model', 'tso'] as $dim) {
+            foreach ([8, 10] as $n) {
+                $keys[] = "dashboard:top:{$dim}:{$n}";
+            }
+        }
+        Cache::deleteMultiple($keys);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\Reporting\DashboardService;
 use App\Services\Reporting\SummaryService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,14 +24,15 @@ class RefreshSummariesJob implements ShouldQueue
         public ?string $to = null,
     ) {}
 
-    public function handle(SummaryService $summaries): void
+    public function handle(SummaryService $summaries, DashboardService $dashboard): void
     {
         if ($this->affectedBatchId !== null) {
             $summaries->rebuildForBatch($this->affectedBatchId);
-
-            return;
+        } else {
+            $summaries->rebuildAll($this->from, $this->to);
         }
 
-        $summaries->rebuildAll($this->from, $this->to);
+        // Summary tables just changed — drop the cached dashboard snapshot.
+        $dashboard->forget();
     }
 }
