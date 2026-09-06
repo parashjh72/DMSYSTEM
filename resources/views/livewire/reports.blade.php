@@ -8,13 +8,18 @@
         @endcan
     </div>
 
-    <div class="mt-4 flex flex-wrap gap-2">
+    <div class="mt-4 flex flex-wrap items-center gap-2" wire:loading.class="opacity-50" wire:target="type">
         @foreach (\App\Livewire\Reports::TYPES as $key => [$label])
-            <button wire:click="$set('type', '{{ $key }}')"
-                    class="rounded-lg px-3 py-1.5 text-sm font-medium {{ $type === $key ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">
+            <button type="button" wire:click="$set('type', '{{ $key }}')" wire:loading.attr="disabled" wire:target="type"
+                    aria-pressed="{{ $type === $key ? 'true' : 'false' }}"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                    {{ $type === $key
+                        ? 'bg-indigo-600 text-white ring-indigo-600 shadow-sm'
+                        : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50 hover:text-gray-900' }}">
                 {{ $label }}
             </button>
         @endforeach
+        <span wire:loading wire:target="type" class="text-xs text-gray-400">loading…</span>
     </div>
 
     @php
@@ -56,6 +61,14 @@
         <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <div><label class="label">{{ $basisLabel }} from</label><input type="date" class="input" wire:model="f.{{ $basisPrefix }}_from"></div>
             <div><label class="label">{{ $basisLabel }} to</label><input type="date" class="input" wire:model="f.{{ $basisPrefix }}_to"></div>
+            <div>
+                <label class="label">Activation status</label>
+                <select class="input" wire:model="f.activation_status">
+                    <option value="">All</option>
+                    <option value="activated">Activated</option>
+                    <option value="not_activated">Not activated (inactive)</option>
+                </select>
+            </div>
             <div>
                 <label class="label">TSO</label>
                 <select class="input" wire:model="f.tso">
