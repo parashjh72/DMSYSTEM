@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\ImportStatus;
 use App\Models\ImportBatch;
 use App\Services\Reporting\FilterOptions;
+use App\Support\ModelClassifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -89,6 +90,7 @@ class FinalizeImportJob implements ShouldQueue
 
         if ($status !== ImportStatus::Failed) {
             $this->refreshMasterData($batch->id);
+            ModelClassifier::applyAll();
             app(FilterOptions::class)->forget();
             RefreshSummariesJob::dispatch(affectedBatchId: $batch->id)
                 ->onQueue(config('import.queues.summary'));

@@ -12,21 +12,47 @@
     </div>
 
     <div class="card mt-4">
-        <input class="input" placeholder="Search…" wire:model.live.debounce.300ms="search">
+        <div class="flex flex-wrap items-center gap-3">
+            <input class="input flex-1 min-w-[200px]" placeholder="Search…" wire:model.live.debounce.300ms="search">
+
+            @if ($isModels)
+                <select class="input w-auto" wire:model.live="modelStatus">
+                    <option value="">All ({{ number_format($counts->total) }})</option>
+                    <option value="running">Running ({{ number_format($counts->running) }})</option>
+                    <option value="out">Out ({{ number_format($counts->out) }})</option>
+                </select>
+                <button class="btn-ghost" wire:click="reclassify"
+                        title="Re-apply the running-series rules from config/models.php">
+                    Re-classify from list
+                </button>
+            @endif
+        </div>
     </div>
 
     <div class="card mt-4 overflow-x-auto p-0">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50"><tr>
                 @foreach ($columns as $c) <th class="th">{{ str_replace('_', ' ', $c) }}</th> @endforeach
+                @if ($isModels) <th class="th">Type</th> @endif
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             @forelse ($rows as $row)
-                <tr>
+                <tr wire:key="md-{{ $row->id }}">
                     @foreach ($columns as $c) <td class="td">{{ $row->$c }}</td> @endforeach
+                    @if ($isModels)
+                        <td class="td">
+                            <button wire:click="toggleModelStatus({{ $row->id }})"
+                                    title="Click to toggle running / out"
+                                    class="badge {{ $row->status === 'running'
+                                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+                                {{ $row->status === 'running' ? 'Running' : 'Out' }}
+                            </button>
+                        </td>
+                    @endif
                 </tr>
             @empty
-                <tr><td class="td text-gray-400" colspan="4">Nothing here yet.</td></tr>
+                <tr><td class="td text-gray-400" colspan="5">Nothing here yet.</td></tr>
             @endforelse
             </tbody>
         </table>
