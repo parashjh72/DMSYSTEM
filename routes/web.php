@@ -37,5 +37,11 @@ Route::middleware('auth')->group(function () {
     Route::get('exports', ExportManager::class)->middleware('can:exports.view')->name('exports.index');
 
     Route::get('master-data', MasterData::class)->middleware('can:masterdata.view')->name('masterdata');
+
+    Route::middleware('can:settings.manage')->group(function () {
+        Route::get('settings', \App\Livewire\Settings::class)->name('settings.index');
+        Route::get('settings/transfer', \App\Livewire\Transfer::class)->name('settings.transfer');
+    });
+
     Route::get('users', UserManager::class)->middleware('can:users.manage')->name('users.index');
 });
