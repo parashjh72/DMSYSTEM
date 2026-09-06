@@ -40,10 +40,34 @@
             <div><label class="label">ST date to</label><input type="date" class="input" wire:model="f.st_date_to"></div>
             <div><label class="label">Activation from</label><input type="date" class="input" wire:model="f.activation_date_from"></div>
             <div><label class="label">Activation to</label><input type="date" class="input" wire:model="f.activation_date_to"></div>
-            <div><label class="label">TSO</label><input class="input" wire:model="f.tso"></div>
-            <div><label class="label">RD code</label><input class="input" wire:model="f.rd_code"></div>
-            <div><label class="label">RT code</label><input class="input" wire:model="f.rt_code"></div>
-            <div><label class="label">Model</label><input class="input" wire:model="f.model"></div>
+            <div>
+                <label class="label">TSO</label>
+                <select class="input" wire:model="f.tso">
+                    <option value="">All TSOs</option>
+                    @foreach ($tsoOptions as $t) <option value="{{ $t }}">{{ $t }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Model</label>
+                <select class="input" wire:model="f.model">
+                    <option value="">All models</option>
+                    @foreach ($modelOptions as $m) <option value="{{ $m }}">{{ $m }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Distributor (RD)</label>
+                <select class="input" wire:model.live="f.rd_code">
+                    <option value="">All distributors</option>
+                    @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Retailer (RT)</label>
+                <select class="input" wire:model="f.rt_code">
+                    <option value="">{{ ($f['rd_code'] ?? '') !== '' ? 'All retailers for this RD' : 'All retailers' }}</option>
+                    @foreach ($rtOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                </select>
+            </div>
         </div>
         <div class="mt-4 flex gap-3">
             <button class="btn-primary" wire:click="applyFilters">Apply</button>

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Services\Export\ExportService;
+use App\Services\Reporting\FilterOptions;
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\ReportService;
 use Livewire\Attributes\Layout;
@@ -90,14 +91,27 @@ class Reports extends Component
         $this->redirectRoute('exports.index', navigate: true);
     }
 
-    public function render(ReportService $reports)
+    /** Narrow the retailer list when a distributor is chosen. */
+    public function updated(string $property): void
+    {
+        if ($property === 'f.rd_code') {
+            $this->f['rt_code'] = null;
+            $this->resetPage();
+        }
+    }
+
+    public function render(ReportService $reports, FilterOptions $options)
     {
         $method = self::TYPES[$this->type][1];
-        $rows = $reports->{$method}(ReportFilters::fromArray($this->f), 50);
+        $filters = ReportFilters::fromArray($this->f);
 
         return view('livewire.reports', [
-            'rows' => $rows,
-            'lag' => $reports->lagDistribution(ReportFilters::fromArray($this->f)),
+            'rows' => $reports->{$method}($filters, 50),
+            'lag' => $reports->lagDistribution($filters),
+            'tsoOptions' => $options->tso(),
+            'modelOptions' => $options->models(),
+            'rdOptions' => $options->distributors(),
+            'rtOptions' => $options->retailers($this->f['rd_code'] ?? null),
         ]);
     }
 }
