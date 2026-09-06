@@ -15,6 +15,13 @@
         <div class="flex flex-wrap items-center gap-3">
             <input class="input flex-1 min-w-[200px]" placeholder="Search…" wire:model.live.debounce.300ms="search">
 
+            @if ($isRetailers)
+                <select class="input w-auto" wire:model.live="rdFilter">
+                    <option value="">All distributors</option>
+                    @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                </select>
+            @endif
+
             @if ($isModels)
                 <select class="input w-auto" wire:model.live="modelStatus">
                     <option value="">All ({{ number_format($counts->total) }})</option>

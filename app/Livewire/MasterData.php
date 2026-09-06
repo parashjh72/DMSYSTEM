@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\DeviceModel;
+use App\Services\Reporting\FilterOptions;
 use App\Support\ModelClassifier;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -27,6 +28,10 @@ class MasterData extends Component
     #[Url]
     public string $modelStatus = '';
 
+    /** Retailers tab only: filter by distributor code. */
+    #[Url]
+    public string $rdFilter = '';
+
     private const TABS = [
         'rd' => ['Distributors', 'retail_distributors', ['code', 'name']],
         'rt' => ['Retailers', 'retailers', ['code', 'name', 'rd_code']],
@@ -44,9 +49,15 @@ class MasterData extends Component
         $this->resetPage();
         $this->search = '';
         $this->modelStatus = '';
+        $this->rdFilter = '';
     }
 
     public function updatedModelStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedRdFilter(): void
     {
         $this->resetPage();
     }
@@ -69,10 +80,11 @@ class MasterData extends Component
         session()->flash('status', "Re-classified: {$counts['running']} running, {$counts['out']} out.");
     }
 
-    public function render()
+    public function render(FilterOptions $options)
     {
         [$label, $table, $columns] = self::TABS[$this->tab] ?? self::TABS['rd'];
         $isModels = $this->tab === 'model';
+        $isRetailers = $this->tab === 'rt';
 
         $query = DB::table($table);
 
@@ -88,6 +100,10 @@ class MasterData extends Component
             $query->where('status', $this->modelStatus);
         }
 
+        if ($isRetailers && $this->rdFilter !== '') {
+            $query->where('rd_code', $this->rdFilter);
+        }
+
         $counts = $isModels
             ? DB::table('device_models')->selectRaw("
                 COUNT(*) total,
@@ -100,7 +116,9 @@ class MasterData extends Component
             'tabs' => self::TABS,
             'columns' => $columns,
             'isModels' => $isModels,
+            'isRetailers' => $isRetailers,
             'counts' => $counts,
+            'rdOptions' => $isRetailers ? $options->distributors() : [],
             'rows' => $query->orderBy($columns[0])->paginate(30),
         ]);
     }
