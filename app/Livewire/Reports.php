@@ -29,6 +29,10 @@ class Reports extends Component
     /** Typeahead query for the retailer dropdown. */
     public string $rtSearch = '';
 
+    /** Which single date the report / filters / presets run against. */
+    #[Url]
+    public string $dateBasis = 'st';
+
     /** report key => [label, service method, export type] */
     public const TYPES = [
         'rd' => ['RD-wise', 'rdWise', 'rd_report'],
@@ -39,9 +43,28 @@ class Reports extends Component
         'activation' => ['Activation', 'activationWise', null],
     ];
 
+    /** Allowed date bases per report type. First entry is the default. */
+    public const DATE_BASES = [
+        'rd' => ['st', 'activation', 'sell_in'],
+        'rt' => ['st', 'activation'],
+        'tso' => ['st', 'activation'],
+        'model' => ['st', 'activation'],
+        'date' => ['st'],
+        'activation' => ['activation'],
+    ];
+
+    /** basis => [label, filter key prefix]. */
+    public const BASIS_META = [
+        'st' => ['ST date', 'st_date'],
+        'activation' => ['Activation date', 'activation_date'],
+        'sell_in' => ['Sell-In date', 'sell_in_date'],
+    ];
+
     public function mount(FilterOptions $options): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
+
+        $this->normalizeDateBasis(clearDates: false);
 
         // Restore the retailer combobox text when arriving with ?f[rt_code]=...
         if (($code = $this->f['rt_code'] ?? null) && $this->rtSearch === '') {
@@ -49,9 +72,45 @@ class Reports extends Component
         }
     }
 
+    /** @return list<string> */
+    public function allowedBases(): array
+    {
+        return self::DATE_BASES[$this->type] ?? ['st', 'activation'];
+    }
+
     public function updatedType(): void
     {
+        $this->normalizeDateBasis();
         $this->resetPage();
+    }
+
+    public function setDateBasis(string $basis): void
+    {
+        if (in_array($basis, $this->allowedBases(), true)) {
+            $this->dateBasis = $basis;
+            $this->clearDateFilters();
+            $this->activePreset = null;
+            $this->resetPage();
+        }
+    }
+
+    /** Keep $dateBasis valid for the current report type; optionally drop stale ranges. */
+    private function normalizeDateBasis(bool $clearDates = true): void
+    {
+        if (! in_array($this->dateBasis, $this->allowedBases(), true)) {
+            $this->dateBasis = $this->allowedBases()[0];
+            if ($clearDates) {
+                $this->clearDateFilters();
+                $this->activePreset = null;
+            }
+        }
+    }
+
+    private function clearDateFilters(): void
+    {
+        foreach (self::BASIS_META as [, $prefix]) {
+            unset($this->f["{$prefix}_from"], $this->f["{$prefix}_to"]);
+        }
     }
 
     public function applyFilters(): void
@@ -64,10 +123,11 @@ class Reports extends Component
         $this->f = [];
         $this->activePreset = null;
         $this->rtSearch = '';
+        $this->dateBasis = $this->allowedBases()[0];
         $this->resetPage();
     }
 
-    /** Quick date-range presets. `date` reports filter on activation_date, everything else on st_date. */
+    /** Quick date-range presets — applied to whichever single date basis is active. */
     public function datePreset(string $preset): void
     {
         $now = now();
@@ -81,8 +141,8 @@ class Reports extends Component
             default => [null, null],
         };
 
-        $prefix = $this->type === 'activation' ? 'activation_date' : 'st_date';
-
+        $this->clearDateFilters();
+        $prefix = self::BASIS_META[$this->dateBasis][1];
         $this->f["{$prefix}_from"] = $from?->toDateString();
         $this->f["{$prefix}_to"] = $to?->toDateString();
         $this->activePreset = $preset;
@@ -149,6 +209,8 @@ class Reports extends Component
             $rtOptions = [$selectedRt => $options->retailerLabel($selectedRt)] + $rtOptions;
         }
 
+        [$basisLabel, $basisPrefix] = self::BASIS_META[$this->dateBasis];
+
         return view('livewire.reports', [
             'rows' => $reports->{$method}($filters, 50),
             'lag' => $reports->lagDistribution($filters),
@@ -157,6 +219,9 @@ class Reports extends Component
             'rdOptions' => $options->distributors(),
             'rtOptions' => $rtOptions,
             'rtTruncated' => $rt['truncated'],
+            'bases' => $this->allowedBases(),
+            'basisLabel' => $basisLabel,
+            'basisPrefix' => $basisPrefix,
         ]);
     }
 }
