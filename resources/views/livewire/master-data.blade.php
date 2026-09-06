@@ -1,6 +1,14 @@
 <div>
-    <h1 class="text-xl font-semibold tracking-tight">Master Data</h1>
-    <p class="mt-1 text-sm text-gray-500">Lookup tables kept in sync by every import.</p>
+    <div class="flex items-start justify-between">
+        <div>
+            <h1 class="text-xl font-semibold tracking-tight">Master Data</h1>
+            <p class="mt-1 text-sm text-gray-500">Lookup tables kept in sync by every import.</p>
+        </div>
+        <div class="flex gap-2">
+            <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
+            <button class="btn-ghost" wire:click="export('csv')">CSV</button>
+        </div>
+    </div>
 
     <div class="mt-4 flex flex-wrap gap-2">
         @foreach ($tabs as $key => [$label])
