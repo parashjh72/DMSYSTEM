@@ -72,7 +72,8 @@
                     <td class="td">{{ $s->slabs_count }}</td>
                     <td class="td"><span class="badge {{ ['active'=>'bg-green-100 text-green-800','closed'=>'bg-gray-100 text-gray-600','draft'=>'bg-amber-100 text-amber-800'][$s->status] }}">{{ ucfirst($s->status) }}</span></td>
                     <td class="td whitespace-nowrap">
-                        <a class="text-indigo-600" href="{{ route('schemes.report', $s->uuid) }}" wire:navigate>Achievement</a>
+                        <a class="text-indigo-600" href="{{ route('schemes.retailers', $s->uuid) }}" wire:navigate>Retailers</a>
+                        <a class="ml-3 text-indigo-600" href="{{ route('schemes.report', $s->uuid) }}" wire:navigate>Achievement</a>
                         <button class="ml-3 text-indigo-600" wire:click="edit('{{ $s->uuid }}')">Edit</button>
                         <button class="ml-3 text-red-500" wire:click="delete('{{ $s->uuid }}')" wire:confirm="Delete this scheme?">Delete</button>
                     </td>

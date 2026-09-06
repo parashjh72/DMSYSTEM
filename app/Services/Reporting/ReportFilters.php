@@ -32,6 +32,7 @@ class ReportFilters
         public ?string $valueTo = null,
         public ?string $valueBasis = null,       // activation_date | st_date
         public ?string $schemeUuid = null,       // scheme achievement export
+        public bool $schemeEnrolledOnly = false,
     ) {}
 
     public static function fromArray(array $data): self
@@ -61,6 +62,7 @@ class ReportFilters
             valueTo: $clean('value_to'),
             valueBasis: $clean('value_basis'),
             schemeUuid: $clean('scheme_uuid'),
+            schemeEnrolledOnly: (bool) ($data['scheme_enrolled_only'] ?? false),
         );
     }
 
@@ -88,6 +90,7 @@ class ReportFilters
             'value_to' => $this->valueTo,
             'value_basis' => $this->valueBasis,
             'scheme_uuid' => $this->schemeUuid,
+            'scheme_enrolled_only' => $this->schemeEnrolledOnly ?: null,
         ], fn ($v) => $v !== null);
     }
 

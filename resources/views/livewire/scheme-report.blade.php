@@ -9,9 +9,14 @@
                 {{ ucfirst($scheme->qualified_models) }} models
             </p>
         </div>
-        @can('exports.create')
-            <button class="btn-ghost" wire:click="export">Export → Excel</button>
-        @endcan
+        <div class="flex gap-2">
+            @can('settings.manage')
+                <a class="btn-ghost" href="{{ route('schemes.retailers', $scheme->uuid) }}" wire:navigate>Manage retailers</a>
+            @endcan
+            @can('exports.create')
+                <button class="btn-ghost" wire:click="export">Export → Excel</button>
+            @endcan
+        </div>
     </div>
 
     <div class="card mt-4">
@@ -27,55 +32,70 @@
                 <input type="checkbox" class="rounded border-gray-300" wire:model.live="qualifiedOnly">
                 Only retailers who reached a slab
             </label>
+            <label class="flex items-end gap-2 pb-2 text-sm text-gray-600">
+                <input type="checkbox" class="rounded border-gray-300" wire:model.live="enrolledOnly">
+                Only enrolled retailers ({{ $enrolledCount }})
+            </label>
         </div>
     </div>
 
     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Retailers (qualified)</div><div class="mt-1 text-lg font-semibold">{{ number_format($qualifiedCount) }}</div></div>
+        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Reached a slab</div><div class="mt-1 text-lg font-semibold">{{ number_format($qualifiedCount) }}</div></div>
+        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Eligible (enrolled + min slab)</div><div class="mt-1 text-lg font-semibold">{{ number_format($eligibleCount) }}</div></div>
         <div class="card p-3"><div class="text-xs uppercase text-gray-500">Qualified value</div><div class="mt-1 text-lg font-semibold">{{ config('pricing.symbol') }} {{ number_format($totalValue, 2) }}</div></div>
-        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Total payout</div><div class="mt-1 text-lg font-semibold">{{ config('pricing.symbol') }} {{ number_format($totalPayout, 2) }}</div></div>
-        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Slabs</div><div class="mt-1 text-lg font-semibold">{{ $scheme->slabs->count() }}</div></div>
+        <div class="card p-3"><div class="text-xs uppercase text-gray-500">Total payout (option 1)</div><div class="mt-1 text-lg font-semibold">{{ config('pricing.symbol') }} {{ number_format($totalPayout, 2) }}</div></div>
     </div>
 
     <div class="card mt-4 overflow-x-auto p-0">
         <table class="min-w-full divide-y divide-gray-200 text-right">
             <thead class="bg-gray-50"><tr>
                 <th class="th text-left">RT Code</th><th class="th text-left">RT Name</th><th class="th text-left">RD</th>
-                <th class="th text-right">Qualified Qty</th>
+                <th class="th text-left">Plan</th><th class="th text-left">Category</th>
+                <th class="th text-right">Qty</th>
                 <th class="th text-right">Qualified Value</th>
                 <th class="th text-right">Slab</th>
+                <th class="th text-center">Eligible</th>
                 <th class="th text-right">Payout %</th>
-                <th class="th text-right">Payout Amount</th>
-                <th class="th text-left">Reward</th>
+                <th class="th text-right">Entitlement</th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             @forelse ($rows as $r)
-                <tr wire:key="ach-{{ $r['rt_code'] }}">
+                <tr wire:key="ach-{{ $r['rt_code'] }}" class="{{ $r['enrolled'] ? '' : 'text-gray-400' }}">
                     <td class="td text-left font-mono">{{ $r['rt_code'] }}</td>
                     <td class="td text-left">{{ $r['rt_name'] }}</td>
                     <td class="td text-left">{{ $r['rd_code'] }}</td>
+                    <td class="td text-left text-xs">{{ $r['enrolled'] ? ($r['plan_key'] === 'option_two' ? 'Option 2' : 'Option 1') : '—' }}</td>
+                    <td class="td text-left text-xs">{{ $r['category'] ?? '—' }}</td>
                     <td class="td text-right">{{ number_format($r['qty']) }}</td>
                     <td class="td text-right font-medium">{{ number_format($r['qualified_value'], 2) }}</td>
                     <td class="td text-right">
                         @if ($r['slab_no']) <span class="badge bg-indigo-100 text-indigo-800">{{ $r['slab_no'] }}</span>
                         @else <span class="text-gray-300">—</span> @endif
+                        @if ($r['enrolled'] && $r['min_slab']) <span class="text-xs text-gray-400"> / min {{ $r['min_slab'] }}</span> @endif
+                    </td>
+                    <td class="td text-center">
+                        @if (! $r['enrolled']) <span class="text-gray-300">—</span>
+                        @elseif ($r['eligible']) <span class="badge bg-green-100 text-green-800">Yes</span>
+                        @else <span class="badge bg-red-100 text-red-700">No</span> @endif
                     </td>
                     <td class="td text-right">{{ $r['payout_percent'] ? $r['payout_percent'].'%' : '—' }}</td>
-                    <td class="td text-right font-semibold">{{ $r['payout_amount'] ? number_format($r['payout_amount'], 2) : '—' }}</td>
-                    <td class="td text-left text-xs text-gray-500">{{ $r['reward'] }}</td>
+                    <td class="td text-right font-semibold">
+                        @if (is_numeric($r['entitlement'])) {{ config('pricing.symbol') }} {{ number_format($r['entitlement'], 2) }}
+                        @elseif ($r['entitlement']) <span class="text-xs">{{ $r['entitlement'] }}</span>
+                        @else <span class="text-gray-300">—</span> @endif
+                    </td>
                 </tr>
             @empty
-                <tr><td class="td text-left text-gray-400" colspan="9">No retailers.</td></tr>
+                <tr><td class="td text-left text-gray-400" colspan="11">No retailers.</td></tr>
             @endforelse
             </tbody>
             @if ($rows->isNotEmpty())
                 <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
                     <tr>
-                        <td class="td text-left" colspan="4">Total ({{ $rows->count() }} retailers)</td>
+                        <td class="td text-left" colspan="6">Total ({{ $rows->count() }} retailers)</td>
                         <td class="td text-right">{{ number_format($totalValue, 2) }}</td>
-                        <td class="td"></td><td class="td"></td>
-                        <td class="td text-right">{{ number_format($totalPayout, 2) }}</td>
-                        <td class="td"></td>
+                        <td class="td"></td><td class="td"></td><td class="td"></td>
+                        <td class="td text-right">{{ config('pricing.symbol') }} {{ number_format($totalPayout, 2) }}</td>
                     </tr>
                 </tfoot>
             @endif

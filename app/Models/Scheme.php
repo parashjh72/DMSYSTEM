@@ -38,6 +38,11 @@ class Scheme extends Model
         return $this->hasMany(SchemeSlab::class)->orderBy('slab_no');
     }
 
+    public function retailers(): HasMany
+    {
+        return $this->hasMany(SchemeRetailer::class);
+    }
+
     public function basisColumn(): string
     {
         return $this->sellout_basis === 'st_date' ? 'st_date' : 'activation_date';

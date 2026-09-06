@@ -174,17 +174,23 @@ class ExportDefinition
     private function schemeRows(ReportFilters $f): array
     {
         $scheme = Scheme::with('slabs')->where('uuid', $f->schemeUuid)->firstOrFail();
-        $data = $this->schemes->achievement($scheme, $f->rdCode);
+        $data = $this->schemes->achievement($scheme, $f->rdCode, $f->schemeEnrolledOnly);
 
-        $header = ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Qualified Qty',
-            'Qualified Value', 'Slab', 'Payout %', 'Payout Amount', 'Reward'];
+        $header = ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Enrolled', 'Plan', 'Category',
+            'Min Slab', 'Qualified Qty', 'Qualified Value', 'Slab', 'Eligible',
+            'Payout %', 'Payout Amount', 'Entitlement', 'Reward'];
 
         $rows = (function () use ($data) {
             foreach ($data as $r) {
                 yield [
-                    $r['rt_code'], $r['rt_name'], $r['rd_code'], $r['rd_name'], $r['qty'],
-                    $r['qualified_value'], $r['slab_no'] ?? '—', $r['payout_percent'],
-                    $r['payout_amount'], $r['reward'] ?? '',
+                    $r['rt_code'], $r['rt_name'], $r['rd_code'], $r['rd_name'],
+                    $r['enrolled'] ? 'Yes' : 'No', $r['plan'] ?? '', $r['category'] ?? '',
+                    $r['min_slab'] ?? '', $r['qty'],
+                    $r['qualified_value'], $r['slab_no'] ?? '—', $r['eligible'] ? 'Yes' : 'No',
+                    $r['payout_percent'],
+                    $r['payout_amount'],
+                    is_numeric($r['entitlement']) ? $r['entitlement'] : ($r['entitlement'] ?? ''),
+                    $r['reward'] ?? '',
                 ];
             }
         })();

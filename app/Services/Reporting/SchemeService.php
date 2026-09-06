@@ -17,9 +17,10 @@ use Illuminate\Support\Facades\DB;
 class SchemeService
 {
     /**
+     * @param  bool  $enrolledOnly  restrict to manually-enrolled retailers
      * @return Collection<int, array<string, mixed>>
      */
-    public function achievement(Scheme $scheme, ?string $rdCode = null): Collection
+    public function achievement(Scheme $scheme, ?string $rdCode = null, bool $enrolledOnly = false): Collection
     {
         $basis = $scheme->basisColumn();
         $from = $scheme->effective_from->toDateString();
@@ -58,12 +59,21 @@ class SchemeService
         ', $rdCode ? [$from, $to, $rdCode] : [$from, $to]);
 
         $slabs = $scheme->slabs()->get();
+        $enrolled = $scheme->retailers()->get()->keyBy('rt_code');
 
-        return collect($rows)->map(function ($r) use ($slabs) {
+        $catLabels = collect(config('schemes.categories'))->map(fn ($c) => $c['label']);
+        $planLabels = config('schemes.plans');
+
+        $mapped = collect($rows)->map(function ($r) use ($slabs, $enrolled, $catLabels, $planLabels) {
             $value = (float) $r->qualified_value;
             $slab = $slabs->first(fn ($s) => $s->matches($value));
-
             $pct = $slab ? (float) $slab->payout_percent : 0.0;
+
+            $reg = $enrolled->get($r->rt_code);
+            $minSlab = $reg?->effectiveMinSlab();
+            $eligible = $reg !== null
+                && $slab !== null
+                && $slab->slab_no >= $minSlab;
 
             return [
                 'rt_code' => $r->rt_code,
@@ -78,7 +88,21 @@ class SchemeService
                 'payout_percent' => $pct,
                 'payout_amount' => round($value * $pct / 100, 2),
                 'reward' => $slab?->reward,
+                'enrolled' => $reg !== null,
+                'plan' => $reg ? ($planLabels[$reg->plan] ?? $reg->plan) : null,
+                'plan_key' => $reg?->plan,
+                'category' => $reg ? ($catLabels[$reg->category] ?? $reg->category) : null,
+                'min_slab' => $minSlab,
+                'eligible' => $eligible,
+                // what the retailer actually gets under their plan (0 / — if not eligible)
+                'entitlement' => match (true) {
+                    $reg === null || ! $eligible => null,
+                    $reg->plan === 'option_two' => $slab?->reward,
+                    default => round($value * $pct / 100, 2),
+                },
             ];
         });
+
+        return $enrolledOnly ? $mapped->filter(fn ($r) => $r['enrolled'])->values() : $mapped;
     }
 }
