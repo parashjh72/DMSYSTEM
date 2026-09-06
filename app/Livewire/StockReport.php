@@ -74,14 +74,20 @@ class StockReport extends Component
         $rd = $this->rdCode ?: null;
         $rt = $this->rtCode ?: null;
 
-        $rows = match ($this->type) {
-            'rt' => $stock->rtWise($rd, $rt, 50),
-            'model' => $stock->modelWise($rd, 50),
-            default => $stock->rdWise($rd, 50),
-        };
+        $columns = ['models' => [], 'hasOther' => false, 'totals' => [], 'otherTotal' => 0, 'grandTotal' => 0];
+
+        if ($this->type === 'model') {
+            $rows = $stock->modelWise($rd, 50);
+        } else {
+            $columns = $stock->modelColumns($this->type, $rd, $this->type === 'rt' ? $rt : null);
+            $rows = $this->type === 'rt'
+                ? $stock->rtWise($rd, $rt, $columns['models'], 50)
+                : $stock->rdWise($rd, $columns['models'], 50);
+        }
 
         return view('livewire.stock-report', [
             'rows' => $rows,
+            'columns' => $columns,
             'summary' => $stock->summary($rd, $this->type === 'rt' ? $rt : null),
             'rdOptions' => $options->distributors(),
             'rtOptions' => $options->retailers($rd)['options'],

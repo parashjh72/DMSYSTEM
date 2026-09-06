@@ -41,10 +41,8 @@ class ExportDefinition
                 ['Model', 'Total IMEI', 'Activated', 'Not Activated', 'Activation %']),
             'date_report' => $this->grouped($this->reports->dateWise($filters, PHP_INT_MAX),
                 ['ST Date', 'Total Sell-Through', 'Activated', 'Not Activated', 'Activation %']),
-            'stock_rd' => $this->grouped($this->stock->rdWise($filters->rdCode, PHP_INT_MAX),
-                ['RD Code', 'RD Name', 'Model', 'Qty']),
-            'stock_rt' => $this->grouped($this->stock->rtWise($filters->rdCode, $filters->rtCode, PHP_INT_MAX),
-                ['RD Code', 'RD Name', 'RT Code', 'RT Name', 'Model', 'Qty']),
+            'stock_rd' => $this->stockPivot('rd', $filters),
+            'stock_rt' => $this->stockPivot('rt', $filters),
             'stock_model' => $this->grouped($this->stock->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
@@ -90,6 +88,31 @@ class ExportDefinition
                 $lastId = $row->id;
             }
         } while ($page->count() === $size);
+    }
+
+    /** Pivoted stock export: RD (or RD+RT) rows, one column per model, qty in cells. */
+    private function stockPivot(string $scope, ReportFilters $f): array
+    {
+        $rd = $f->rdCode;
+        $rt = $scope === 'rt' ? $f->rtCode : null;
+
+        ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rt);
+        $rows = $this->stock->exportRows($scope, $rd, $rt, $models, $hasOther);
+
+        $keyCols = $scope === 'rt'
+            ? ['rd_code' => 'RD Code', 'rd_name' => 'RD Name', 'rt_code' => 'RT Code', 'rt_name' => 'RT Name']
+            : ['rd_code' => 'RD Code', 'rd_name' => 'RD Name'];
+
+        $dataKeys = array_merge(array_keys($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
+        $header = array_merge(array_values($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
+
+        $gen = (function () use ($rows, $dataKeys) {
+            foreach ($rows as $r) {
+                yield array_map(fn ($k) => $r[$k] ?? 0, $dataKeys);
+            }
+        })();
+
+        return [$header, $gen];
     }
 
     private function grouped(LengthAwarePaginator|Collection $result, array $header): array
