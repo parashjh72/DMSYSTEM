@@ -39,6 +39,16 @@
                         {{ $basisNames[$b] }}
                     </button>
                 @endforeach
+
+                <span class="mx-1 h-4 w-px bg-gray-300"></span>
+                <button wire:click="toggleInactive"
+                        title="Show only devices that are sold but not activated"
+                        class="rounded-lg px-2.5 py-1 text-xs font-semibold ring-1 ring-inset transition
+                        {{ ($f['activation_status'] ?? '') === 'not_activated'
+                            ? 'bg-amber-500 text-white ring-amber-500'
+                            : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                    Inactive
+                </button>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
@@ -61,14 +71,6 @@
         <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <div><label class="label">{{ $basisLabel }} from</label><input type="date" class="input" wire:model="f.{{ $basisPrefix }}_from"></div>
             <div><label class="label">{{ $basisLabel }} to</label><input type="date" class="input" wire:model="f.{{ $basisPrefix }}_to"></div>
-            <div>
-                <label class="label">Activation status</label>
-                <select class="input" wire:model="f.activation_status">
-                    <option value="">All</option>
-                    <option value="activated">Activated</option>
-                    <option value="not_activated">Not activated (inactive)</option>
-                </select>
-            </div>
             <div>
                 <label class="label">TSO</label>
                 <select class="input" wire:model="f.tso">

@@ -94,6 +94,15 @@ class Reports extends Component
         }
     }
 
+    /** "Report by: … Inactive" — toggle the sold-but-not-activated filter. */
+    public function toggleInactive(): void
+    {
+        $this->f['activation_status'] = ($this->f['activation_status'] ?? '') === 'not_activated'
+            ? null
+            : 'not_activated';
+        $this->resetPage();
+    }
+
     /** Keep $dateBasis valid for the current report type; optionally drop stale ranges. */
     private function normalizeDateBasis(bool $clearDates = true): void
     {
