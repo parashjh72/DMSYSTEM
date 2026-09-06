@@ -26,10 +26,13 @@ class ExportDefinition
         private readonly StockReportService $stock,
     ) {}
 
-    /** @return array{0: list<string>, 1: iterable<array<int,mixed>>} [header, rows] */
+    /**
+     * @return array{0: list<string>, 1: iterable<array<int,mixed>>, 2: list<array{name:string,header:list<string>,indexes:list<int>}>}
+     *                                                                                                                                  [header, rows, extraSheets] — extraSheets only used by the XLSX writer
+     */
     public function build(string $type, ReportFilters $filters, callable $onProgress): array
     {
-        return match ($type) {
+        $result = match ($type) {
             'records' => $this->records($filters, $onProgress),
             'rd_report' => $this->grouped($this->reports->rdWise($filters, PHP_INT_MAX),
                 ['RD Code', 'RD Name', 'Total IMEI', 'Activated', 'Not Activated', 'Activation %']),
@@ -48,6 +51,8 @@ class ExportDefinition
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
+
+        return $result + [2 => []]; // pad missing extraSheets
     }
 
     private function records(ReportFilters $filters, callable $onProgress): array
@@ -108,13 +113,24 @@ class ExportDefinition
         $dataKeys = array_merge(array_keys($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
         $header = array_merge(array_values($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
 
-        $gen = (function () use ($rows, $dataKeys) {
-            foreach ($rows as $r) {
-                yield array_map(fn ($k) => $r[$k] ?? 0, $dataKeys);
-            }
-        })();
+        $matrix = array_map(fn ($r) => array_map(fn ($k) => $r[$k] ?? 0, $dataKeys), $rows);
 
-        return [$header, $gen];
+        // Second XLSX sheet for RT: same data without the RD Code and RT Name columns.
+        $extraSheets = [];
+        if ($scope === 'rt') {
+            $drop = ['RD Code', 'RT Name'];
+            $keepIdx = array_values(array_filter(
+                array_keys($header),
+                fn ($i) => ! in_array($header[$i], $drop, true),
+            ));
+            $extraSheets[] = [
+                'name' => 'Compact',
+                'header' => array_map(fn ($i) => $header[$i], $keepIdx),
+                'indexes' => $keepIdx,
+            ];
+        }
+
+        return [$header, $matrix, $extraSheets];
     }
 
     private function grouped(LengthAwarePaginator|Collection $result, array $header): array

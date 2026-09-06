@@ -49,14 +49,14 @@ class BuildExportJob implements ShouldQueue
         @mkdir(dirname($absolute), 0775, true);
 
         try {
-            [$header, $rows] = $definition->build(
+            [$header, $rows, $extraSheets] = $definition->build(
                 $export->type,
                 ReportFilters::fromArray($export->filters ?? []),
                 fn (int $done) => $export->forceFill(['processed_rows' => $done])->saveQuietly(),
             );
 
             $count = $format === 'xlsx'
-                ? $this->writeXlsx($absolute, $header, $rows, str($export->type)->headline())
+                ? $this->writeXlsx($absolute, $header, $rows, $extraSheets)
                 : $this->writeCsv($absolute, $header, $rows);
 
             $export->update([
@@ -95,8 +95,37 @@ class BuildExportJob implements ShouldQueue
         return $count;
     }
 
-    /** @return int data rows written (excludes header + totals) */
-    private function writeXlsx(string $path, array $header, iterable $rows, string $sheetName): int
+    /**
+     * @param  array<int,array<int,mixed>>|iterable  $rows
+     * @param  list<array{name:string,header:list<string>,indexes:list<int>}>  $extraSheets
+     * @return int data rows written on the first sheet
+     */
+    private function writeXlsx(string $path, array $header, iterable $rows, array $extraSheets = []): int
+    {
+        // Extra sheets re-read the rows, so materialise once.
+        $matrix = is_array($rows) ? $rows : iterator_to_array($rows, false);
+
+        $writer = new XlsxWriter;
+        $writer->openToFile($path);
+
+        $count = $this->writeSheet($writer, $writer->getCurrentSheet(), 'Detail', $header, $matrix);
+
+        foreach ($extraSheets as $spec) {
+            $projected = array_map(
+                fn ($row) => array_map(fn ($i) => array_values($row)[$i] ?? '', $spec['indexes']),
+                $matrix,
+            );
+            $writer->addNewSheetAndMakeItCurrent();
+            $this->writeSheet($writer, $writer->getCurrentSheet(), $spec['name'], $spec['header'], $projected);
+        }
+
+        $writer->close();
+
+        return $count;
+    }
+
+    /** @param array<int,array<int,mixed>> $rows @return int data rows */
+    private function writeSheet($writer, $sheet, string $name, array $header, array $rows): int
     {
         $headerStyle = (new Style)
             ->withFontBold(true)->withFontColor(Color::WHITE)->withBackgroundColor(Color::DARK_BLUE);
@@ -104,17 +133,10 @@ class BuildExportJob implements ShouldQueue
         $highlightStyle = (new Style)->withFontBold(true)->withBackgroundColor(Color::LIGHT_GREEN);
         $totalStyle = (new Style)->withFontBold(true)->withBackgroundColor('D9E2F3');
 
-        $writer = new XlsxWriter;
-        $writer->openToFile($path);
-        $sheet = $writer->getCurrentSheet();
-        $sheet->setName(mb_substr($sheetName ?: 'Report', 0, 31));
-
         $labelCols = $this->labelColumnCount($header);
-        // Freeze the header row and the leading label columns.
-        $sheet->setSheetView((new SheetView)
-            ->withFreezeRow(2)
-            ->withFreezeColumn(chr(65 + $labelCols)));
-        $sheet->setColumnWidthForRange(28, 1, $labelCols); // label columns wider
+        $sheet->setName(mb_substr($name ?: 'Sheet', 0, 31));
+        $sheet->setSheetView((new SheetView)->withFreezeRow(2)->withFreezeColumn(chr(65 + $labelCols)));
+        $sheet->setColumnWidthForRange(28, 1, $labelCols);
 
         $writer->addRow(Row::fromValuesWithStyle($header, $headerStyle));
 
@@ -142,7 +164,6 @@ class BuildExportJob implements ShouldQueue
             $count++;
         }
 
-        // Totals row.
         $totalCells = [];
         foreach ($header as $i => $_) {
             $totalCells[$i] = Cell::fromValue(
@@ -151,8 +172,6 @@ class BuildExportJob implements ShouldQueue
             );
         }
         $writer->addRow(new Row($totalCells));
-
-        $writer->close();
 
         return $count;
     }
