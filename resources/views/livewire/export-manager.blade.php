@@ -11,7 +11,9 @@
             <tbody class="divide-y divide-gray-100">
             @forelse ($exports as $e)
                 <tr wire:key="e-{{ $e->id }}">
-                    <td class="td">{{ str_replace('_', ' ', $e->type) }}</td>
+                    <td class="td">{{ str_replace('_', ' ', $e->type) }}
+                        <span class="badge bg-gray-100 text-gray-500">{{ strtoupper($e->format) }}</span>
+                    </td>
                     <td class="td">
                         <span class="badge {{ match($e->status) {
                             'completed' => 'bg-green-100 text-green-800',

@@ -5,7 +5,10 @@
             <p class="mt-1 text-sm text-gray-500">Unsold inventory — devices that are not yet activated.</p>
         </div>
         @can('exports.create')
-            <button class="btn-ghost" wire:click="export">Export → CSV</button>
+            <div class="flex gap-2">
+                <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
+                <button class="btn-ghost" wire:click="export('csv')">CSV</button>
+            </div>
         @endcan
     </div>
 

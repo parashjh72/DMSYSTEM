@@ -63,7 +63,7 @@ class StockReport extends Component
         $this->resetPage();
     }
 
-    public function export(ExportService $exports)
+    public function export(string $format, ExportService $exports)
     {
         abort_unless(auth()->user()?->can('exports.create'), 403);
 
@@ -74,7 +74,7 @@ class StockReport extends Component
             'lifecycle' => $this->lifecycle,
         ]);
 
-        $exports->queue($exportType, $filters, auth()->id());
+        $exports->queue($exportType, $filters, auth()->id(), $format === 'xlsx' ? 'xlsx' : 'csv');
         session()->flash('status', 'Stock export queued — track it on the Exports page.');
         $this->redirectRoute('exports.index', navigate: true);
     }

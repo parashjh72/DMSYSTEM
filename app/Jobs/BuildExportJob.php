@@ -11,12 +11,21 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Common\Entity\Cell;
+use OpenSpout\Common\Entity\Row;
+use OpenSpout\Common\Entity\Style\Color;
+use OpenSpout\Common\Entity\Style\Style;
+use OpenSpout\Writer\XLSX\Entity\SheetView;
+use OpenSpout\Writer\XLSX\Writer as XlsxWriter;
 use Throwable;
 
 /**
- * Builds one export file in the background, streaming rows to disk (append mode)
- * so a multi-million-row CSV never sits in memory or a web request (§12).
- * CSV only for now — the most efficient format at scale.
+ * Builds one export file in the background.
+ *
+ * CSV: rows streamed to disk (append) — safe for millions of rows.
+ * XLSX: styled workbook (coloured header, banded rows, per-row max highlighted,
+ *       bold totals row summing every numeric column). Meant for the pivot stock
+ *       reports, which are bounded in size.
  */
 class BuildExportJob implements ShouldQueue
 {
@@ -33,33 +42,22 @@ class BuildExportJob implements ShouldQueue
         $export = ExportJobModel::where('uuid', $this->exportUuid)->firstOrFail();
         $export->update(['status' => 'processing', 'processed_rows' => 0]);
 
+        $format = $export->format === 'xlsx' ? 'xlsx' : 'csv';
         $disk = Storage::disk($export->disk);
-        $relative = 'exports/'.$export->uuid.'.csv';
+        $relative = 'exports/'.$export->uuid.'.'.$format;
         $absolute = $disk->path($relative);
         @mkdir(dirname($absolute), 0775, true);
-
-        $handle = fopen($absolute, 'w');
 
         try {
             [$header, $rows] = $definition->build(
                 $export->type,
                 ReportFilters::fromArray($export->filters ?? []),
-                function (int $done) use ($export) {
-                    $export->forceFill(['processed_rows' => $done])->saveQuietly();
-                },
+                fn (int $done) => $export->forceFill(['processed_rows' => $done])->saveQuietly(),
             );
 
-            fprintf($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
-            fputcsv($handle, $header, ',', '"', '');
-
-            $count = 0;
-            foreach ($rows as $row) {
-                fputcsv($handle, $row, ',', '"', '');
-                $count++;
-            }
-
-            fclose($handle);
-            $handle = null;
+            $count = $format === 'xlsx'
+                ? $this->writeXlsx($absolute, $header, $rows, str($export->type)->headline())
+                : $this->writeCsv($absolute, $header, $rows);
 
             $export->update([
                 'status' => 'completed',
@@ -71,9 +69,6 @@ class BuildExportJob implements ShouldQueue
                 'expires_at' => now()->addDays(7),
             ]);
         } catch (Throwable $e) {
-            if (is_resource($handle)) {
-                fclose($handle);
-            }
             @unlink($absolute);
             $export->update([
                 'status' => 'failed',
@@ -81,6 +76,101 @@ class BuildExportJob implements ShouldQueue
             ]);
             throw $e;
         }
+    }
+
+    /** @return int rows written */
+    private function writeCsv(string $path, array $header, iterable $rows): int
+    {
+        $handle = fopen($path, 'w');
+        fprintf($handle, "\xEF\xBB\xBF"); // UTF-8 BOM for Excel
+        fputcsv($handle, $header, ',', '"', '');
+
+        $count = 0;
+        foreach ($rows as $row) {
+            fputcsv($handle, $row, ',', '"', '');
+            $count++;
+        }
+        fclose($handle);
+
+        return $count;
+    }
+
+    /** @return int data rows written (excludes header + totals) */
+    private function writeXlsx(string $path, array $header, iterable $rows, string $sheetName): int
+    {
+        $headerStyle = (new Style)
+            ->withFontBold(true)->withFontColor(Color::WHITE)->withBackgroundColor(Color::DARK_BLUE);
+        $bandStyle = (new Style)->withBackgroundColor('EEF2FB');
+        $highlightStyle = (new Style)->withFontBold(true)->withBackgroundColor(Color::LIGHT_GREEN);
+        $totalStyle = (new Style)->withFontBold(true)->withBackgroundColor('D9E2F3');
+
+        $writer = new XlsxWriter;
+        $writer->openToFile($path);
+        $sheet = $writer->getCurrentSheet();
+        $sheet->setName(mb_substr($sheetName ?: 'Report', 0, 31));
+
+        $labelCols = $this->labelColumnCount($header);
+        // Freeze the header row and the leading label columns.
+        $sheet->setSheetView((new SheetView)
+            ->withFreezeRow(2)
+            ->withFreezeColumn(chr(65 + $labelCols)));
+        $sheet->setColumnWidthForRange(28, 1, $labelCols); // label columns wider
+
+        $writer->addRow(Row::fromValuesWithStyle($header, $headerStyle));
+
+        $totals = array_fill(0, count($header), 0);
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $values = array_values($row);
+            $rowMax = max(array_map(fn ($v) => is_numeric($v) ? (float) $v : 0, array_slice($values, $labelCols)) ?: [0]);
+
+            $cells = [];
+            foreach ($values as $i => $value) {
+                $numeric = is_numeric($value) && $i >= $labelCols;
+                if ($numeric) {
+                    $totals[$i] += (float) $value;
+                }
+                $style = match (true) {
+                    $numeric && $rowMax > 0 && (float) $value === $rowMax => $highlightStyle,
+                    $count % 2 === 1 => $bandStyle,
+                    default => null,
+                };
+                $cells[$i] = Cell::fromValue($numeric ? 0 + $value : $value, $style);
+            }
+            $writer->addRow(new Row($cells));
+            $count++;
+        }
+
+        // Totals row.
+        $totalCells = [];
+        foreach ($header as $i => $_) {
+            $totalCells[$i] = Cell::fromValue(
+                $i === 0 ? 'Total' : ($totals[$i] ?: ($i < $labelCols ? '' : 0)),
+                $totalStyle,
+            );
+        }
+        $writer->addRow(new Row($totalCells));
+
+        $writer->close();
+
+        return $count;
+    }
+
+    /** How many leading columns are text labels (RD/RT code + name) rather than data. */
+    private function labelColumnCount(array $header): int
+    {
+        $labels = ['RD Code', 'RD Name', 'RT Code', 'RT Name', 'Model', 'TSO', 'ST Date'];
+        $n = 0;
+        foreach ($header as $col) {
+            if (in_array($col, $labels, true)) {
+                $n++;
+            } else {
+                break;
+            }
+        }
+
+        return max(1, $n);
     }
 
     public function failed(Throwable $e): void

@@ -27,7 +27,7 @@ class ExportManager extends Component
 
         return Storage::disk($export->disk)->download(
             $export->stored_path,
-            str($export->type)->slug().'-'.$export->created_at->format('Ymd-His').'.csv',
+            str($export->type)->slug().'-'.$export->created_at->format('Ymd-His').'.'.($export->format === 'xlsx' ? 'xlsx' : 'csv'),
         );
     }
 
