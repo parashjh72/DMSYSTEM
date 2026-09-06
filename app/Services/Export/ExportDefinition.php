@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use App\Services\Reporting\PriceService;
 use App\Services\Reporting\QuickReportService;
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\ReportService;
@@ -26,6 +27,7 @@ class ExportDefinition
         private readonly ReportService $reports,
         private readonly StockReportService $stock,
         private readonly QuickReportService $quick,
+        private readonly PriceService $prices,
     ) {}
 
     /**
@@ -54,6 +56,7 @@ class ExportDefinition
             'quick_zero_stock' => $this->grouped(
                 $this->quick->zeroStockSoldNotSellThrough($filters, PHP_INT_MAX),
                 ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Activated', 'In stock', 'Sell-thru']),
+            'quick_act_value' => $this->valueRows($filters),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
 
@@ -148,6 +151,20 @@ class ExportDefinition
         }
 
         return [$header, $matrix, $extraSheets];
+    }
+
+    private function valueRows(ReportFilters $f): array
+    {
+        $header = ['Model', 'Qty', 'Total value', 'Avg price', 'Price range', 'Unpriced qty'];
+        $data = $this->prices->valueByModel($f->valueFrom, $f->valueTo, $f->valueBasis ?? 'activation_date', $f->rdCode);
+
+        $rows = (function () use ($data) {
+            foreach ($data as $r) {
+                yield [$r['model'], $r['qty'], $r['total_value'], $r['avg_price'], $r['price_range'], $r['unpriced_qty']];
+            }
+        })();
+
+        return [$header, $rows];
     }
 
     private function grouped(LengthAwarePaginator|Collection $result, array $header): array

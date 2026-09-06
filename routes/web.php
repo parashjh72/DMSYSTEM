@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::get('reports', Reports::class)->middleware('can:reports.view')->name('reports');
     Route::get('stock-report', \App\Livewire\StockReport::class)->middleware('can:reports.view')->name('stock');
     Route::get('quick-reports', \App\Livewire\QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
+    Route::get('model-prices', \App\Livewire\ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');
 
     Route::get('exports', ExportManager::class)->middleware('can:exports.view')->name('exports.index');

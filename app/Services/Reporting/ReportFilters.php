@@ -28,6 +28,9 @@ class ReportFilters
         public ?string $activationStatus = null, // activated | not_activated | null
         public ?string $lifecycle = null,        // running | out | null(both) — stock reports
         public array $rtCodes = [],              // multi-select retailers — stock reports
+        public ?string $valueFrom = null,        // value report date range
+        public ?string $valueTo = null,
+        public ?string $valueBasis = null,       // activation_date | st_date
     ) {}
 
     public static function fromArray(array $data): self
@@ -53,6 +56,9 @@ class ReportFilters
             activationStatus: $clean('activation_status'),
             lifecycle: $clean('lifecycle'),
             rtCodes: array_values(array_filter((array) ($data['rt_codes'] ?? []), fn ($v) => trim((string) $v) !== '')),
+            valueFrom: $clean('value_from'),
+            valueTo: $clean('value_to'),
+            valueBasis: $clean('value_basis'),
         );
     }
 
@@ -76,6 +82,9 @@ class ReportFilters
             'activation_status' => $this->activationStatus,
             'lifecycle' => $this->lifecycle,
             'rt_codes' => $this->rtCodes ?: null,
+            'value_from' => $this->valueFrom,
+            'value_to' => $this->valueTo,
+            'value_basis' => $this->valueBasis,
         ], fn ($v) => $v !== null);
     }
 

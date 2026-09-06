@@ -20,6 +20,7 @@
         ['route' => 'imei-search',     'label' => 'IMEI Search',   'perm' => 'reports.view'],
         ['route' => 'exports.index',   'label' => 'Exports',       'perm' => 'exports.view'],
         ['route' => 'masterdata',      'label' => 'Master Data',   'perm' => 'masterdata.view'],
+        ['route' => 'model-prices',    'label' => 'Model Prices',  'perm' => 'masterdata.view'],
         ['route' => 'settings.index',  'label' => 'Settings',      'perm' => 'settings.manage'],
         ['route' => 'users.index',     'label' => 'Users',         'perm' => 'users.manage'],
     ];

@@ -2,7 +2,7 @@
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-semibold tracking-tight">Quick Reports</h1>
         @can('exports.create')
-            @if ($type === 'zero_stock')
+            @if (in_array($type, ['zero_stock', 'act_value']))
                 <button class="btn-ghost" wire:click="export">Export → CSV</button>
             @endif
         @endcan
@@ -27,11 +27,27 @@
                     @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
                 </select>
             </div>
-            @if ($type === 'act_vs_st')
-                <div><label class="label">Date from (ST)</label><input type="date" class="input" wire:model.live="dateFrom"></div>
-                <div><label class="label">Date to (ST)</label><input type="date" class="input" wire:model.live="dateTo"></div>
+            @if (in_array($type, ['act_vs_st', 'act_value']))
+                <div><label class="label">Date from</label><input type="date" class="input" wire:model.live="dateFrom"></div>
+                <div><label class="label">Date to</label><input type="date" class="input" wire:model.live="dateTo"></div>
+            @endif
+            @if ($type === 'act_value')
+                <div>
+                    <label class="label">Price against</label>
+                    <select class="input" wire:model.live="valueBasis">
+                        <option value="activation_date">Activation date (sell-out value)</option>
+                        <option value="st_date">Sell-thru date</option>
+                    </select>
+                </div>
             @endif
         </div>
+        @if ($type === 'act_value')
+            <p class="mt-2 text-xs text-gray-400">
+                Each device is valued at the price in force on its {{ $valueBasis === 'st_date' ? 'sell-thru' : 'activation' }} date,
+                so a range that spans a price change blends the old and new rates.
+                <a href="{{ route('model-prices') }}" wire:navigate class="text-indigo-600">Manage prices</a>.
+            </p>
+        @endif
     </div>
 
     {{-- 1. Activation vs Sell-thru --}}
@@ -72,6 +88,57 @@
                     <tr><td class="td text-left text-gray-400" colspan="7">No data.</td></tr>
                 @endforelse
                 </tbody>
+            </table>
+        </div>
+    @endif
+
+    {{-- 3. Activation value by model --}}
+    @if ($type === 'act_value')
+        @php
+            $vQty = $value->sum('qty'); $vVal = $value->sum('total_value'); $vUnpriced = $value->sum('unpriced_qty');
+        @endphp
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="card p-3"><div class="text-xs uppercase text-gray-500">Devices</div><div class="mt-1 text-lg font-semibold">{{ number_format($vQty) }}</div></div>
+            <div class="card p-3"><div class="text-xs uppercase text-gray-500">Total value</div><div class="mt-1 text-lg font-semibold">{{ $symbol }} {{ number_format($vVal, 2) }}</div></div>
+            <div class="card p-3"><div class="text-xs uppercase text-gray-500">Models</div><div class="mt-1 text-lg font-semibold">{{ number_format($value->count()) }}</div></div>
+            <div class="card p-3"><div class="text-xs uppercase text-gray-500">Unpriced devices</div><div class="mt-1 text-lg font-semibold {{ $vUnpriced ? 'text-amber-600' : '' }}">{{ number_format($vUnpriced) }}</div></div>
+        </div>
+
+        <div class="card mt-4 overflow-x-auto p-0">
+            <table class="min-w-full divide-y divide-gray-200 text-right">
+                <thead class="bg-gray-50"><tr>
+                    <th class="th text-left">Model</th>
+                    <th class="th text-right">Qty</th>
+                    <th class="th text-right">Total value</th>
+                    <th class="th text-right">Avg price</th>
+                    <th class="th text-right">Price range in period</th>
+                    <th class="th text-right">Unpriced</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                @forelse ($value as $r)
+                    <tr>
+                        <td class="td text-left">{{ $r['model'] }}</td>
+                        <td class="td text-right">{{ number_format($r['qty']) }}</td>
+                        <td class="td text-right font-medium">{{ $symbol }} {{ number_format($r['total_value'], 2) }}</td>
+                        <td class="td text-right text-gray-500">{{ $symbol }} {{ number_format($r['avg_price'], 2) }}</td>
+                        <td class="td text-right text-gray-500">{{ $r['price_range'] }}</td>
+                        <td class="td text-right {{ $r['unpriced_qty'] ? 'text-amber-600' : 'text-gray-300' }}">{{ number_format($r['unpriced_qty']) }}</td>
+                    </tr>
+                @empty
+                    <tr><td class="td text-left text-gray-400" colspan="6">No activations in this range.</td></tr>
+                @endforelse
+                </tbody>
+                @if ($value->isNotEmpty())
+                    <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                        <tr>
+                            <td class="td text-left">Total</td>
+                            <td class="td text-right">{{ number_format($vQty) }}</td>
+                            <td class="td text-right">{{ $symbol }} {{ number_format($vVal, 2) }}</td>
+                            <td class="td"></td><td class="td"></td>
+                            <td class="td text-right">{{ number_format($vUnpriced) }}</td>
+                        </tr>
+                    </tfoot>
+                @endif
             </table>
         </div>
     @endif
