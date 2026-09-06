@@ -27,6 +27,10 @@ class StockReport extends Component
     #[Url]
     public ?string $rtCode = null;
 
+    /** '' = both, 'running', 'out' — filters by device_models.status. */
+    #[Url]
+    public string $lifecycle = '';
+
     public const TYPES = [
         'rd' => 'RD-wise stock',
         'rt' => 'RT-wise stock',
@@ -54,6 +58,11 @@ class StockReport extends Component
         $this->resetPage();
     }
 
+    public function updatedLifecycle(): void
+    {
+        $this->resetPage();
+    }
+
     public function export(ExportService $exports)
     {
         abort_unless(auth()->user()?->can('exports.create'), 403);
@@ -62,6 +71,7 @@ class StockReport extends Component
         $filters = ReportFilters::fromArray([
             'rd_code' => $this->rdCode,
             'rt_code' => $this->type === 'rt' ? $this->rtCode : null,
+            'lifecycle' => $this->lifecycle,
         ]);
 
         $exports->queue($exportType, $filters, auth()->id());
@@ -73,6 +83,7 @@ class StockReport extends Component
     {
         $rd = $this->rdCode ?: null;
         $rt = $this->rtCode ?: null;
+        $stock->forLifecycle($this->lifecycle ?: null);
 
         $columns = ['models' => [], 'hasOther' => false, 'totals' => [], 'otherTotal' => 0, 'grandTotal' => 0];
 

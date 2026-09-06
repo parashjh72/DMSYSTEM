@@ -26,6 +26,7 @@ class ReportFilters
         public ?string $source = null,
         public ?string $imei = null,
         public ?string $activationStatus = null, // activated | not_activated | null
+        public ?string $lifecycle = null,        // running | out | null(both) — stock reports
     ) {}
 
     public static function fromArray(array $data): self
@@ -49,6 +50,7 @@ class ReportFilters
             source: $clean('source'),
             imei: $clean('imei'),
             activationStatus: $clean('activation_status'),
+            lifecycle: $clean('lifecycle'),
         );
     }
 
@@ -70,6 +72,7 @@ class ReportFilters
             'source' => $this->source,
             'imei' => $this->imei,
             'activation_status' => $this->activationStatus,
+            'lifecycle' => $this->lifecycle,
         ], fn ($v) => $v !== null);
     }
 

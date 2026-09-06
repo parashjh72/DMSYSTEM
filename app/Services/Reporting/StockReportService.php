@@ -28,6 +28,24 @@ class StockReportService
     /** Max model columns before the tail is folded into an "Other" column. */
     public const MODEL_COLUMNS = 60;
 
+    /** null = both, otherwise 'running' | 'out' — restricts by device_models.status. */
+    private ?string $lifecycle = null;
+
+    public function forLifecycle(?string $lifecycle): static
+    {
+        $this->lifecycle = in_array($lifecycle, ['running', 'out'], true) ? $lifecycle : null;
+
+        return $this;
+    }
+
+    private function applyLifecycle($query)
+    {
+        return $query->when($this->lifecycle, fn ($q, $status) => $q->whereIn(
+            'model',
+            fn ($sub) => $sub->select('name')->from('device_models')->where('status', $status),
+        ));
+    }
+
     /**
      * Model columns for the current scope, ordered by quantity (largest first),
      * capped at MODEL_COLUMNS, plus the column totals for the table footer.
@@ -91,7 +109,7 @@ class StockReportService
     /** Model-wise: RD stock + RT stock for each model, combined in one row. */
     public function modelWise(?string $rdCode, int $perPage = 50): LengthAwarePaginator
     {
-        return DB::table('sales_activation_records')
+        return $this->applyLifecycle(DB::table('sales_activation_records'))
             ->selectRaw('
                 model,
                 SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock,
@@ -108,7 +126,7 @@ class StockReportService
     /** Headline totals for the current RD / RT scope. */
     public function summary(?string $rdCode, ?string $rtCode = null): object
     {
-        return DB::table('sales_activation_records')
+        return $this->applyLifecycle(DB::table('sales_activation_records'))
             ->selectRaw('
                 SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock,
                 SUM(is_activated = 0 AND '.self::HAS_RT.') AS rt_stock,
@@ -165,11 +183,13 @@ class StockReportService
 
     private function stockQuery(string $scope, ?string $rdCode, ?string $rtCode = null)
     {
-        return DB::table('sales_activation_records')
+        $query = DB::table('sales_activation_records')
             ->where('is_activated', 0)
             ->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT)
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($rtCode && $scope === 'rt', fn ($q) => $q->where('rt_code', $rtCode));
+
+        return $this->applyLifecycle($query);
     }
 
     /**

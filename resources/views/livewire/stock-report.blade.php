@@ -39,6 +39,20 @@
                     </select>
                 </div>
             @endif
+            <div>
+                <label class="label">Models</label>
+                <div class="flex gap-1">
+                    @foreach (['' => 'Both', 'running' => 'Running', 'out' => 'Out'] as $val => $lbl)
+                        <button wire:click="$set('lifecycle', '{{ $val }}')"
+                                class="flex-1 rounded-lg px-2 py-2 text-xs font-semibold ring-1 ring-inset transition
+                                {{ $lifecycle === $val
+                                    ? 'bg-indigo-600 text-white ring-indigo-600'
+                                    : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                            {{ $lbl }}
+                        </button>
+                    @endforeach
+                </div>
+            </div>
         </div>
     </div>
 

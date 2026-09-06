@@ -43,7 +43,8 @@ class ExportDefinition
                 ['ST Date', 'Total Sell-Through', 'Activated', 'Not Activated', 'Activation %']),
             'stock_rd' => $this->stockPivot('rd', $filters),
             'stock_rt' => $this->stockPivot('rt', $filters),
-            'stock_model' => $this->grouped($this->stock->modelWise($filters->rdCode, PHP_INT_MAX),
+            'stock_model' => $this->grouped(
+                $this->stock->forLifecycle($filters->lifecycle)->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
@@ -95,6 +96,7 @@ class ExportDefinition
     {
         $rd = $f->rdCode;
         $rt = $scope === 'rt' ? $f->rtCode : null;
+        $this->stock->forLifecycle($f->lifecycle);
 
         ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rt);
         $rows = $this->stock->exportRows($scope, $rd, $rt, $models, $hasOther);
