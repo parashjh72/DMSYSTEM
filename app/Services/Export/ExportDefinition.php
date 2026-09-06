@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use App\Services\Reporting\QuickReportService;
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\ReportService;
 use App\Services\Reporting\StockReportService;
@@ -24,6 +25,7 @@ class ExportDefinition
     public function __construct(
         private readonly ReportService $reports,
         private readonly StockReportService $stock,
+        private readonly QuickReportService $quick,
     ) {}
 
     /**
@@ -49,6 +51,9 @@ class ExportDefinition
             'stock_model' => $this->grouped(
                 $this->stock->forLifecycle($filters->lifecycle)->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
+            'quick_zero_stock' => $this->grouped(
+                $this->quick->zeroStockSoldNotSellThrough($filters, PHP_INT_MAX),
+                ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Activated', 'In stock', 'Sell-thru']),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
 
@@ -176,6 +181,7 @@ class ExportDefinition
             'Total IMEI', 'Total Sell-Through' => 'total_imei',
             'Activated' => 'activated', 'Not Activated' => 'not_activated',
             'ST Date' => 'st_date', 'Model' => 'model', 'TSO' => 'tso',
+            'Sell-thru' => 'sell_through', 'In stock' => 'in_stock',
             default => str_replace([' ', '-'], '_', strtolower($col)),
         };
     }
