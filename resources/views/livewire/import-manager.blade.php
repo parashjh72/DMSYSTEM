@@ -1,6 +1,11 @@
 <div>
-    <h1 class="text-xl font-semibold tracking-tight">Imports</h1>
-    <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
+    <div class="flex items-start justify-between">
+        <div>
+            <h1 class="text-xl font-semibold tracking-tight">Imports</h1>
+            <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
+        </div>
+        <a href="{{ route('imports.template') }}" class="btn-ghost">Download template</a>
+    </div>
 
     @can('imports.create')
     <div class="card mt-6">
@@ -9,6 +14,10 @@
             <input type="file" wire:model="file" accept=".csv,.txt,.xlsx"
                    class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-indigo-700">
             <div wire:loading wire:target="file" class="mt-2 text-sm text-gray-500">Uploading &amp; sniffing headers…</div>
+            <p class="mt-2 text-xs text-gray-400">
+                Columns are matched by header name, so order does not matter.
+                <a href="{{ route('imports.template') }}" class="text-indigo-600">Download the template</a> for the expected format.
+            </p>
             @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
         @else
             <h2 class="text-sm font-semibold">Review column mapping</h2>

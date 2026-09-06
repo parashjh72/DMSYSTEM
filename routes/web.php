@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\ImportTemplateController;
 use App\Livewire\Dashboard;
 use App\Livewire\DataExplorer;
 use App\Livewire\ExportManager;
@@ -25,6 +26,7 @@ Route::middleware('auth')->group(function () {
     Route::get('dashboard', Dashboard::class)->middleware('can:dashboard.view')->name('dashboard');
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.view')->name('imports.index');
+    Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.view')->name('imports.template');
     Route::get('imports/{batch}', ImportDetail::class)->middleware('can:imports.view')->name('imports.show');
 
     Route::get('explorer', DataExplorer::class)->middleware('can:explorer.view')->name('explorer');
