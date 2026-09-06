@@ -52,6 +52,24 @@ incrementally already), `import:reap-stale` every 5 min, `exports:prune` nightly
   failed chunks.
 - **CLI:** `php artisan records:import /abs/path/file.csv --mode=upsert [--chunk=25000] [--sync]`
 
+### Upload size limits
+
+Browser uploads are capped at `IMPORT_MAX_UPLOAD_KB` (default 512 MB, in
+`config/import.php` + `config/livewire.php`). The real ceiling is also:
+
+- PHP: `upload_max_filesize` and `post_max_size` (raise both in `php.ini`)
+- Web server: nginx `client_max_body_size` / Apache `LimitRequestBody`
+
+`php artisan serve` for dev is started with raised limits in this repo's run
+notes:
+
+```bash
+php -d upload_max_filesize=512M -d post_max_size=512M -d memory_limit=1G artisan serve
+```
+
+For multi-GB files or millions of rows, skip the browser and use
+`php artisan records:import` — no upload limit applies.
+
 ### First massive historical load
 
 For a one-off multi-million-row load into an empty table:

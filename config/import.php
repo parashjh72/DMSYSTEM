@@ -30,6 +30,13 @@ return [
     'directory' => 'imports',
 
     /*
+    | Max browser-upload size in KB (default 512 MB). Also bounded by PHP's
+    | upload_max_filesize / post_max_size and the web server body limit. Larger
+    | files should be loaded with `php artisan records:import`.
+    */
+    'max_upload_kb' => (int) env('IMPORT_MAX_UPLOAD_KB', 524288),
+
+    /*
     |--------------------------------------------------------------------------
     | Queues
     |--------------------------------------------------------------------------

@@ -33,7 +33,10 @@ class ImportManager extends Component
     {
         $this->authorizePermission();
         $this->validate([
-            'file' => ['required', 'file', 'max:5242880', 'extensions:csv,txt,xlsx'], // 5 GB cap
+            'file' => ['required', 'file', 'max:'.config('import.max_upload_kb'), 'extensions:csv,txt,xlsx'],
+        ], [
+            'file.max' => 'File exceeds the web upload limit ('.round(config('import.max_upload_kb') / 1024).' MB). '
+                .'For larger files use: php artisan records:import <path>',
         ]);
 
         $batch = app(ImportService::class)->createFromUpload($this->file, auth()->id());
