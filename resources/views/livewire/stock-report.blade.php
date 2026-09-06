@@ -33,15 +33,6 @@
                     @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
                 </select>
             </div>
-            @if ($type === 'rt')
-                <div>
-                    <label class="label">Retailer (RT)</label>
-                    <select class="input" wire:model.live="rtCode">
-                        <option value="">{{ $rdCode ? 'All retailers for this RD' : 'All retailers' }}</option>
-                        @foreach ($rtOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
-                    </select>
-                </div>
-            @endif
             <div>
                 <label class="label">Models</label>
                 <div class="flex gap-1">
@@ -57,6 +48,49 @@
                 </div>
             </div>
         </div>
+
+        @if ($type === 'rt')
+            <div class="mt-4 border-t border-gray-100 pt-4">
+                <label class="label">Retailers ({{ count($rtCodes) }} selected)</label>
+                <div class="grid gap-3 lg:grid-cols-2">
+                    <div>
+                        <textarea rows="3" wire:model="rtPaste"
+                                  class="input font-mono text-xs leading-5"
+                                  placeholder="Paste RT codes or names — one per line, or comma separated"></textarea>
+                        <div class="mt-2 flex items-center gap-2">
+                            <button class="btn-primary text-xs" wire:click="matchRetailers">Match &amp; tick</button>
+                            <button class="btn-ghost text-xs" wire:click="clearRts">Clear all</button>
+                            @if ($rtUnmatched)
+                                <span class="text-xs text-amber-600">{{ count($rtUnmatched) }} not matched:
+                                    {{ \Illuminate\Support\Str::limit(implode(', ', $rtUnmatched), 80) }}</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div>
+                        <input type="search" class="input mb-1 text-xs" placeholder="Filter list…"
+                               wire:model.live.debounce.300ms="rtSearch">
+                        <div class="max-h-48 overflow-y-auto rounded-lg ring-1 ring-gray-200">
+                            @forelse ($rtOptions as $code => $label)
+                                <label wire:key="rtc-{{ $code }}"
+                                       class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs hover:bg-indigo-50
+                                       {{ in_array($code, $rtCodes, true) ? 'bg-indigo-50' : '' }}">
+                                    <input type="checkbox" class="rounded border-gray-300"
+                                           wire:click="toggleRt('{{ $code }}')"
+                                           @checked(in_array($code, $rtCodes, true))>
+                                    <span class="truncate">{{ $label }}</span>
+                                </label>
+                            @empty
+                                <div class="px-3 py-2 text-xs text-gray-400">No retailers.</div>
+                            @endforelse
+                            @if ($rtTruncated)
+                                <div class="px-3 py-1 text-xs text-amber-600">List truncated — filter to narrow.</div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

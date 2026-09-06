@@ -55,9 +55,9 @@ class StockReportService
      *   totals: array<string,int>, otherTotal: int, grandTotal: int
      * }
      */
-    public function modelColumns(string $scope, ?string $rdCode, ?string $rtCode = null): array
+    public function modelColumns(string $scope, ?string $rdCode, array $rtCodes = []): array
     {
-        $ranked = $this->stockQuery($scope, $rdCode, $rtCode)
+        $ranked = $this->stockQuery($scope, $rdCode, $rtCodes)
             ->selectRaw('model, COUNT(*) AS qty')
             ->whereNotNull('model')->where('model', '<>', '')
             ->groupBy('model')
@@ -93,9 +93,9 @@ class StockReportService
     }
 
     /** RT-wise, pivoted: row per RD+RT, column per model. */
-    public function rtWise(?string $rdCode, ?string $rtCode, array $modelColumns, int $perPage = 50): LengthAwarePaginator
+    public function rtWise(?string $rdCode, array $rtCodes, array $modelColumns, int $perPage = 50): LengthAwarePaginator
     {
-        $rows = $this->stockQuery('rt', $rdCode, $rtCode)
+        $rows = $this->stockQuery('rt', $rdCode, $rtCodes)
             ->selectRaw('rd_code, MAX(rd_name) AS rd_name, rt_code, MAX(rt_name) AS rt_name, COUNT(*) AS total_qty')
             ->groupBy('rd_code', 'rt_code')
             ->orderByDesc('total_qty')
@@ -124,7 +124,7 @@ class StockReportService
     }
 
     /** Headline totals for the current RD / RT scope. */
-    public function summary(?string $rdCode, ?string $rtCode = null): object
+    public function summary(?string $rdCode, array $rtCodes = []): object
     {
         return $this->applyLifecycle(DB::table('sales_activation_records'))
             ->selectRaw('
@@ -134,16 +134,16 @@ class StockReportService
                 COUNT(DISTINCT CASE WHEN is_activated = 0 THEN model END) AS models
             ')
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
-            ->when($rtCode, fn ($q, $v) => $q->where('rt_code', $v))
+            ->when($rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $rtCodes))
             ->first() ?? (object) ['rd_stock' => 0, 'rt_stock' => 0, 'total_stock' => 0, 'models' => 0];
     }
 
     /** Every stock row, pivoted, for export (no pagination). @return list<array<string,mixed>> */
-    public function exportRows(string $scope, ?string $rdCode, ?string $rtCode, array $modelColumns, bool $hasOther): array
+    public function exportRows(string $scope, ?string $rdCode, array $rtCodes, array $modelColumns, bool $hasOther): array
     {
         $keyCols = $scope === 'rt' ? ['rd_code', 'rt_code'] : ['rd_code'];
 
-        $groups = $this->stockQuery($scope, $rdCode, $rtCode)
+        $groups = $this->stockQuery($scope, $rdCode, $rtCodes)
             ->selectRaw(implode(', ', $keyCols).', MAX(rd_name) AS rd_name'
                 .($scope === 'rt' ? ', MAX(rt_name) AS rt_name' : '')
                 .', model, COUNT(*) AS qty')
@@ -181,13 +181,13 @@ class StockReportService
 
     // ------------------------------------------------------------------
 
-    private function stockQuery(string $scope, ?string $rdCode, ?string $rtCode = null)
+    private function stockQuery(string $scope, ?string $rdCode, array $rtCodes = [])
     {
         $query = DB::table('sales_activation_records')
             ->where('is_activated', 0)
             ->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT)
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
-            ->when($rtCode && $scope === 'rt', fn ($q) => $q->where('rt_code', $rtCode));
+            ->when($scope === 'rt' && $rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $rtCodes));
 
         return $this->applyLifecycle($query);
     }

@@ -27,6 +27,7 @@ class ReportFilters
         public ?string $imei = null,
         public ?string $activationStatus = null, // activated | not_activated | null
         public ?string $lifecycle = null,        // running | out | null(both) — stock reports
+        public array $rtCodes = [],              // multi-select retailers — stock reports
     ) {}
 
     public static function fromArray(array $data): self
@@ -51,6 +52,7 @@ class ReportFilters
             imei: $clean('imei'),
             activationStatus: $clean('activation_status'),
             lifecycle: $clean('lifecycle'),
+            rtCodes: array_values(array_filter((array) ($data['rt_codes'] ?? []), fn ($v) => trim((string) $v) !== '')),
         );
     }
 
@@ -73,6 +75,7 @@ class ReportFilters
             'imei' => $this->imei,
             'activation_status' => $this->activationStatus,
             'lifecycle' => $this->lifecycle,
+            'rt_codes' => $this->rtCodes ?: null,
         ], fn ($v) => $v !== null);
     }
 
@@ -89,6 +92,7 @@ class ReportFilters
             ->when($this->rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($this->rdName, fn ($q, $v) => $q->where('rd_name', 'like', $v.'%'))
             ->when($this->rtCode, fn ($q, $v) => $q->where('rt_code', $v))
+            ->when($this->rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $this->rtCodes))
             ->when($this->rtName, fn ($q, $v) => $q->where('rt_name', 'like', $v.'%'))
             ->when($this->model, fn ($q, $v) => $q->where('model', $v))
             ->when($this->source, fn ($q, $v) => $q->where('source', $v))

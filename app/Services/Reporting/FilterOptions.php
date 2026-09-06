@@ -85,6 +85,42 @@ class FilterOptions
         return trim($code.' — '.($name ?? ''), ' —');
     }
 
+    /**
+     * Resolve pasted retailer codes / names to RT codes.
+     *
+     * @param  list<string>  $tokens
+     * @return array{matched: list<string>, unmatched: list<string>}
+     */
+    public function matchRetailers(array $tokens, ?string $rdCode = null): array
+    {
+        $matched = [];
+        $unmatched = [];
+
+        foreach ($tokens as $token) {
+            $token = trim($token);
+            if ($token === '') {
+                continue;
+            }
+
+            $code = DB::table('retailers')
+                ->when($rdCode, fn ($q) => $q->where('rd_code', $rdCode))
+                ->where(fn ($q) => $q
+                    ->where('code', $token)
+                    ->orWhere('name', $token)
+                    ->orWhere('name', 'like', '%'.$token.'%'))
+                ->orderByRaw('CASE WHEN code = ? THEN 0 WHEN name = ? THEN 1 ELSE 2 END', [$token, $token])
+                ->value('code');
+
+            if ($code !== null) {
+                $matched[$code] = $code;
+            } else {
+                $unmatched[] = $token;
+            }
+        }
+
+        return ['matched' => array_values($matched), 'unmatched' => $unmatched];
+    }
+
     public function forget(): void
     {
         Cache::forget('filters:tso');

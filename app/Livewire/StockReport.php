@@ -24,12 +24,22 @@ class StockReport extends Component
     #[Url]
     public ?string $rdCode = null;
 
+    /** Selected retailer codes (RT-wise tab, multi-select). */
     #[Url]
-    public ?string $rtCode = null;
+    public array $rtCodes = [];
 
     /** '' = both, 'running', 'out' — filters by device_models.status. */
     #[Url]
     public string $lifecycle = '';
+
+    /** Type-ahead filter for the retailer checklist. */
+    public string $rtSearch = '';
+
+    /** Paste box for bulk retailer selection. */
+    public string $rtPaste = '';
+
+    /** Tokens from the last paste that matched nothing. */
+    public array $rtUnmatched = [];
 
     public const TYPES = [
         'rd' => 'RD-wise stock',
@@ -49,17 +59,42 @@ class StockReport extends Component
 
     public function updatedRdCode(): void
     {
-        $this->rtCode = null;
-        $this->resetPage();
-    }
-
-    public function updatedRtCode(): void
-    {
+        $this->rtCodes = [];
+        $this->rtUnmatched = [];
         $this->resetPage();
     }
 
     public function updatedLifecycle(): void
     {
+        $this->resetPage();
+    }
+
+    /** Tick / untick one retailer in the checklist. */
+    public function toggleRt(string $code): void
+    {
+        $this->rtCodes = in_array($code, $this->rtCodes, true)
+            ? array_values(array_diff($this->rtCodes, [$code]))
+            : [...$this->rtCodes, $code];
+        $this->resetPage();
+    }
+
+    /** Resolve the pasted codes / names and tick the matches. */
+    public function matchRetailers(FilterOptions $options): void
+    {
+        $tokens = preg_split('/[\r\n,;\t]+/', trim($this->rtPaste), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $result = $options->matchRetailers($tokens, $this->rdCode ?: null);
+
+        $this->rtCodes = array_values(array_unique([...$this->rtCodes, ...$result['matched']]));
+        $this->rtUnmatched = $result['unmatched'];
+        $this->rtPaste = '';
+        $this->resetPage();
+    }
+
+    public function clearRts(): void
+    {
+        $this->rtCodes = [];
+        $this->rtUnmatched = [];
+        $this->rtSearch = '';
         $this->resetPage();
     }
 
@@ -70,7 +105,7 @@ class StockReport extends Component
         $exportType = ['rd' => 'stock_rd', 'rt' => 'stock_rt', 'model' => 'stock_model'][$this->type];
         $filters = ReportFilters::fromArray([
             'rd_code' => $this->rdCode,
-            'rt_code' => $this->type === 'rt' ? $this->rtCode : null,
+            'rt_codes' => $this->type === 'rt' ? $this->rtCodes : [],
             'lifecycle' => $this->lifecycle,
         ]);
 
@@ -82,7 +117,7 @@ class StockReport extends Component
     public function render(StockReportService $stock, FilterOptions $options)
     {
         $rd = $this->rdCode ?: null;
-        $rt = $this->rtCode ?: null;
+        $rtCodes = $this->type === 'rt' ? array_values($this->rtCodes) : [];
         $stock->forLifecycle($this->lifecycle ?: null);
 
         $columns = ['models' => [], 'hasOther' => false, 'totals' => [], 'otherTotal' => 0, 'grandTotal' => 0];
@@ -90,18 +125,28 @@ class StockReport extends Component
         if ($this->type === 'model') {
             $rows = $stock->modelWise($rd, 50);
         } else {
-            $columns = $stock->modelColumns($this->type, $rd, $this->type === 'rt' ? $rt : null);
+            $columns = $stock->modelColumns($this->type, $rd, $rtCodes);
             $rows = $this->type === 'rt'
-                ? $stock->rtWise($rd, $rt, $columns['models'], 50)
+                ? $stock->rtWise($rd, $rtCodes, $columns['models'], 50)
                 : $stock->rdWise($rd, $columns['models'], 50);
+        }
+
+        // Checklist: search results plus any selected code that falls outside them.
+        $rtList = $options->retailers($rd, $this->rtSearch);
+        $rtOptions = $rtList['options'];
+        foreach ($this->rtCodes as $code) {
+            if (! isset($rtOptions[$code])) {
+                $rtOptions = [$code => $options->retailerLabel($code)] + $rtOptions;
+            }
         }
 
         return view('livewire.stock-report', [
             'rows' => $rows,
             'columns' => $columns,
-            'summary' => $stock->summary($rd, $this->type === 'rt' ? $rt : null),
+            'summary' => $stock->summary($rd, $rtCodes),
             'rdOptions' => $options->distributors(),
-            'rtOptions' => $options->retailers($rd)['options'],
+            'rtOptions' => $rtOptions,
+            'rtTruncated' => $rtList['truncated'],
         ]);
     }
 }

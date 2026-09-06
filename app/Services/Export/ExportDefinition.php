@@ -95,11 +95,11 @@ class ExportDefinition
     private function stockPivot(string $scope, ReportFilters $f): array
     {
         $rd = $f->rdCode;
-        $rt = $scope === 'rt' ? $f->rtCode : null;
+        $rtCodes = $scope === 'rt' ? $f->rtCodes : [];
         $this->stock->forLifecycle($f->lifecycle);
 
-        ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rt);
-        $rows = $this->stock->exportRows($scope, $rd, $rt, $models, $hasOther);
+        ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rtCodes);
+        $rows = $this->stock->exportRows($scope, $rd, $rtCodes, $models, $hasOther);
 
         $keyCols = $scope === 'rt'
             ? ['rd_code' => 'RD Code', 'rd_name' => 'RD Name', 'rt_code' => 'RT Code', 'rt_name' => 'RT Name']
