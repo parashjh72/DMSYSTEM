@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -42,21 +43,29 @@ class DashboardService
     /** Daily sell-through vs activation series for the last N days. */
     public function dailySeries(int $days = 30): array
     {
+        // Cached values are plain arrays only — config/cache.php sets
+        // serializable_classes => false, so cached objects come back incomplete.
         return Cache::remember("dashboard:series:{$days}", self::TTL, function () use ($days) {
+            // Anchor the window to the most recent ST date present (historical
+            // imports may not reach "today"), falling back to today.
+            $anchor = DB::table('daily_activation_summary')->max('st_date') ?? now()->toDateString();
+            $from = Carbon::parse($anchor)->subDays($days)->toDateString();
+
             return DB::table('daily_activation_summary')
                 ->selectRaw('st_date,
                     SUM(total_imei) AS sell_through,
                     SUM(activated) AS activated,
                     SUM(not_activated) AS not_activated')
-                ->where('st_date', '>=', now()->subDays($days)->toDateString())
+                ->where('st_date', '>=', $from)
                 ->groupBy('st_date')
                 ->orderBy('st_date')
                 ->get()
+                ->map(fn ($r) => (array) $r)
                 ->all();
         });
     }
 
-    /** @return array<int,object> top N by volume */
+    /** @return array<int,array<string,mixed>> top N by volume */
     public function top(string $dimension, int $limit = 10): array
     {
         $table = match ($dimension) {
@@ -70,6 +79,7 @@ class DashboardService
             ->orderByDesc('total_imei')
             ->limit($limit)
             ->get()
+            ->map(fn ($r) => (array) $r)
             ->all());
     }
 

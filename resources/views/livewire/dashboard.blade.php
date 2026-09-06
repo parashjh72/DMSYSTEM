@@ -46,9 +46,9 @@
             @endphp
             <div class="mt-4 flex items-end gap-1 overflow-x-auto" style="height:160px">
                 @forelse ($series as $d)
-                    <div class="flex flex-1 min-w-[6px] flex-col justify-end" title="{{ $d->st_date }}: {{ $d->sell_through }} ST / {{ $d->activated }} act">
-                        <div class="w-full rounded-t bg-indigo-500" style="height:{{ (int) ($d->sell_through / $max * 140) }}px"></div>
-                        <div class="w-full bg-emerald-400" style="height:{{ (int) ($d->activated / $max * 140) }}px"></div>
+                    <div class="flex flex-1 min-w-[6px] flex-col justify-end" title="{{ $d['st_date'] }}: {{ $d['sell_through'] }} ST / {{ $d['activated'] }} act">
+                        <div class="w-full rounded-t bg-indigo-500" style="height:{{ (int) ($d['sell_through'] / $max * 140) }}px"></div>
+                        <div class="w-full bg-emerald-400" style="height:{{ (int) ($d['activated'] / $max * 140) }}px"></div>
                     </div>
                 @empty
                     <p class="text-sm text-gray-400">No data in range.</p>
@@ -86,9 +86,9 @@
                     <tbody>
                     @foreach ($rows as $r)
                         <tr class="border-b border-gray-50 last:border-0">
-                            <td class="td max-w-[140px] truncate">{{ $r->$key }}</td>
-                            <td class="td text-right font-medium">{{ number_format($r->total_imei) }}</td>
-                            <td class="td text-right text-gray-400">{{ $r->total_imei ? round($r->activated / $r->total_imei * 100) : 0 }}%</td>
+                            <td class="td max-w-[140px] truncate">{{ $r[$key] }}</td>
+                            <td class="td text-right font-medium">{{ number_format($r['total_imei']) }}</td>
+                            <td class="td text-right text-gray-400">{{ $r['total_imei'] ? round($r['activated'] / $r['total_imei'] * 100) : 0 }}%</td>
                         </tr>
                     @endforeach
                     </tbody>
