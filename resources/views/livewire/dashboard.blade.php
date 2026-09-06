@@ -63,7 +63,7 @@
         <div class="card">
             <h2 class="text-sm font-semibold">ST → activation lag</h2>
             <div class="mt-3 space-y-2">
-                @php $lagMax = max(array_values($lag) ?: [1]); @endphp
+                @php $lagMax = max(array_values($lag)) ?: 1; @endphp
                 @foreach ($lag as $bucket => $count)
                     <div>
                         <div class="flex justify-between text-xs text-gray-600">
