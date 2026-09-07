@@ -41,9 +41,11 @@ class SellThroughRowMapper
         }
 
         $rdCode = trim((string) $this->cell($row, 'rd_code'));
+        $model = trim((string) $this->cell($row, 'model'));
 
         return [
             'imei' => $imei,
+            'model' => $model === '' ? null : mb_substr($model, 0, 100),
             'rd_code' => $rdCode === '' ? null : mb_substr($rdCode, 0, 40),
             'rt_code' => mb_substr($rtCode, 0, 40),
             'st_date' => $stDate,

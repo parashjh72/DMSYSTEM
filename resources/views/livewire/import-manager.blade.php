@@ -28,9 +28,9 @@
             </div>
             @if ($kind === 'sell_through')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-                    Assigns retailers to existing IMEIs. File columns: <strong>IMEI, RD Code, RT Code, Invoice Date</strong>
-                    (invoice date is stored as ST Date). RT name is filled from Master Data. IMEIs not already in the
-                    system are reported as errors.
+                    Assigns retailers to existing IMEIs. File columns: <strong>IMEI, Model, RD Code, RTCode, ST Date</strong>
+                    (ST Date = invoice date). Only IMEI, RTCode and ST Date are used; Model is ignored. RT name is filled
+                    from Master Data. IMEIs not already in the system are reported as errors.
                 </p>
             @endif
 

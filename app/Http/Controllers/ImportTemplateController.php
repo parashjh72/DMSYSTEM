@@ -17,11 +17,11 @@ class ImportTemplateController extends Controller
         ['863222072207893', 'C63 (8+128GB)', 'Roshan Singh', 'MD001061', 'New Rameshworam Suppliers', 'NP065585', 'New dipesh mobile gallery', '2025-03-02', '', '2025-02-18', 'Manual'],
     ];
 
-    private const SELL_THROUGH_HEADERS = ['IMEI', 'RD Code', 'RT Code', 'Invoice Date'];
+    private const SELL_THROUGH_HEADERS = ['IMEI', 'Model', 'RD Code', 'RTCode', 'ST Date'];
 
     private const SELL_THROUGH_ROWS = [
-        ['863222207290410', 'MDDX2803', 'NP057002', '2026-09-05'],
-        ['863222072207893', 'MD001061', 'NP065585', '2026-09-06'],
+        ['860500081389635', 'C63 (8+128GB)', 'MDDX2803', 'NP057159', '2026-09-01'],
+        ['860500081421198', 'C63 (8+128GB)', 'MDDX2803', 'NP057159', '2026-09-01'],
     ];
 
     public function __invoke(Request $request): StreamedResponse

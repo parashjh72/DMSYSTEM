@@ -79,13 +79,15 @@ return [
     ],
 
     /*
-    | Sell-through (RD -> RT) import: only these columns. ST Date = invoice date.
+    | Sell-through (RD -> RT) import. ST Date = invoice date. Model is optional —
+    | if present it refreshes the record's model.
     */
     'sell_through_aliases' => [
         'imei' => ['imei', 'imei no', 'imei number', 'imei1'],
+        'model' => ['model', 'model name', 'device model', 'sku'],
         'rd_code' => ['rd code', 'rdcode', 'distributor code', 'rd'],
         'rt_code' => ['rtcode', 'rt code', 'retailer code', 'rt'],
-        'st_date' => ['invoice date', 'invoice dt', 'st date', 'stdate', 'sell through date',
+        'st_date' => ['st date', 'stdate', 'invoice date', 'invoice dt', 'sell through date',
             'sellthrough date', 'sell-thru date', 'bill date', 'st'],
     ],
 
