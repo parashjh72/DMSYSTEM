@@ -47,6 +47,7 @@
         <div class="card">
             <h2 class="text-sm font-semibold">Config</h2>
             <dl class="mt-2 space-y-1 text-sm">
+                <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ $batch->kind === 'sell_through' ? 'Sell-through (RD → RT)' : 'Model data' }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Mode</dt><dd>{{ $batch->import_mode->label() }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Chunk size</dt><dd>{{ number_format($batch->chunk_size) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Imported by</dt><dd>{{ $batch->creator?->name ?? '—' }}</dd></div>
@@ -65,18 +66,86 @@
                         <span class="badge bg-amber-100 text-amber-800">{{ $type }}: {{ number_format($count) }}</span>
                     @endforeach
                 </div>
-                <div class="mt-3 max-h-72 overflow-y-auto">
-                    <table class="min-w-full text-sm">
-                        <thead><tr><th class="th">Row</th><th class="th">Type</th><th class="th">Message</th></tr></thead>
-                        <tbody class="divide-y divide-gray-100">
-                        @foreach ($errorSample as $e)
-                            <tr><td class="td">{{ $e->row_number }}</td><td class="td">{{ $e->error_type }}</td><td class="td whitespace-normal">{{ $e->error_message }}</td></tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
-                <p class="mt-2 text-xs text-gray-400">Showing latest 50. Use Exports for the full error list.</p>
             @endif
         </div>
     </div>
+
+    {{-- Data tabs --}}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="flex gap-2">
+            <button wire:click="$set('tab', 'rows')"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                    {{ $tab === 'rows' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                Records in this batch
+            </button>
+            <button wire:click="$set('tab', 'errors')"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                    {{ $tab === 'errors' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                Errors ({{ number_format($batch->invalid_rows + $batch->failed_rows) }})
+            </button>
+        </div>
+        @can('exports.create')
+            @if ($tab === 'rows')
+                <button class="btn-ghost" wire:click="exportRows">Download records → CSV</button>
+            @elseif (! $errorCounts->isEmpty())
+                <button class="btn-ghost" wire:click="exportErrors">Download errors → CSV</button>
+            @endif
+        @endcan
+    </div>
+
+    @if ($tab === 'rows')
+        <div class="card mt-3 overflow-x-auto p-0">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50"><tr>
+                    <th class="th">IMEI</th><th class="th">Model</th><th class="th">TSO</th>
+                    <th class="th">RD</th><th class="th">RT</th>
+                    <th class="th">ST Date</th><th class="th">Activation</th><th class="th">Sell-In</th><th class="th">Source</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                @forelse ($rows as $r)
+                    <tr wire:key="row-{{ $r->id }}">
+                        <td class="td font-mono">{{ $r->imei }}</td>
+                        <td class="td">{{ $r->model }}</td>
+                        <td class="td">{{ $r->tso }}</td>
+                        <td class="td">{{ $r->rd_code }}</td>
+                        <td class="td">{{ $r->rt_code ?: '—' }}</td>
+                        <td class="td">{{ $r->st_date ?? '—' }}</td>
+                        <td class="td">{{ $r->activation_date ?? '—' }}</td>
+                        <td class="td">{{ $r->sell_in_date ?? '—' }}</td>
+                        <td class="td">{{ $r->source }}</td>
+                    </tr>
+                @empty
+                    <tr><td class="td text-gray-400" colspan="9">
+                        No records currently attributed to this batch
+                        @if ($batch->kind !== 'sell_through') (a later import may have taken them over) @endif.
+                    </td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($rows) <div class="mt-3">{{ $rows->links() }}</div> @endif
+        <p class="mt-2 text-xs text-gray-400">Records where this batch is the last one to have touched them.</p>
+    @else
+        <div class="card mt-3 overflow-x-auto p-0">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50"><tr>
+                    <th class="th">Row</th><th class="th">Chunk</th><th class="th">Type</th><th class="th">Message</th><th class="th">Data</th>
+                </tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                @forelse ($errors as $e)
+                    <tr wire:key="err-{{ $e->id }}">
+                        <td class="td">{{ $e->row_number }}</td>
+                        <td class="td">{{ $e->chunk_number }}</td>
+                        <td class="td">{{ $e->error_type }}</td>
+                        <td class="td whitespace-normal">{{ $e->error_message }}</td>
+                        <td class="td max-w-xs truncate text-gray-400">{{ is_array($e->row_payload) ? json_encode($e->row_payload) : $e->row_payload }}</td>
+                    </tr>
+                @empty
+                    <tr><td class="td text-gray-400" colspan="5">No errors.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($errors) <div class="mt-3">{{ $errors->links() }}</div> @endif
+    @endif
 </div>

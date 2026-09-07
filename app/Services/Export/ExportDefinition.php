@@ -68,6 +68,7 @@ class ExportDefinition
                 ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Activated', 'In stock', 'Sell-thru']),
             'quick_act_value' => $this->valueRows($filters),
             'scheme_achievement' => $this->schemeRows($filters),
+            'import_errors' => $this->importErrors($filters),
             default => throw new InvalidArgumentException("Unknown export type [{$type}]."),
         };
 
@@ -173,6 +174,24 @@ class ExportDefinition
         $rows = (function () use ($data) {
             foreach ($data as $r) {
                 yield [$r['model'], $r['qty'], $r['total_value'], $r['avg_price'], $r['price_range'], $r['unpriced_qty']];
+            }
+        })();
+
+        return [$header, $rows];
+    }
+
+    private function importErrors(ReportFilters $f): array
+    {
+        $header = ['Row', 'Chunk', 'Type', 'Message', 'Data'];
+
+        $query = DB::table('import_row_errors')
+            ->select('row_number', 'chunk_number', 'error_type', 'error_message', 'row_payload')
+            ->where('import_batch_id', $f->importBatch)
+            ->orderBy('id');
+
+        $rows = (function () use ($query) {
+            foreach ($query->lazy(2000) as $e) {
+                yield [$e->row_number, $e->chunk_number, $e->error_type, $e->error_message, $e->row_payload];
             }
         })();
 

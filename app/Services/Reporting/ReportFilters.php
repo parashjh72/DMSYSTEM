@@ -33,6 +33,7 @@ class ReportFilters
         public ?string $valueBasis = null,       // activation_date | st_date
         public ?string $schemeUuid = null,       // scheme achievement export
         public bool $schemeEnrolledOnly = false,
+        public ?int $importBatch = null,         // records touched by one import batch
     ) {}
 
     public static function fromArray(array $data): self
@@ -63,6 +64,7 @@ class ReportFilters
             valueBasis: $clean('value_basis'),
             schemeUuid: $clean('scheme_uuid'),
             schemeEnrolledOnly: (bool) ($data['scheme_enrolled_only'] ?? false),
+            importBatch: isset($data['import_batch']) && $data['import_batch'] !== '' ? (int) $data['import_batch'] : null,
         );
     }
 
@@ -91,6 +93,7 @@ class ReportFilters
             'value_basis' => $this->valueBasis,
             'scheme_uuid' => $this->schemeUuid,
             'scheme_enrolled_only' => $this->schemeEnrolledOnly ?: null,
+            'import_batch' => $this->importBatch,
         ], fn ($v) => $v !== null);
     }
 
@@ -113,7 +116,8 @@ class ReportFilters
             ->when($this->source, fn ($q, $v) => $q->where('source', $v))
             ->when($this->imei, fn ($q, $v) => $q->where('imei', $v)) // exact only — indexed
             ->when($this->activationStatus === 'activated', fn ($q) => $q->where('is_activated', 1))
-            ->when($this->activationStatus === 'not_activated', fn ($q) => $q->where('is_activated', 0));
+            ->when($this->activationStatus === 'not_activated', fn ($q) => $q->where('is_activated', 0))
+            ->when($this->importBatch, fn ($q, $v) => $q->where('last_import_batch_id', $v));
 
         return $query;
     }
