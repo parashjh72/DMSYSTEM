@@ -29,7 +29,7 @@ class ImportManager extends Component
 
     public int $chunkSize = 5000;
 
-    /** records | sell_through */
+    /** records | sell_through | activation */
     public string $kind = 'records';
 
     public function updatedFile(): void
@@ -42,17 +42,14 @@ class ImportManager extends Component
                 .'For larger files use: php artisan records:import <path>',
         ]);
 
-        $kind = $this->kind === 'sell_through' ? 'sell_through' : 'records';
+        $kind = in_array($this->kind, ['sell_through', 'activation'], true) ? $this->kind : 'records';
         $batch = app(ImportService::class)->createFromUpload($this->file, auth()->id(), $kind);
 
         $path = Storage::disk($batch->disk)->path($batch->stored_path);
         $reader = new SpreadsheetReader($path, $batch->file_type);
         $headers = $reader->headers();
-        $resolved = HeaderMap::resolve(
-            $headers,
-            $kind === 'sell_through' ? config('import.sell_through_aliases') : config('import.header_aliases'),
-            $kind === 'sell_through' ? config('import.sell_through_required') : config('import.required_fields'),
-        );
+        [$aliases, $required] = ImportService::schemaFor($kind);
+        $resolved = HeaderMap::resolve($headers, $aliases, $required);
 
         $this->review = [
             'uuid' => $batch->uuid,
@@ -108,15 +105,11 @@ class ImportManager extends Component
     public function render()
     {
         $reviewKind = $this->review['kind'] ?? $this->kind;
-        $fields = $reviewKind === 'sell_through'
-            ? array_keys(config('import.sell_through_aliases'))
-            : array_keys(config('import.header_aliases'));
+        [$aliases, $required] = ImportService::schemaFor($reviewKind);
 
         return view('livewire.import-manager', [
-            'fields' => $fields,
-            'requiredFields' => $reviewKind === 'sell_through'
-                ? config('import.sell_through_required')
-                : config('import.required_fields'),
+            'fields' => array_keys($aliases),
+            'requiredFields' => $required,
             'batches' => ImportBatch::with('creator')->latest()->paginate(15),
         ]);
     }

@@ -67,6 +67,20 @@ class ImportBatch extends Model
         return $this->kind === 'sell_through';
     }
 
+    public function isActivation(): bool
+    {
+        return $this->kind === 'activation';
+    }
+
+    public function kindLabel(): string
+    {
+        return match ($this->kind) {
+            'sell_through' => 'Sell-through (RD → RT)',
+            'activation' => 'Activation',
+            default => 'Model data',
+        };
+    }
+
     public function progressPercent(): int
     {
         if (! $this->total_rows) {

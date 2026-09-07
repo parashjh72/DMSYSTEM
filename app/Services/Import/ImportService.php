@@ -68,18 +68,23 @@ class ImportService
         );
     }
 
+    /** @return array{0: array<string,array<int,string>>, 1: list<string>} [aliases, required] */
+    public static function schemaFor(string $kind): array
+    {
+        return match ($kind) {
+            'sell_through' => [config('import.sell_through_aliases'), config('import.sell_through_required')],
+            'activation' => [config('import.activation_aliases'), config('import.activation_required')],
+            default => [config('import.header_aliases'), config('import.required_fields')],
+        };
+    }
+
     private function makeBatch(string $disk, string $storedPath, string $originalName, string $type, int $size, ?int $userId, string $kind = 'records'): ImportBatch
     {
-        $kind = $kind === 'sell_through' ? 'sell_through' : 'records';
+        $kind = in_array($kind, ['sell_through', 'activation'], true) ? $kind : 'records';
         $absolute = Storage::disk($disk)->path($storedPath);
         $reader = new SpreadsheetReader($absolute, $type);
         $headers = $reader->headers();
-        $aliases = $kind === 'sell_through'
-            ? config('import.sell_through_aliases')
-            : config('import.header_aliases');
-        $required = $kind === 'sell_through'
-            ? config('import.sell_through_required')
-            : config('import.required_fields');
+        [$aliases, $required] = self::schemaFor($kind);
         $resolved = HeaderMap::resolve($headers, $aliases, $required);
 
         return ImportBatch::create([
@@ -108,9 +113,7 @@ class ImportService
     {
         $map = $columnMap ?? $batch->column_map ?? [];
 
-        $required = $batch->kind === 'sell_through'
-            ? config('import.sell_through_required')
-            : config('import.required_fields', []);
+        [, $required] = self::schemaFor($batch->kind);
         foreach ($required as $field) {
             if (! array_key_exists($field, $map)) {
                 throw new RuntimeException("Required column [{$field}] is not mapped.");

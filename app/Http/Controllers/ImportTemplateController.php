@@ -17,6 +17,13 @@ class ImportTemplateController extends Controller
         ['863222072207893', 'C63 (8+128GB)', 'Roshan Singh', 'MD001061', 'New Rameshworam Suppliers', 'NP065585', 'New dipesh mobile gallery', '2025-03-02', '', '2025-02-18', 'Manual'],
     ];
 
+    private const ACTIVATION_HEADERS = ['IMEI', 'Activation Date'];
+
+    private const ACTIVATION_ROWS = [
+        ['<15-digit IMEI>', '2026-09-15'],
+        ['<15-digit IMEI>', '2026-09-16'],
+    ];
+
     private const SELL_THROUGH_HEADERS = ['IMEI', 'Model', 'RD Code', 'RTCode', 'ST Date'];
 
     /* Placeholder rows — replace with your data. Only IMEI, RTCode and ST Date
@@ -28,10 +35,11 @@ class ImportTemplateController extends Controller
 
     public function __invoke(Request $request): StreamedResponse
     {
-        $sell = $request->query('kind') === 'sell_through';
-        $filename = $sell ? 'dm-system-sell-through-template.csv' : 'dm-system-import-template.csv';
-        $headers = $sell ? self::SELL_THROUGH_HEADERS : self::HEADERS;
-        $rows = $sell ? self::SELL_THROUGH_ROWS : self::SAMPLE_ROWS;
+        [$filename, $headers, $rows] = match ($request->query('kind')) {
+            'sell_through' => ['dm-system-sell-through-template.csv', self::SELL_THROUGH_HEADERS, self::SELL_THROUGH_ROWS],
+            'activation' => ['dm-system-activation-template.csv', self::ACTIVATION_HEADERS, self::ACTIVATION_ROWS],
+            default => ['dm-system-import-template.csv', self::HEADERS, self::SAMPLE_ROWS],
+        };
 
         return response()->streamDownload(function () use ($headers, $rows) {
             $out = fopen('php://output', 'w');

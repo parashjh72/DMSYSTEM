@@ -47,7 +47,7 @@
         <div class="card">
             <h2 class="text-sm font-semibold">Config</h2>
             <dl class="mt-2 space-y-1 text-sm">
-                <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ $batch->kind === 'sell_through' ? 'Sell-through (RD → RT)' : 'Model data' }}</dd></div>
+                <div class="flex justify-between"><dt class="text-gray-500">Type</dt><dd>{{ $batch->kindLabel() }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Mode</dt><dd>{{ $batch->import_mode->label() }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Chunk size</dt><dd>{{ number_format($batch->chunk_size) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-gray-500">Imported by</dt><dd>{{ $batch->creator?->name ?? '—' }}</dd></div>

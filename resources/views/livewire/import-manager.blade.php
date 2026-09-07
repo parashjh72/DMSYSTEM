@@ -4,9 +4,10 @@
             <h1 class="text-xl font-semibold tracking-tight">Imports</h1>
             <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
             <a href="{{ route('imports.template') }}" class="btn-ghost">Model template</a>
             <a href="{{ route('imports.template', ['kind' => 'sell_through']) }}" class="btn-ghost">Sell-thru template</a>
+            <a href="{{ route('imports.template', ['kind' => 'activation']) }}" class="btn-ghost">Activation template</a>
         </div>
     </div>
 
@@ -25,6 +26,11 @@
                         {{ $kind === 'sell_through' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
                     Sell-through (RD → RT)
                 </button>
+                <button wire:click="$set('kind', 'activation')"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                        {{ $kind === 'activation' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                    Activation
+                </button>
             </div>
             @if ($kind === 'sell_through')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
@@ -32,6 +38,11 @@
                     (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — Model and RD Code
                     are informational (the device's model/RD come from the model import). RT name is filled from Master
                     Data. IMEIs not already in the system are reported as errors.
+                </p>
+            @elseif ($kind === 'activation')
+                <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                    Marks existing IMEIs activated. File columns: <strong>IMEI, Activation Date</strong>. IMEIs not already
+                    in the system are reported as errors.
                 </p>
             @endif
 
@@ -45,10 +56,11 @@
             </p>
             @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
         @else
+            @php $rk = $review['kind'] ?? 'records'; @endphp
             <h2 class="text-sm font-semibold">
                 Review column mapping
-                <span class="badge {{ ($review['kind'] ?? 'records') === 'sell_through' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600' }}">
-                    {{ ($review['kind'] ?? 'records') === 'sell_through' ? 'Sell-through (RD → RT)' : 'Model data' }}
+                <span class="badge {{ $rk === 'records' ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-800' }}">
+                    {{ ['records' => 'Model data', 'sell_through' => 'Sell-through (RD → RT)', 'activation' => 'Activation'][$rk] }}
                 </span>
             </h2>
             <p class="mt-1 text-xs text-gray-500">Detected headers: {{ implode(', ', $review['headers']) }}</p>
@@ -73,7 +85,7 @@
             @endif
 
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                @if (($review['kind'] ?? 'records') !== 'sell_through')
+                @if (($review['kind'] ?? 'records') === 'records')
                 <div>
                     <label class="label">Import mode</label>
                     <select wire:model="mode" class="input">
@@ -118,7 +130,7 @@
             @forelse ($batches as $b)
                 <tr wire:key="b-{{ $b->id }}">
                     <td class="td max-w-[220px] truncate">{{ $b->original_filename }}</td>
-                    <td class="td"><span class="badge {{ $b->kind === 'sell_through' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600' }}">{{ $b->kind === 'sell_through' ? 'Sell-thru' : 'Model' }}</span></td>
+                    <td class="td"><span class="badge {{ $b->kind === 'records' ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-800' }}">{{ ['records' => 'Model', 'sell_through' => 'Sell-thru', 'activation' => 'Activation'][$b->kind] ?? $b->kind }}</span></td>
                     <td class="td">
                         <span class="badge {{ match($b->status->value) {
                             'completed' => 'bg-green-100 text-green-800',

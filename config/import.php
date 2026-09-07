@@ -100,6 +100,16 @@ return [
     'sell_through_required' => ['imei', 'rt_code', 'st_date'],
 
     /*
+    | Activation import: just IMEI + activation date. Sets activation_date on
+    | existing IMEIs (never inserts).
+    */
+    'activation_aliases' => [
+        'imei' => ['imei', 'imei no', 'imei number', 'imei1'],
+        'activation_date' => ['activation', 'activation date', 'activated on', 'act date', 'activation dt'],
+    ],
+    'activation_required' => ['imei', 'activation_date'],
+
+    /*
     |--------------------------------------------------------------------------
     | IMEI validation
     |--------------------------------------------------------------------------
