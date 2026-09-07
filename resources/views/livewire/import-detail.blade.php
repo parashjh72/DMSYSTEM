@@ -81,7 +81,7 @@
             <button wire:click="$set('tab', 'errors')"
                     class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
                     {{ $tab === 'errors' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
-                Errors ({{ number_format($batch->invalid_rows + $batch->failed_rows) }})
+                Errors ({{ number_format($errorTotal) }})
             </button>
         </div>
         @can('exports.create')

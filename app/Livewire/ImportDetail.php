@@ -100,6 +100,7 @@ class ImportDetail extends Component
             'errors' => $errors,
             'errorCounts' => $batch->rowErrors()
                 ->selectRaw('error_type, COUNT(*) c')->groupBy('error_type')->pluck('c', 'error_type'),
+            'errorTotal' => $batch->rowErrors()->count(),
         ]);
     }
 }
