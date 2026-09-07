@@ -18,7 +18,7 @@ class ImportService
      * Persist an uploaded file and create a pending batch. Does NOT start the
      * import — the caller reviews the column map first, then calls start().
      */
-    public function createFromUpload(UploadedFile $file, ?int $userId): ImportBatch
+    public function createFromUpload(UploadedFile $file, ?int $userId, string $kind = 'records'): ImportBatch
     {
         $type = $this->detectType($file->getClientOriginalName(), $file->getMimeType());
         $disk = config('import.disk');
@@ -38,11 +38,12 @@ class ImportService
             type: $type,
             size: $file->getSize(),
             userId: $userId,
+            kind: $kind,
         );
     }
 
     /** Register an existing on-disk file (CLI import). */
-    public function createFromPath(string $absolutePath, ?int $userId): ImportBatch
+    public function createFromPath(string $absolutePath, ?int $userId, string $kind = 'records'): ImportBatch
     {
         if (! is_file($absolutePath)) {
             throw new RuntimeException("File not found: {$absolutePath}");
@@ -63,15 +64,23 @@ class ImportService
             type: $type,
             size: filesize($absolutePath) ?: 0,
             userId: $userId,
+            kind: $kind,
         );
     }
 
-    private function makeBatch(string $disk, string $storedPath, string $originalName, string $type, int $size, ?int $userId): ImportBatch
+    private function makeBatch(string $disk, string $storedPath, string $originalName, string $type, int $size, ?int $userId, string $kind = 'records'): ImportBatch
     {
+        $kind = $kind === 'sell_through' ? 'sell_through' : 'records';
         $absolute = Storage::disk($disk)->path($storedPath);
         $reader = new SpreadsheetReader($absolute, $type);
         $headers = $reader->headers();
-        $resolved = HeaderMap::resolve($headers);
+        $aliases = $kind === 'sell_through'
+            ? config('import.sell_through_aliases')
+            : config('import.header_aliases');
+        $required = $kind === 'sell_through'
+            ? config('import.sell_through_required')
+            : config('import.required_fields');
+        $resolved = HeaderMap::resolve($headers, $aliases, $required);
 
         return ImportBatch::create([
             'original_filename' => $originalName,
@@ -80,6 +89,7 @@ class ImportService
             'file_type' => $type,
             'file_size' => $size,
             'file_hash' => hash_file('sha256', $absolute),
+            'kind' => $kind,
             'column_map' => $resolved['map'],
             'import_mode' => ImportMode::Upsert,
             'duplicate_strategy' => 'update',
@@ -98,7 +108,10 @@ class ImportService
     {
         $map = $columnMap ?? $batch->column_map ?? [];
 
-        foreach (config('import.required_fields', []) as $field) {
+        $required = $batch->kind === 'sell_through'
+            ? config('import.sell_through_required')
+            : config('import.required_fields', []);
+        foreach ($required as $field) {
             if (! array_key_exists($field, $map)) {
                 throw new RuntimeException("Required column [{$field}] is not mapped.");
             }

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
-    'uuid', 'original_filename', 'stored_path', 'disk', 'file_type', 'file_size', 'file_hash',
+    'uuid', 'original_filename', 'stored_path', 'disk', 'file_type', 'file_size', 'file_hash', 'kind',
     'column_map', 'import_mode', 'duplicate_strategy', 'status', 'chunk_size',
     'total_chunks', 'completed_chunks', 'total_rows', 'processed_rows', 'valid_rows',
     'invalid_rows', 'inserted_rows', 'updated_rows', 'skipped_rows', 'duplicate_rows',
@@ -60,6 +60,11 @@ class ImportBatch extends Model
     public function cancelled(): bool
     {
         return $this->status === ImportStatus::Cancelled;
+    }
+
+    public function isSellThrough(): bool
+    {
+        return $this->kind === 'sell_through';
     }
 
     public function progressPercent(): int

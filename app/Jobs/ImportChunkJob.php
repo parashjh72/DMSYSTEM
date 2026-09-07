@@ -4,9 +4,11 @@ namespace App\Jobs;
 
 use App\Imports\RowMapException;
 use App\Imports\RowMapper;
+use App\Imports\SellThroughRowMapper;
 use App\Models\ImportBatch;
 use App\Models\ImportBatchChunk;
 use App\Services\Import\RecordUpserter;
+use App\Services\Import\SellThroughUpserter;
 use App\Services\Import\SpreadsheetReader;
 use Illuminate\Bus\Batchable;
 use Illuminate\Bus\Queueable;
@@ -42,7 +44,7 @@ class ImportChunkJob implements ShouldQueue
         public int $chunkNumber,
     ) {}
 
-    public function handle(RecordUpserter $upserter): void
+    public function handle(RecordUpserter $upserter, SellThroughUpserter $sellThrough): void
     {
         $batch = ImportBatch::where('uuid', $this->batchUuid)->first();
         if (! $batch || $batch->cancelled()) {
@@ -58,9 +60,12 @@ class ImportChunkJob implements ShouldQueue
 
         $chunk->update(['status' => 'processing', 'attempts' => $chunk->attempts + 1]);
 
+        $sell = $batch->isSellThrough();
         $path = Storage::disk($batch->disk)->path($batch->stored_path);
         $reader = new SpreadsheetReader($path, $batch->file_type);
-        $mapper = new RowMapper($batch->column_map ?? []);
+        $mapper = $sell
+            ? new SellThroughRowMapper($batch->column_map ?? [])
+            : new RowMapper($batch->column_map ?? []);
 
         $valid = [];        // imei => normalised row (last occurrence wins)
         $firstSeenRow = [];  // imei => row_number of first occurrence
@@ -98,8 +103,9 @@ class ImportChunkJob implements ShouldQueue
         }
 
         $applied = ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
+        $notFound = 0;
 
-        DB::transaction(function () use ($batch, $chunk, $valid, $upserter, &$applied) {
+        DB::transaction(function () use ($batch, $chunk, $valid, $upserter, $sellThrough, $sell, &$applied, &$notFound, &$errors) {
             DB::table('import_staging_rows')
                 ->where('import_batch_id', $batch->id)
                 ->whereBetween('row_number', [$chunk->start_row, $chunk->end_row])
@@ -110,9 +116,27 @@ class ImportChunkJob implements ShouldQueue
                     DB::table('import_staging_rows')->insert($slice);
                 }
 
-                $applied = $upserter->apply(
-                    $batch->id, $chunk->start_row, $chunk->end_row, $batch->import_mode,
-                );
+                if ($sell) {
+                    // log IMEIs that aren't in the system before the update runs
+                    $missing = DB::table('import_staging_rows as s')
+                        ->leftJoin('sales_activation_records as r', 'r.imei', '=', 's.imei')
+                        ->where('s.import_batch_id', $batch->id)
+                        ->whereBetween('s.row_number', [$chunk->start_row, $chunk->end_row])
+                        ->whereNull('r.id')
+                        ->pluck('s.row_number', 's.imei');
+                    foreach ($missing as $imei => $rowNum) {
+                        $errors[] = $this->errorRow($batch->id, (int) $rowNum, 'imei_not_found',
+                            "IMEI {$imei} is not in the system — import the model data first.", [$imei]);
+                    }
+
+                    $r = $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row);
+                    $applied = ['inserted' => 0, 'updated' => $r['matched'], 'skipped' => 0];
+                    $notFound = $r['not_found'];
+                } else {
+                    $applied = $upserter->apply(
+                        $batch->id, $chunk->start_row, $chunk->end_row, $batch->import_mode,
+                    );
+                }
             }
 
             DB::table('import_staging_rows')
@@ -127,7 +151,7 @@ class ImportChunkJob implements ShouldQueue
             }
         }
 
-        $failedRows = max(0, $read - count($valid) - $invalid - $duplicates);
+        $failedRows = max(0, $read - count($valid) - $invalid - $duplicates) + $notFound;
 
         $chunk->update([
             'status' => 'completed',

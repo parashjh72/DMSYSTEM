@@ -13,10 +13,10 @@ class HeaderMap
      * @return array{map: array<string,int>, unmatched: array<int,string>, missing: array<int,string>}
      *                                                                                                 map: canonical field => 0-based column index
      */
-    public static function resolve(array $headers): array
+    public static function resolve(array $headers, ?array $aliases = null, ?array $required = null): array
     {
-        $aliases = config('import.header_aliases');
-        $required = config('import.required_fields', []);
+        $aliases ??= config('import.header_aliases');
+        $required ??= config('import.required_fields', []);
 
         $normalizedHeaders = [];
         foreach ($headers as $index => $raw) {

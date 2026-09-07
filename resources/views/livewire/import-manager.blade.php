@@ -4,12 +4,36 @@
             <h1 class="text-xl font-semibold tracking-tight">Imports</h1>
             <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
         </div>
-        <a href="{{ route('imports.template') }}" class="btn-ghost">Download template</a>
+        <div class="flex gap-2">
+            <a href="{{ route('imports.template') }}" class="btn-ghost">Model template</a>
+            <a href="{{ route('imports.template', ['kind' => 'sell_through']) }}" class="btn-ghost">Sell-thru template</a>
+        </div>
     </div>
 
     @can('imports.create')
     <div class="card mt-6">
         @if (! $review)
+            <label class="label">Import type</label>
+            <div class="mb-3 flex flex-wrap gap-2">
+                <button wire:click="$set('kind', 'records')"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                        {{ $kind === 'records' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                    Model data (IMEI, model, TSO, RD, RT, dates…)
+                </button>
+                <button wire:click="$set('kind', 'sell_through')"
+                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                        {{ $kind === 'sell_through' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                    Sell-through (RD → RT)
+                </button>
+            </div>
+            @if ($kind === 'sell_through')
+                <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                    Assigns retailers to existing IMEIs. File columns: <strong>IMEI, RD Code, RT Code, Invoice Date</strong>
+                    (invoice date is stored as ST Date). RT name is filled from Master Data. IMEIs not already in the
+                    system are reported as errors.
+                </p>
+            @endif
+
             <label class="label">Upload a file</label>
             <input type="file" wire:model="file" accept=".csv,.txt,.xlsx"
                    class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-indigo-700">
@@ -20,7 +44,12 @@
             </p>
             @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
         @else
-            <h2 class="text-sm font-semibold">Review column mapping</h2>
+            <h2 class="text-sm font-semibold">
+                Review column mapping
+                <span class="badge {{ ($review['kind'] ?? 'records') === 'sell_through' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600' }}">
+                    {{ ($review['kind'] ?? 'records') === 'sell_through' ? 'Sell-through (RD → RT)' : 'Model data' }}
+                </span>
+            </h2>
             <p class="mt-1 text-xs text-gray-500">Detected headers: {{ implode(', ', $review['headers']) }}</p>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -43,6 +72,7 @@
             @endif
 
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                @if (($review['kind'] ?? 'records') !== 'sell_through')
                 <div>
                     <label class="label">Import mode</label>
                     <select wire:model="mode" class="input">
@@ -52,6 +82,7 @@
                         <option value="update_existing">Update existing only</option>
                     </select>
                 </div>
+                @endif
                 <div>
                     <label class="label">Rows per chunk</label>
                     <select wire:model="chunkSize" class="input">
@@ -77,7 +108,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="th">File</th><th class="th">Status</th><th class="th">Rows</th>
+                    <th class="th">File</th><th class="th">Type</th><th class="th">Status</th><th class="th">Rows</th>
                     <th class="th">New / Upd / Skip</th><th class="th">Invalid / Dup</th>
                     <th class="th">By</th><th class="th">Started</th><th class="th"></th>
                 </tr>
@@ -86,6 +117,7 @@
             @forelse ($batches as $b)
                 <tr wire:key="b-{{ $b->id }}">
                     <td class="td max-w-[220px] truncate">{{ $b->original_filename }}</td>
+                    <td class="td"><span class="badge {{ $b->kind === 'sell_through' ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600' }}">{{ $b->kind === 'sell_through' ? 'Sell-thru' : 'Model' }}</span></td>
                     <td class="td">
                         <span class="badge {{ match($b->status->value) {
                             'completed' => 'bg-green-100 text-green-800',
@@ -103,7 +135,7 @@
                     <td class="td"><a class="text-indigo-600" href="{{ route('imports.show', $b->uuid) }}" wire:navigate>Details</a></td>
                 </tr>
             @empty
-                <tr><td class="td text-gray-400" colspan="8">No imports yet.</td></tr>
+                <tr><td class="td text-gray-400" colspan="9">No imports yet.</td></tr>
             @endforelse
             </tbody>
         </table>

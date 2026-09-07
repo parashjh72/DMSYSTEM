@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImportTemplateController extends Controller
@@ -16,15 +17,25 @@ class ImportTemplateController extends Controller
         ['863222072207893', 'C63 (8+128GB)', 'Roshan Singh', 'MD001061', 'New Rameshworam Suppliers', 'NP065585', 'New dipesh mobile gallery', '2025-03-02', '', '2025-02-18', 'Manual'],
     ];
 
-    public function __invoke(): StreamedResponse
-    {
-        $filename = 'dm-system-import-template.csv';
+    private const SELL_THROUGH_HEADERS = ['IMEI', 'RD Code', 'RT Code', 'Invoice Date'];
 
-        return response()->streamDownload(function () {
+    private const SELL_THROUGH_ROWS = [
+        ['863222207290410', 'MDDX2803', 'NP057002', '2026-09-05'],
+        ['863222072207893', 'MD001061', 'NP065585', '2026-09-06'],
+    ];
+
+    public function __invoke(Request $request): StreamedResponse
+    {
+        $sell = $request->query('kind') === 'sell_through';
+        $filename = $sell ? 'dm-system-sell-through-template.csv' : 'dm-system-import-template.csv';
+        $headers = $sell ? self::SELL_THROUGH_HEADERS : self::HEADERS;
+        $rows = $sell ? self::SELL_THROUGH_ROWS : self::SAMPLE_ROWS;
+
+        return response()->streamDownload(function () use ($headers, $rows) {
             $out = fopen('php://output', 'w');
             fprintf($out, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel opens it cleanly
-            fputcsv($out, self::HEADERS, ',', '"', '');
-            foreach (self::SAMPLE_ROWS as $row) {
+            fputcsv($out, $headers, ',', '"', '');
+            foreach ($rows as $row) {
                 fputcsv($out, $row, ',', '"', '');
             }
             fclose($out);
