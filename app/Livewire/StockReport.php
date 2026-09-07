@@ -32,6 +32,13 @@ class StockReport extends Component
     #[Url]
     public string $lifecycle = '';
 
+    /** Sellout-date range (Sellout Report only). */
+    #[Url]
+    public ?string $dateFrom = null;
+
+    #[Url]
+    public ?string $dateTo = null;
+
     /** Type-ahead filter for the retailer checklist. */
     public string $rtSearch = '';
 
@@ -75,6 +82,16 @@ class StockReport extends Component
         $this->resetPage();
     }
 
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
     /** Tick / untick one retailer in the checklist. */
     public function toggleRt(string $code): void
     {
@@ -113,6 +130,8 @@ class StockReport extends Component
             'rd_code' => $this->rdCode,
             'rt_codes' => $this->type === 'rt' ? $this->rtCodes : [],
             'lifecycle' => $this->lifecycle,
+            'activation_date_from' => $this->mode() === 'sellout' ? $this->dateFrom : null,
+            'activation_date_to' => $this->mode() === 'sellout' ? $this->dateTo : null,
         ]);
 
         $exports->queue($exportType, $filters, auth()->id(), $format === 'xlsx' ? 'xlsx' : 'csv');
@@ -124,7 +143,9 @@ class StockReport extends Component
     {
         $rd = $this->rdCode ?: null;
         $rtCodes = $this->type === 'rt' ? array_values($this->rtCodes) : [];
-        $stock->forLifecycle($this->lifecycle ?: null)->forMode($this->mode());
+        $stock->forLifecycle($this->lifecycle ?: null)
+            ->forMode($this->mode())
+            ->forDateRange($this->dateFrom, $this->dateTo);
 
         $columns = ['models' => [], 'hasOther' => false, 'totals' => [], 'otherTotal' => 0, 'grandTotal' => 0];
 

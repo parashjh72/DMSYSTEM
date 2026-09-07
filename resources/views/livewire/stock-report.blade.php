@@ -37,6 +37,10 @@
                     @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
                 </select>
             </div>
+            @if ($noun === 'sellout')
+                <div><label class="label">Sellout date from</label><input type="date" class="input" wire:model.live="dateFrom"></div>
+                <div><label class="label">Sellout date to</label><input type="date" class="input" wire:model.live="dateTo"></div>
+            @endif
             <div>
                 <label class="label">Models</label>
                 <div class="flex gap-1">

@@ -30,6 +30,11 @@ class StockReportService
     /** stock | sellout */
     private string $mode = 'stock';
 
+    /** Sellout-date (activation_date) range — sellout mode only. */
+    private ?string $dateFrom = null;
+
+    private ?string $dateTo = null;
+
     public function forLifecycle(?string $lifecycle): static
     {
         $this->lifecycle = in_array($lifecycle, ['running', 'out'], true) ? $lifecycle : null;
@@ -42,6 +47,26 @@ class StockReportService
         $this->mode = $mode === 'sellout' ? 'sellout' : 'stock';
 
         return $this;
+    }
+
+    public function forDateRange(?string $from, ?string $to): static
+    {
+        $this->dateFrom = $from ?: null;
+        $this->dateTo = $to ?: null;
+
+        return $this;
+    }
+
+    /** Sellout date-range condition (no-op unless in sellout mode with dates set). */
+    private function applyDateRange($query)
+    {
+        if ($this->mode !== 'sellout') {
+            return $query;
+        }
+
+        return $query
+            ->when($this->dateFrom, fn ($q, $v) => $q->where('activation_date', '>=', $v))
+            ->when($this->dateTo, fn ($q, $v) => $q->where('activation_date', '<=', $v));
     }
 
     private function isActivated(): int
@@ -123,7 +148,7 @@ class StockReportService
         $act = $this->isActivated();
 
         if ($this->mode === 'sellout') {
-            return $this->applyLifecycle(DB::table('sales_activation_records'))
+            return $this->applyDateRange($this->applyLifecycle(DB::table('sales_activation_records')))
                 ->selectRaw('model, 0 AS rd_stock, COUNT(*) AS rt_stock, COUNT(*) AS total_stock')
                 ->where('is_activated', $act)
                 ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
@@ -154,7 +179,7 @@ class StockReportService
             ? "0 AS rd_stock, SUM(is_activated = {$act}) AS rt_stock"
             : 'SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock, SUM(is_activated = 0 AND '.self::HAS_RT.') AS rt_stock';
 
-        return $this->applyLifecycle(DB::table('sales_activation_records'))
+        return $this->applyDateRange($this->applyLifecycle(DB::table('sales_activation_records')))
             ->selectRaw("
                 {$split},
                 SUM(is_activated = {$act}) AS total_stock,
@@ -224,7 +249,7 @@ class StockReportService
             $query->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT);
         }
 
-        return $this->applyLifecycle($query);
+        return $this->applyDateRange($this->applyLifecycle($query));
     }
 
     /**

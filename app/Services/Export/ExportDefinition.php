@@ -59,7 +59,9 @@ class ExportDefinition
             'sellout_rd' => $this->stockPivot('rd', $filters, 'sellout'),
             'sellout_rt' => $this->stockPivot('rt', $filters, 'sellout'),
             'sellout_model' => $this->grouped(
-                $this->stock->forLifecycle($filters->lifecycle)->forMode('sellout')->modelWise($filters->rdCode, PHP_INT_MAX),
+                $this->stock->forLifecycle($filters->lifecycle)->forMode('sellout')
+                    ->forDateRange($filters->activationDateFrom, $filters->activationDateTo)
+                    ->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Sold-out qty']),
             'quick_zero_stock' => $this->grouped(
                 $this->quick->zeroStockSoldNotSellThrough($filters, PHP_INT_MAX),
@@ -118,7 +120,8 @@ class ExportDefinition
     {
         $rd = $f->rdCode;
         $rtCodes = $scope === 'rt' ? $f->rtCodes : [];
-        $this->stock->forLifecycle($f->lifecycle)->forMode($mode);
+        $this->stock->forLifecycle($f->lifecycle)->forMode($mode)
+            ->forDateRange($f->activationDateFrom, $f->activationDateTo);
 
         ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rtCodes);
         $rows = $this->stock->exportRows($scope, $rd, $rtCodes, $models, $hasOther);
