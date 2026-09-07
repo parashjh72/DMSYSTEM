@@ -36,6 +36,8 @@ class SellThroughUpserter
             $bindings,
         )->c;
 
+        // Only RT + invoice date are applied. The device's RD and model come from
+        // the model-data import and are left untouched.
         DB::statement(
             'UPDATE sales_activation_records r
                JOIN import_staging_rows s ON s.imei = r.imei
@@ -43,7 +45,6 @@ class SellThroughUpserter
                 SET r.rt_code = s.rt_code,
                     r.rt_name = COALESCE(rt.name, r.rt_name),
                     r.st_date = COALESCE(s.st_date, r.st_date),
-                    r.rd_code = COALESCE(s.rd_code, r.rd_code),
                     r.last_import_batch_id = :batchLast,
                     r.updated_at = :now
               WHERE s.import_batch_id = :batch

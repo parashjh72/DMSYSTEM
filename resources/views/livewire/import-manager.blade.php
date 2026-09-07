@@ -29,8 +29,9 @@
             @if ($kind === 'sell_through')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
                     Assigns retailers to existing IMEIs. File columns: <strong>IMEI, Model, RD Code, RTCode, ST Date</strong>
-                    (ST Date = invoice date). Only IMEI, RTCode and ST Date are used; Model is ignored. RT name is filled
-                    from Master Data. IMEIs not already in the system are reported as errors.
+                    (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — Model and RD Code
+                    are informational (the device's model/RD come from the model import). RT name is filled from Master
+                    Data. IMEIs not already in the system are reported as errors.
                 </p>
             @endif
 
