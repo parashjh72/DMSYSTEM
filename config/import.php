@@ -37,6 +37,13 @@ return [
     'max_upload_kb' => (int) env('IMPORT_MAX_UPLOAD_KB', 524288),
 
     /*
+    | How many IMEIs one bulk IMEI-search will look up. The whereIn lookup is
+    | indexed and fine well beyond this; the cap protects the browser from a
+    | huge paste. Results are paginated regardless.
+    */
+    'imei_search_max' => (int) env('IMEI_SEARCH_MAX', 20000),
+
+    /*
     |--------------------------------------------------------------------------
     | Queues
     |--------------------------------------------------------------------------

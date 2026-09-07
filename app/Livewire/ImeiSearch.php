@@ -7,16 +7,25 @@ use App\Support\Imei;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 #[Layout('components.layouts.app')]
 #[Title('IMEI Search')]
 class ImeiSearch extends Component
 {
+    use WithPagination;
+
     /** Raw pasted text — one IMEI per line, or space / comma / semicolon separated. */
     public string $imeis = '';
 
-    /** Upper bound on how many IMEIs one search will look up. */
-    public const MAX = 2000;
+    /** Rows shown per page of results. */
+    public int $perPage = 100;
+
+    /** Upper bound on how many IMEIs one search will look up (config/import.php). */
+    public function max(): int
+    {
+        return (int) config('import.imei_search_max', 20000);
+    }
 
     public function mount(): void
     {
@@ -26,6 +35,12 @@ class ImeiSearch extends Component
     public function clear(): void
     {
         $this->imeis = '';
+        $this->resetPage();
+    }
+
+    public function updatedImeis(): void
+    {
+        $this->resetPage();
     }
 
     public function render()
@@ -41,18 +56,23 @@ class ImeiSearch extends Component
             }
         }
 
-        $capped = count($wanted) > self::MAX;
-        $wanted = array_slice($wanted, 0, self::MAX);
+        $capped = count($wanted) > $this->max();
+        $wanted = array_slice($wanted, 0, $this->max());
 
-        $records = collect();
+        $records = null;
+        $found = [];
+
         if ($wanted !== []) {
+            // Full found set — just the imei column, one indexed lookup, cheap even at 20k.
+            $found = SalesActivationRecord::query()->whereIn('imei', $wanted)->pluck('imei')->all();
+
+            // Displayed page only.
             $records = SalesActivationRecord::query()
-                ->whereIn('imei', $wanted)          // exact, indexed unique lookup
+                ->whereIn('imei', $wanted)
                 ->orderBy('imei')
-                ->get();
+                ->paginate(min(max($this->perPage, 25), 500));
         }
 
-        $found = $records->pluck('imei')->all();
         $unmatched = array_values(array_diff($wanted, $found));
 
         return view('livewire.imei-search', [
@@ -62,6 +82,7 @@ class ImeiSearch extends Component
             'foundCount' => count($found),
             'unmatched' => $unmatched,
             'capped' => $capped,
+            'maxImeis' => $this->max(),
         ]);
     }
 }

@@ -22,7 +22,7 @@
             @endif
         </div>
         @if ($capped)
-            <p class="mt-2 text-xs text-amber-600">Limited to the first {{ number_format(\App\Livewire\ImeiSearch::MAX) }} IMEIs per search.</p>
+            <p class="mt-2 text-xs text-amber-600">Limited to the first {{ number_format($maxImeis) }} IMEIs per search.</p>
         @endif
     </div>
 
@@ -48,8 +48,17 @@
         </div>
     @endif
 
-    @if ($searched && $records->isNotEmpty())
-        <div class="card mt-4 overflow-x-auto p-0">
+    @if ($searched && $records && $records->isNotEmpty())
+        <div class="mt-4 flex items-center justify-between text-sm text-gray-500">
+            <span>Showing {{ number_format($records->firstItem()) }}–{{ number_format($records->lastItem()) }} of {{ number_format($records->total()) }} matches</span>
+            <select class="input w-auto text-xs" wire:model.live="perPage">
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+                <option value="250">250 / page</option>
+                <option value="500">500 / page</option>
+            </select>
+        </div>
+        <div class="card mt-2 overflow-x-auto p-0">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -81,7 +90,8 @@
                 </tbody>
             </table>
         </div>
-    @elseif ($searched && $records->isEmpty())
+        <div class="mt-3">{{ $records->links() }}</div>
+    @elseif ($searched && $records && $records->isEmpty())
         <div class="card mt-4 text-sm text-gray-500">None of the {{ number_format($totalWanted) }} IMEIs were found.</div>
     @endif
 </div>
