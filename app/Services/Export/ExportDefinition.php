@@ -51,11 +51,16 @@ class ExportDefinition
                 ['Model', 'Total IMEI', 'Activated', 'Not Activated', 'Activation %']),
             'date_report' => $this->grouped($this->reports->dateWise($filters, PHP_INT_MAX),
                 ['ST Date', 'Total Sell-Through', 'Activated', 'Not Activated', 'Activation %']),
-            'stock_rd' => $this->stockPivot('rd', $filters),
-            'stock_rt' => $this->stockPivot('rt', $filters),
+            'stock_rd' => $this->stockPivot('rd', $filters, 'stock'),
+            'stock_rt' => $this->stockPivot('rt', $filters, 'stock'),
             'stock_model' => $this->grouped(
-                $this->stock->forLifecycle($filters->lifecycle)->modelWise($filters->rdCode, PHP_INT_MAX),
+                $this->stock->forLifecycle($filters->lifecycle)->forMode('stock')->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
+            'sellout_rd' => $this->stockPivot('rd', $filters, 'sellout'),
+            'sellout_rt' => $this->stockPivot('rt', $filters, 'sellout'),
+            'sellout_model' => $this->grouped(
+                $this->stock->forLifecycle($filters->lifecycle)->forMode('sellout')->modelWise($filters->rdCode, PHP_INT_MAX),
+                ['Model', 'RD stock', 'RT stock', 'Sold-out qty']),
             'quick_zero_stock' => $this->grouped(
                 $this->quick->zeroStockSoldNotSellThrough($filters, PHP_INT_MAX),
                 ['RT Code', 'RT Name', 'RD Code', 'RD Name', 'Activated', 'In stock', 'Sell-thru']),
@@ -108,12 +113,12 @@ class ExportDefinition
         } while ($page->count() === $size);
     }
 
-    /** Pivoted stock export: RD (or RD+RT) rows, one column per model, qty in cells. */
-    private function stockPivot(string $scope, ReportFilters $f): array
+    /** Pivoted stock/sellout export: RD (or RD+RT) rows, one column per model, qty in cells. */
+    private function stockPivot(string $scope, ReportFilters $f, string $mode = 'stock'): array
     {
         $rd = $f->rdCode;
         $rtCodes = $scope === 'rt' ? $f->rtCodes : [];
-        $this->stock->forLifecycle($f->lifecycle);
+        $this->stock->forLifecycle($f->lifecycle)->forMode($mode);
 
         ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rtCodes);
         $rows = $this->stock->exportRows($scope, $rd, $rtCodes, $models, $hasOther);
@@ -230,6 +235,7 @@ class ExportDefinition
             'Activated' => 'activated', 'Not Activated' => 'not_activated',
             'ST Date' => 'st_date', 'Model' => 'model', 'TSO' => 'tso',
             'Sell-thru' => 'sell_through', 'In stock' => 'in_stock',
+            'Sold-out qty' => 'total_stock',
             default => str_replace([' ', '-'], '_', strtolower($col)),
         };
     }

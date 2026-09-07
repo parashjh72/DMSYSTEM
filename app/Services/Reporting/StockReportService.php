@@ -7,17 +7,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Stock = unsold inventory: a device that is NOT activated is still "in stock".
+ * Two mirror reports over the same pivot machinery:
  *
- *   RD stock  – device still sits with the distributor: not activated AND the row
- *               carries no retailer name (RT not yet assigned).
- *   RT stock  – device is with a retailer but not activated yet.
- *   Total     – RD stock + RT stock (every not-activated unit).
+ *   stock   – devices NOT activated (unsold inventory)
+ *   sellout – devices activated (sold out to the customer)
  *
  * RD-wise / RT-wise are pivoted: one row per RD (or RD+RT), one column per model,
- * quantity in the cell. Model-wise keeps models in rows (RD stock / RT stock / total).
- *
- * All aggregation is SQL (COUNT / SUM / GROUP BY) over indexed columns.
+ * quantity in the cell. All aggregation is SQL over indexed columns.
  */
 class StockReportService
 {
@@ -31,11 +27,26 @@ class StockReportService
     /** null = both, otherwise 'running' | 'out' — restricts by device_models.status. */
     private ?string $lifecycle = null;
 
+    /** stock | sellout */
+    private string $mode = 'stock';
+
     public function forLifecycle(?string $lifecycle): static
     {
         $this->lifecycle = in_array($lifecycle, ['running', 'out'], true) ? $lifecycle : null;
 
         return $this;
+    }
+
+    public function forMode(string $mode): static
+    {
+        $this->mode = $mode === 'sellout' ? 'sellout' : 'stock';
+
+        return $this;
+    }
+
+    private function isActivated(): int
+    {
+        return $this->mode === 'sellout' ? 1 : 0;
     }
 
     private function applyLifecycle($query)
@@ -106,9 +117,21 @@ class StockReportService
         return $rows;
     }
 
-    /** Model-wise: RD stock + RT stock for each model, combined in one row. */
+    /** Model-wise. Stock: RD/RT/total split. Sellout: qty per model. */
     public function modelWise(?string $rdCode, int $perPage = 50): LengthAwarePaginator
     {
+        $act = $this->isActivated();
+
+        if ($this->mode === 'sellout') {
+            return $this->applyLifecycle(DB::table('sales_activation_records'))
+                ->selectRaw('model, 0 AS rd_stock, COUNT(*) AS rt_stock, COUNT(*) AS total_stock')
+                ->where('is_activated', $act)
+                ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
+                ->groupBy('model')
+                ->orderByDesc('total_stock')
+                ->paginate($perPage);
+        }
+
         return $this->applyLifecycle(DB::table('sales_activation_records'))
             ->selectRaw('
                 model,
@@ -126,13 +149,17 @@ class StockReportService
     /** Headline totals for the current RD / RT scope. */
     public function summary(?string $rdCode, array $rtCodes = []): object
     {
+        $act = $this->isActivated();
+        $split = $this->mode === 'sellout'
+            ? "0 AS rd_stock, SUM(is_activated = {$act}) AS rt_stock"
+            : 'SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock, SUM(is_activated = 0 AND '.self::HAS_RT.') AS rt_stock';
+
         return $this->applyLifecycle(DB::table('sales_activation_records'))
-            ->selectRaw('
-                SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock,
-                SUM(is_activated = 0 AND '.self::HAS_RT.') AS rt_stock,
-                SUM(is_activated = 0) AS total_stock,
-                COUNT(DISTINCT CASE WHEN is_activated = 0 THEN model END) AS models
-            ')
+            ->selectRaw("
+                {$split},
+                SUM(is_activated = {$act}) AS total_stock,
+                COUNT(DISTINCT CASE WHEN is_activated = {$act} THEN model END) AS models
+            ")
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $rtCodes))
             ->first() ?? (object) ['rd_stock' => 0, 'rt_stock' => 0, 'total_stock' => 0, 'models' => 0];
@@ -184,10 +211,18 @@ class StockReportService
     private function stockQuery(string $scope, ?string $rdCode, array $rtCodes = [])
     {
         $query = DB::table('sales_activation_records')
-            ->where('is_activated', 0)
-            ->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT)
+            ->where('is_activated', $this->isActivated())
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($scope === 'rt' && $rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $rtCodes));
+
+        if ($this->mode === 'sellout') {
+            // Sold-out units are all at a retailer; RT scope still needs a retailer name.
+            if ($scope === 'rt') {
+                $query->whereRaw(self::HAS_RT);
+            }
+        } else {
+            $query->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT);
+        }
 
         return $this->applyLifecycle($query);
     }

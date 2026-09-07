@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
     Route::get('explorer', DataExplorer::class)->middleware('can:explorer.view')->name('explorer');
     Route::get('reports', Reports::class)->middleware('can:reports.view')->name('reports');
     Route::get('stock-report', StockReport::class)->middleware('can:reports.view')->name('stock');
+    Route::get('sellout-report', \App\Livewire\SelloutReport::class)->middleware('can:reports.view')->name('sellout');
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 

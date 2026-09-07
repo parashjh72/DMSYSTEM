@@ -1,8 +1,12 @@
 <div>
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-xl font-semibold tracking-tight">Stock Report</h1>
-            <p class="mt-1 text-sm text-gray-500">Unsold inventory — devices that are not yet activated.</p>
+            <h1 class="text-xl font-semibold tracking-tight">{{ ucfirst($noun) }} Report</h1>
+            <p class="mt-1 text-sm text-gray-500">
+                {{ $noun === 'sellout'
+                    ? 'Sold-out devices — activated over the counter.'
+                    : 'Unsold inventory — devices that are not yet activated.' }}
+            </p>
         </div>
         @can('exports.create')
             <div class="flex gap-2">
@@ -13,7 +17,7 @@
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-2" wire:loading.class="opacity-50" wire:target="type">
-        @foreach (\App\Livewire\StockReport::TYPES as $key => $label)
+        @foreach ($types as $key => $label)
             <button type="button" wire:click="$set('type', '{{ $key }}')"
                     class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
                     {{ $type === $key
@@ -94,12 +98,18 @@
     </div>
 
     <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        @foreach ([
+        @foreach ($noun === 'sellout' ? [
+            ['Total sold out', $summary->total_stock],
+            ['With retailer', $summary->rt_stock],
+            ['Models', $summary->models],
+            ['', null],
+        ] : [
             ['Total stock', $summary->total_stock],
             ['RD stock (no RT)', $summary->rd_stock],
             ['RT stock (with RT)', $summary->rt_stock],
             ['Models in stock', $summary->models],
         ] as [$l, $v])
+            @if ($l === '') @continue @endif
             <div class="card p-3">
                 <div class="text-xs uppercase tracking-wide text-gray-500">{{ $l }}</div>
                 <div class="mt-1 text-lg font-semibold">{{ number_format((int) $v) }}</div>
@@ -116,28 +126,34 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50"><tr>
                     <th class="th">Model</th>
-                    <th class="th text-right">RD stock</th>
-                    <th class="th text-right">RT stock</th>
-                    <th class="th text-right">Total stock</th>
+                    @if ($noun !== 'sellout')
+                        <th class="th text-right">RD stock</th>
+                        <th class="th text-right">RT stock</th>
+                    @endif
+                    <th class="th text-right">{{ $noun === 'sellout' ? 'Sold-out qty' : 'Total stock' }}</th>
                 </tr></thead>
                 <tbody class="divide-y divide-gray-100">
                 @forelse ($rows as $r)
                     <tr wire:key="m-{{ $loop->index }}">
                         <td class="td">{{ $r->model ?: '—' }}</td>
-                        <td class="td text-right">{{ number_format($r->rd_stock) }}</td>
-                        <td class="td text-right">{{ number_format($r->rt_stock) }}</td>
+                        @if ($noun !== 'sellout')
+                            <td class="td text-right">{{ number_format($r->rd_stock) }}</td>
+                            <td class="td text-right">{{ number_format($r->rt_stock) }}</td>
+                        @endif
                         <td class="td text-right font-medium">{{ number_format($r->total_stock) }}</td>
                     </tr>
                 @empty
-                    <tr><td class="td text-gray-400" colspan="4">No stock for this selection.</td></tr>
+                    <tr><td class="td text-gray-400" colspan="4">No {{ $noun }} for this selection.</td></tr>
                 @endforelse
                 </tbody>
                 @if ($rows->isNotEmpty())
                     <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
                         <tr>
                             <td class="td">Total (all models)</td>
-                            <td class="td text-right">{{ number_format((int) $summary->rd_stock) }}</td>
-                            <td class="td text-right">{{ number_format((int) $summary->rt_stock) }}</td>
+                            @if ($noun !== 'sellout')
+                                <td class="td text-right">{{ number_format((int) $summary->rd_stock) }}</td>
+                                <td class="td text-right">{{ number_format((int) $summary->rt_stock) }}</td>
+                            @endif
                             <td class="td text-right">{{ number_format((int) $summary->total_stock) }}</td>
                         </tr>
                     </tfoot>
@@ -182,7 +198,7 @@
                         <td class="td text-right font-semibold">{{ number_format($r->total_qty) }}</td>
                     </tr>
                 @empty
-                    <tr><td class="td text-left text-gray-400" colspan="{{ $keyCount + count($columns['models']) + ($columns['hasOther'] ? 2 : 1) }}">No stock for this selection.</td></tr>
+                    <tr><td class="td text-left text-gray-400" colspan="{{ $keyCount + count($columns['models']) + ($columns['hasOther'] ? 2 : 1) }}">No {{ $noun }} for this selection.</td></tr>
                 @endforelse
                 </tbody>
                 @if ($rows->isNotEmpty())

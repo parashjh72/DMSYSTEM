@@ -47,6 +47,12 @@ class StockReport extends Component
         'model' => 'Model-wise stock',
     ];
 
+    /** stock | sellout — the subclass overrides this. */
+    protected function mode(): string
+    {
+        return 'stock';
+    }
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
@@ -102,7 +108,7 @@ class StockReport extends Component
     {
         abort_unless(auth()->user()?->can('exports.create'), 403);
 
-        $exportType = ['rd' => 'stock_rd', 'rt' => 'stock_rt', 'model' => 'stock_model'][$this->type];
+        $exportType = $this->mode().'_'.$this->type; // stock_rd | sellout_rt | ...
         $filters = ReportFilters::fromArray([
             'rd_code' => $this->rdCode,
             'rt_codes' => $this->type === 'rt' ? $this->rtCodes : [],
@@ -110,7 +116,7 @@ class StockReport extends Component
         ]);
 
         $exports->queue($exportType, $filters, auth()->id(), $format === 'xlsx' ? 'xlsx' : 'csv');
-        session()->flash('status', 'Stock export queued — track it on the Exports page.');
+        session()->flash('status', ucfirst($this->mode()).' export queued — track it on the Exports page.');
         $this->redirectRoute('exports.index', navigate: true);
     }
 
@@ -118,7 +124,7 @@ class StockReport extends Component
     {
         $rd = $this->rdCode ?: null;
         $rtCodes = $this->type === 'rt' ? array_values($this->rtCodes) : [];
-        $stock->forLifecycle($this->lifecycle ?: null);
+        $stock->forLifecycle($this->lifecycle ?: null)->forMode($this->mode());
 
         $columns = ['models' => [], 'hasOther' => false, 'totals' => [], 'otherTotal' => 0, 'grandTotal' => 0];
 
@@ -147,6 +153,8 @@ class StockReport extends Component
             'rdOptions' => $options->distributors(),
             'rtOptions' => $rtOptions,
             'rtTruncated' => $rtList['truncated'],
+            'types' => static::TYPES,
+            'noun' => $this->mode(),
         ]);
     }
 }
