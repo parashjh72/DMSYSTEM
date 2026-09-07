@@ -112,19 +112,33 @@ class FinalizeImportJob implements ShouldQueue
             WHERE last_import_batch_id = ? AND model IS NOT NULL AND model <> ""
             ON DUPLICATE KEY UPDATE updated_at = NOW()', [$batchId]);
 
-        DB::statement('
+        // Distributor name = the spelling used by the most records (not MAX, which
+        // one stray mis-typed row could hijack). Whole-table scope so a fix in a
+        // later import propagates.
+        DB::statement("
             INSERT INTO retail_distributors (code, name, created_at, updated_at)
-            SELECT DISTINCT rd_code, MAX(rd_name), NOW(), NOW() FROM sales_activation_records
-            WHERE last_import_batch_id = ? AND rd_code IS NOT NULL AND rd_code <> ""
-            GROUP BY rd_code
-            ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()', [$batchId]);
+            SELECT rd_code, rd_name, NOW(), NOW() FROM (
+                SELECT rd_code, rd_name,
+                       ROW_NUMBER() OVER (PARTITION BY rd_code ORDER BY COUNT(*) DESC) rn
+                FROM sales_activation_records
+                WHERE rd_code IN (SELECT rd_code FROM sales_activation_records WHERE last_import_batch_id = ?)
+                  AND rd_code IS NOT NULL AND rd_code <> ''
+                GROUP BY rd_code, rd_name
+            ) a WHERE rn = 1
+            ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()", [$batchId]);
 
-        DB::statement('
+        // Retailer's distributor = the RD it has the most records under.
+        DB::statement("
             INSERT INTO retailers (code, name, rd_code, created_at, updated_at)
-            SELECT DISTINCT rt_code, MAX(rt_name), MAX(rd_code), NOW(), NOW() FROM sales_activation_records
-            WHERE last_import_batch_id = ? AND rt_code IS NOT NULL AND rt_code <> ""
-            GROUP BY rt_code
-            ON DUPLICATE KEY UPDATE name = VALUES(name), rd_code = VALUES(rd_code), updated_at = NOW()', [$batchId]);
+            SELECT rt_code, rt_name, rd_code, NOW(), NOW() FROM (
+                SELECT rt_code, rd_code, MAX(rt_name) rt_name, COUNT(*) cnt,
+                       ROW_NUMBER() OVER (PARTITION BY rt_code ORDER BY COUNT(*) DESC, rd_code) rn
+                FROM sales_activation_records
+                WHERE rt_code IN (SELECT rt_code FROM sales_activation_records WHERE last_import_batch_id = ?)
+                  AND rt_code IS NOT NULL AND rt_code <> ''
+                GROUP BY rt_code, rd_code
+            ) a WHERE rn = 1
+            ON DUPLICATE KEY UPDATE name = VALUES(name), rd_code = VALUES(rd_code), updated_at = NOW()", [$batchId]);
     }
 
     public function failed(Throwable $e): void
