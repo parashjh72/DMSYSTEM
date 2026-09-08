@@ -6,14 +6,24 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Applies one chunk of a sell-through file: for each staged IMEI that exists in
- * sales_activation_records, set its RT code (+ RT name from the retailers
- * master), ST/invoice date and RD code. Never inserts. IMEIs not already in the
- * system are reported by the caller as not-found.
+ * sales_activation_records *and does not already carry retailer / invoice-date
+ * information*, set its RT code (+ RT name from the retailers master) and
+ * ST/invoice date. Never inserts, never overwrites.
+ *
+ * A record is only touched when all three of rt_code, rt_name and st_date are
+ * still empty — an already-assigned device is reported back as "skipped" so a
+ * re-run of the same file cannot change a retailer that is already recorded.
+ * IMEIs not in the system at all are reported by the caller as not-found.
  */
 class SellThroughUpserter
 {
+    /** SQL predicate: the record has no retailer / invoice-date yet. */
+    private const UNASSIGNED = "(r.rt_code IS NULL OR r.rt_code = '')
+        AND (r.rt_name IS NULL OR r.rt_name = '')
+        AND r.st_date IS NULL";
+
     /**
-     * @return array{staged:int, matched:int, not_found:int}
+     * @return array{staged:int, matched:int, applied:int, skipped:int, not_found:int}
      */
     public function apply(int $batchId, int $startRow, int $endRow): array
     {
@@ -25,7 +35,7 @@ class SellThroughUpserter
             ->count();
 
         if ($staged === 0) {
-            return ['staged' => 0, 'matched' => 0, 'not_found' => 0];
+            return ['staged' => 0, 'matched' => 0, 'applied' => 0, 'skipped' => 0, 'not_found' => 0];
         }
 
         $matched = (int) DB::selectOne(
@@ -36,8 +46,18 @@ class SellThroughUpserter
             $bindings,
         )->c;
 
-        // Only RT + invoice date are applied. The device's RD and model come from
-        // the model-data import and are left untouched.
+        // Of the matched IMEIs, how many are still unassigned (eligible to update).
+        $applied = (int) DB::selectOne(
+            'SELECT COUNT(*) c
+               FROM import_staging_rows s
+               JOIN sales_activation_records r ON r.imei = s.imei
+              WHERE s.import_batch_id = :batch AND s.row_number BETWEEN :start AND :end
+                AND '.self::UNASSIGNED,
+            $bindings,
+        )->c;
+
+        // Only RT + invoice date are applied, and only to records that have none
+        // yet. The device's RD and model come from the model-data import.
         DB::statement(
             'UPDATE sales_activation_records r
                JOIN import_staging_rows s ON s.imei = r.imei
@@ -48,10 +68,17 @@ class SellThroughUpserter
                     r.last_import_batch_id = :batchLast,
                     r.updated_at = :now
               WHERE s.import_batch_id = :batch
-                AND s.row_number BETWEEN :start AND :end',
+                AND s.row_number BETWEEN :start AND :end
+                AND '.self::UNASSIGNED,
             $bindings + ['batchLast' => $batchId, 'now' => now()->toDateTimeString()],
         );
 
-        return ['staged' => $staged, 'matched' => $matched, 'not_found' => $staged - $matched];
+        return [
+            'staged' => $staged,
+            'matched' => $matched,
+            'applied' => $applied,
+            'skipped' => $matched - $applied,
+            'not_found' => $staged - $matched,
+        ];
     }
 }

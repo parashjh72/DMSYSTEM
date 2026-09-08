@@ -138,7 +138,8 @@ class ImportChunkJob implements ShouldQueue
                     $r = $sell
                         ? $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row)
                         : $activation->apply($batch->id, $chunk->start_row, $chunk->end_row);
-                    $applied = ['inserted' => 0, 'updated' => $r['matched'], 'skipped' => 0];
+                    // Existing IMEIs that already carry the info are skipped, not updated.
+                    $applied = ['inserted' => 0, 'updated' => $r['applied'], 'skipped' => $r['skipped']];
                     $notFound = $r['not_found'];
                 } else {
                     $applied = $upserter->apply(

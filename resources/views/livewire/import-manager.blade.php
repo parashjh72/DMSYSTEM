@@ -37,12 +37,16 @@
                     Assigns retailers to existing IMEIs. File columns: <strong>IMEI, Model, RD Code, RTCode, ST Date</strong>
                     (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — Model and RD Code
                     are informational (the device's model/RD come from the model import). RT name is filled from Master
-                    Data. IMEIs not already in the system are reported as errors.
+                    Data. <strong>Only devices that have no RT code, RT name and ST date yet are updated</strong> — a device
+                    already assigned to a retailer is left as-is and counted as skipped. IMEIs not already in the system
+                    are reported as errors.
                 </p>
             @elseif ($kind === 'activation')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-                    Marks existing IMEIs activated. File columns: <strong>IMEI, Activation Date</strong>. IMEIs not already
-                    in the system are reported as errors.
+                    Marks existing IMEIs activated. File columns: <strong>IMEI, Activation Date</strong>.
+                    <strong>Only devices with no activation date yet are updated</strong> — one that already has an
+                    activation date is left as-is and counted as skipped. IMEIs not already in the system are reported
+                    as errors.
                 </p>
             @endif
 
