@@ -61,6 +61,9 @@ class MasterData extends Component
 
     public string $formRdCode = '';
 
+    /** Models tab: id => product_code, bound to the inline input on each row. */
+    public array $modelCodes = [];
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('masterdata.view'), 403);
@@ -181,6 +184,17 @@ class MasterData extends Component
         $model->update(['status' => $model->status === 'running' ? 'out' : 'running']);
     }
 
+    /** Inline-save a model's product code when its row input changes. */
+    public function updatedModelCodes(mixed $value, string $key): void
+    {
+        abort_unless(auth()->user()?->can('masterdata.view'), 403);
+
+        $value = trim((string) $value);
+        DeviceModel::whereKey((int) $key)->update([
+            'product_code' => $value === '' ? null : mb_substr($value, 0, 60),
+        ]);
+    }
+
     /** Re-apply config/models.php running-series rules to every model. */
     public function reclassify(): void
     {
@@ -195,7 +209,7 @@ class MasterData extends Component
     {
         [$label, $table, $columns] = self::TABS[$this->tab] ?? self::TABS['rd'];
         if ($this->tab === 'model') {
-            $columns = ['name', 'status'];
+            $columns = ['name', 'product_code', 'status'];
         }
 
         $query = DB::table($table);
@@ -272,6 +286,16 @@ class MasterData extends Component
               ")->first()
             : null;
 
+        $rows = $query->orderBy($columns[0])->paginate(30);
+
+        if ($isModels) {
+            // Seed the inline product-code inputs for the rows on screen.
+            $this->modelCodes = $rows->getCollection()
+                ->pluck('product_code', 'id')
+                ->map(fn ($v) => (string) $v)
+                ->all();
+        }
+
         return view('livewire.master-data', [
             'tabs' => self::TABS,
             'columns' => $columns,
@@ -280,7 +304,7 @@ class MasterData extends Component
             'editable' => $this->editable(),
             'counts' => $counts,
             'rdOptions' => $isRetailers ? $options->distributors() : [],
-            'rows' => $query->orderBy($columns[0])->paginate(30),
+            'rows' => $rows,
         ]);
     }
 }

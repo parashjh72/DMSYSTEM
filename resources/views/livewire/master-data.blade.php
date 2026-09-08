@@ -88,7 +88,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50"><tr>
                 @foreach ($columns as $c) <th class="th">{{ str_replace('_', ' ', $c) }}</th> @endforeach
-                @if ($isModels) <th class="th">Type</th> @endif
+                @if ($isModels) <th class="th">Product code</th> <th class="th">Type</th> @endif
                 @if ($editable) <th class="th"></th> @endif
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
@@ -96,6 +96,11 @@
                 <tr wire:key="md-{{ $row->id }}">
                     @foreach ($columns as $c) <td class="td">{{ $row->$c }}</td> @endforeach
                     @if ($isModels)
+                        <td class="td">
+                            <input type="text" wire:model.blur="modelCodes.{{ $row->id }}"
+                                   wire:key="pc-{{ $row->id }}" placeholder="—"
+                                   class="w-32 rounded border border-gray-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none">
+                        </td>
                         <td class="td">
                             <button wire:click="toggleModelStatus({{ $row->id }})"
                                     title="Click to toggle running / out"

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name', 'status'])]
+#[Fillable(['name', 'status', 'product_code'])]
 class DeviceModel extends Model
 {
     public function scopeRunning($query)
