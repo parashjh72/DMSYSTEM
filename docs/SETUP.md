@@ -64,7 +64,10 @@ so they show as **Failed** (retry from the batch page) rather than hanging.
 ```
 
 Runs: nightly `reports:rebuild-summaries` (safety net; imports refresh summaries
-incrementally already), `import:reap-stale` every 5 min, `exports:prune` nightly.
+incrementally already), `import:reap-stale` every 5 min, `exports:prune` nightly,
+and per-minute **scheduler + queue heartbeats** that drive the **System status**
+card on the dashboard (visible to `settings.manage` users) — green when the cron
+and the queue worker are both alive, red otherwise.
 
 ## Importing
 

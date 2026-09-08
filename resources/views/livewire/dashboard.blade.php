@@ -1,6 +1,60 @@
-<div>
+<div wire:poll.30s>
     <h1 class="text-xl font-semibold tracking-tight">Dashboard</h1>
     <p class="mt-1 text-sm text-gray-500">Figures are read from pre-aggregated summary tables.</p>
+
+    @if ($health)
+        @php
+            $dot = fn ($ok) => $ok ? 'bg-green-500' : 'bg-red-500';
+            $ago = fn ($s) => $s === null ? 'never' : ($s < 90 ? $s.'s ago' : round($s / 60).'m ago');
+            $allOk = $health['scheduler']['ok'] && $health['queue']['ok'] && $health['failed_jobs'] === 0 && $health['stuck_imports'] === 0;
+        @endphp
+        <div class="card mt-4 {{ $allOk ? '' : 'ring-2 ring-amber-300' }}">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                <span class="font-semibold {{ $allOk ? 'text-green-700' : 'text-amber-700' }}">
+                    System {{ $allOk ? 'healthy' : 'needs attention' }}
+                </span>
+
+                <span class="flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full {{ $dot($health['scheduler']['ok']) }}"></span>
+                    Scheduler <span class="text-gray-400">{{ $ago($health['scheduler']['age_seconds']) }}</span>
+                </span>
+
+                <span class="flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full {{ $dot($health['queue']['ok']) }}"></span>
+                    Queue worker <span class="text-gray-400">{{ $ago($health['queue']['age_seconds']) }}</span>
+                </span>
+
+                <span class="flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full {{ $dot($health['pending_jobs'] === 0 || ($health['oldest_pending_min'] ?? 0) < 5) }}"></span>
+                    Pending jobs: {{ number_format($health['pending_jobs']) }}
+                    @if ($health['oldest_pending_min']) <span class="text-gray-400">(oldest {{ $health['oldest_pending_min'] }}m)</span> @endif
+                </span>
+
+                @if ($health['failed_jobs'] > 0)
+                    <span class="flex items-center gap-2 text-red-600">
+                        <span class="h-2 w-2 rounded-full bg-red-500"></span>
+                        Failed jobs: {{ number_format($health['failed_jobs']) }}
+                    </span>
+                @endif
+
+                @if ($health['stuck_imports'] > 0)
+                    <span class="flex items-center gap-2 text-red-600">
+                        <span class="h-2 w-2 rounded-full bg-red-500"></span>
+                        Stuck imports: {{ $health['stuck_imports'] }}
+                    </span>
+                @endif
+
+                <span class="text-xs text-gray-400">queue: {{ $health['queue_driver'] }}</span>
+            </div>
+
+            @unless ($allOk)
+                <p class="mt-2 text-xs text-gray-500">
+                    If the scheduler or queue worker is red, the cron isn't running on the server —
+                    see <span class="font-mono">docs/SETUP.md</span> → "Shared hosting".
+                </p>
+            @endunless
+        </div>
+    @endif
 
     <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         @foreach ([

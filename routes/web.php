@@ -13,7 +13,9 @@ use App\Livewire\ModelPrices;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
 use App\Livewire\SchemeReport;
+use App\Livewire\SchemeRetailers;
 use App\Livewire\Schemes;
+use App\Livewire\SelloutReport;
 use App\Livewire\Settings;
 use App\Livewire\StockReport;
 use App\Livewire\Transfer;
@@ -39,12 +41,12 @@ Route::middleware('auth')->group(function () {
     Route::get('explorer', DataExplorer::class)->middleware('can:explorer.view')->name('explorer');
     Route::get('reports', Reports::class)->middleware('can:reports.view')->name('reports');
     Route::get('stock-report', StockReport::class)->middleware('can:reports.view')->name('stock');
-    Route::get('sellout-report', \App\Livewire\SelloutReport::class)->middleware('can:reports.view')->name('sellout');
+    Route::get('sellout-report', SelloutReport::class)->middleware('can:reports.view')->name('sellout');
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');
-    Route::get('schemes/{scheme}/retailers', \App\Livewire\SchemeRetailers::class)->middleware('can:settings.manage')->name('schemes.retailers');
+    Route::get('schemes/{scheme}/retailers', SchemeRetailers::class)->middleware('can:settings.manage')->name('schemes.retailers');
     Route::get('schemes/{scheme}/achievement', SchemeReport::class)->middleware('can:reports.view')->name('schemes.report');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');
 

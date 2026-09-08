@@ -102,6 +102,50 @@ class DashboardService
         });
     }
 
+    /**
+     * Scheduler + queue-worker health, plus pending / failed / stuck counts.
+     * NOT cached — it's a live status check.
+     */
+    public function systemHealth(): array
+    {
+        $now = now()->timestamp;
+        $schedulerAt = (int) Cache::get('heartbeat:scheduler', 0);
+        $queueAt = (int) Cache::get('heartbeat:queue', 0);
+
+        $pending = 0;
+        $oldestPendingMin = null;
+        if (config('queue.default') === 'database') {
+            $pending = (int) DB::table('jobs')->count();
+            $oldest = DB::table('jobs')->min('created_at');
+            $oldestPendingMin = $oldest ? (int) round(($now - $oldest) / 60) : null;
+        }
+
+        $failed = DB::getSchemaBuilder()->hasTable('failed_jobs')
+            ? (int) DB::table('failed_jobs')->count()
+            : 0;
+
+        $stuckImports = (int) DB::table('import_batches')
+            ->whereIn('status', ['queued', 'processing'])
+            ->where('updated_at', '<', now()->subMinutes(10))
+            ->count();
+
+        $mk = fn (int $at, int $staleAfter) => [
+            'seen' => $at > 0,
+            'age_seconds' => $at > 0 ? $now - $at : null,
+            'ok' => $at > 0 && ($now - $at) <= $staleAfter,
+        ];
+
+        return [
+            'scheduler' => $mk($schedulerAt, 180),   // cron every minute → 3 min grace
+            'queue' => $mk($queueAt, 300),            // worker heartbeat → 5 min grace
+            'pending_jobs' => $pending,
+            'oldest_pending_min' => $oldestPendingMin,
+            'failed_jobs' => $failed,
+            'stuck_imports' => $stuckImports,
+            'queue_driver' => config('queue.default'),
+        ];
+    }
+
     public function forget(): void
     {
         $keys = ['dashboard:kpis', 'dashboard:lag'];

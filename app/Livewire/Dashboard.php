@@ -22,6 +22,7 @@ class Dashboard extends Component
             'topModel' => $dashboard->top('model', 8),
             'topTso' => $dashboard->top('tso', 8),
             'lag' => $dashboard->lagBuckets(),
+            'health' => auth()->user()?->can('settings.manage') ? $dashboard->systemHealth() : null,
         ]);
     }
 }
