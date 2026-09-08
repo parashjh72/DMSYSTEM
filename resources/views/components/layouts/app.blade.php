@@ -17,8 +17,7 @@
         ['label' => 'Reports', 'perm' => 'reports.view', 'children' => [
             ['route' => 'stock',            'label' => 'Stock Report'],
             ['route' => 'sellout',          'label' => 'Sellout Report'],
-            ['route' => 'reports',          'label' => 'Standard Reports'],
-            ['route' => 'quick-reports',    'label' => 'Quick Reports'],
+            // Standard Reports + Quick Reports hidden for now (routes still live).
             ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'exports.create'],
         ]],
         ['route' => 'imei-search',     'label' => 'IMEI Search',   'perm' => 'reports.view'],
