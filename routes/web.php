@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CronController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Livewire\Dashboard;
 use App\Livewire\DataExplorer;
@@ -23,6 +24,9 @@ use App\Livewire\UserManager;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
+
+// HTTP scheduler trigger for curl-based cron. Enabled only when CRON_TOKEN is set.
+Route::get('cron/{token}', CronController::class)->name('cron');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');

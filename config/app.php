@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Secret for the GET /cron/<token> HTTP scheduler trigger (curl-based cron).
+    'cron_token' => env('CRON_TOKEN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
