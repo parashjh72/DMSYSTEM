@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesActivationRecord;
 use App\Support\Imei;
+use App\Support\RecordScope;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -63,12 +64,16 @@ class ImeiSearch extends Component
         $found = [];
 
         if ($wanted !== []) {
+            $scope = RecordScope::tsos();
+            $scoped = fn () => SalesActivationRecord::query()
+                ->when($scope, fn ($q, $t) => $q->whereIn('tso', $t))
+                ->whereIn('imei', $wanted);
+
             // Full found set — just the imei column, one indexed lookup, cheap even at 20k.
-            $found = SalesActivationRecord::query()->whereIn('imei', $wanted)->pluck('imei')->all();
+            $found = $scoped()->pluck('imei')->all();
 
             // Displayed page only.
-            $records = SalesActivationRecord::query()
-                ->whereIn('imei', $wanted)
+            $records = $scoped()
                 ->orderBy('imei')
                 ->paginate(min(max($this->perPage, 25), 500));
         }

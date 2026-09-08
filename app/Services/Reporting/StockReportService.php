@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use App\Support\RecordScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -72,6 +73,12 @@ class StockReportService
     private function isActivated(): int
     {
         return $this->mode === 'sellout' ? 1 : 0;
+    }
+
+    /** Base record query, already narrowed to the current user's TSO scope. */
+    private function base()
+    {
+        return RecordScope::apply(DB::table('sales_activation_records'));
     }
 
     private function applyLifecycle($query)
@@ -148,7 +155,7 @@ class StockReportService
         $act = $this->isActivated();
 
         if ($this->mode === 'sellout') {
-            return $this->applyDateRange($this->applyLifecycle(DB::table('sales_activation_records')))
+            return $this->applyDateRange($this->applyLifecycle($this->base()))
                 ->selectRaw('model, 0 AS rd_stock, COUNT(*) AS rt_stock, COUNT(*) AS total_stock')
                 ->where('is_activated', $act)
                 ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
@@ -157,7 +164,7 @@ class StockReportService
                 ->paginate($perPage);
         }
 
-        return $this->applyLifecycle(DB::table('sales_activation_records'))
+        return $this->applyLifecycle($this->base())
             ->selectRaw('
                 model,
                 SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock,
@@ -179,7 +186,7 @@ class StockReportService
             ? "0 AS rd_stock, SUM(is_activated = {$act}) AS rt_stock"
             : 'SUM(is_activated = 0 AND '.self::NO_RT.') AS rd_stock, SUM(is_activated = 0 AND '.self::HAS_RT.') AS rt_stock';
 
-        return $this->applyDateRange($this->applyLifecycle(DB::table('sales_activation_records')))
+        return $this->applyDateRange($this->applyLifecycle($this->base()))
             ->selectRaw("
                 {$split},
                 SUM(is_activated = {$act}) AS total_stock,
@@ -235,7 +242,7 @@ class StockReportService
 
     private function stockQuery(string $scope, ?string $rdCode, array $rtCodes = [])
     {
-        $query = DB::table('sales_activation_records')
+        $query = $this->base()
             ->where('is_activated', $this->isActivated())
             ->when($rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($scope === 'rt' && $rtCodes !== [], fn ($q) => $q->whereIn('rt_code', $rtCodes));

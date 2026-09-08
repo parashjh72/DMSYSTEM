@@ -35,6 +35,8 @@ class RolesAndPermissionsSeeder extends Seeder
         ],
         'Report User' => ['dashboard.view', 'reports.view', 'exports.view'],
         'Import User' => ['dashboard.view', 'imports.view', 'imports.create'],
+        // Field role: sees only its own TSO's rows (users.scoped_tsos). No dashboard.
+        'TSO' => ['reports.view', 'exports.view', 'exports.create'],
     ];
 
     public function run(): void

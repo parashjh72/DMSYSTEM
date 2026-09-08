@@ -19,5 +19,21 @@
             <h2 class="text-sm font-semibold">Master data &amp; model types</h2>
             <p class="mt-1 text-xs text-gray-500">Distributors, retailers, models (running / out), TSOs.</p>
         </a>
+
+        <a href="{{ route('settings.mail') }}" wire:navigate class="card block hover:ring-indigo-300">
+            <h2 class="text-sm font-semibold">Mail settings (SMTP)</h2>
+            <p class="mt-1 text-xs text-gray-500">
+                Outgoing email for password resets &amp; notifications. Includes a "send test" button.
+            </p>
+        </a>
+
+        @can('users.manage')
+        <a href="{{ route('users.index') }}" wire:navigate class="card block hover:ring-indigo-300">
+            <h2 class="text-sm font-semibold">Users &amp; TSO access</h2>
+            <p class="mt-1 text-xs text-gray-500">
+                Add logins. A <strong>TSO</strong> user sees only their own territory's data.
+            </p>
+        </a>
+        @endcan
     </div>
 </div>

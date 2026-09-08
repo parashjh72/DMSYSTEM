@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use App\Support\RecordScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -17,8 +18,12 @@ class FilterOptions
     /** @return list<string> */
     public function tso(): array
     {
-        return Cache::remember('filters:tso', self::TTL, fn () => DB::table('territory_officers')
+        $all = Cache::remember('filters:tso', self::TTL, fn () => DB::table('territory_officers')
             ->orderBy('name')->pluck('name')->all());
+
+        $scope = RecordScope::tsos();
+
+        return $scope === null ? $all : array_values(array_intersect($all, $scope));
     }
 
     /** @return list<string> */

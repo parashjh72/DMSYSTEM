@@ -8,3 +8,4 @@
 .DS_Store
 /storage/app/imports/*
 /storage/app/exports/*
+/.phpunit.result.cache

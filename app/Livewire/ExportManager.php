@@ -20,9 +20,18 @@ class ExportManager extends Component
         abort_unless(auth()->user()?->can('exports.view'), 403);
     }
 
+    /** Admins see every export; everyone else only their own. */
+    private function scopeToOwner($query)
+    {
+        return $query->when(
+            ! auth()->user()?->can('settings.manage'),
+            fn ($q) => $q->where('created_by', auth()->id()),
+        );
+    }
+
     public function download(string $uuid)
     {
-        $export = ExportJob::where('uuid', $uuid)->firstOrFail();
+        $export = $this->scopeToOwner(ExportJob::where('uuid', $uuid))->firstOrFail();
         abort_unless($export->status === 'completed' && $export->stored_path, 404);
 
         return Storage::disk($export->disk)->download(
@@ -34,8 +43,8 @@ class ExportManager extends Component
     public function render()
     {
         return view('livewire.export-manager', [
-            'exports' => ExportJob::with('creator')->latest()->paginate(20),
-            'polling' => ExportJob::whereIn('status', ['pending', 'processing'])->exists(),
+            'exports' => $this->scopeToOwner(ExportJob::with('creator'))->latest()->paginate(20),
+            'polling' => $this->scopeToOwner(ExportJob::whereIn('status', ['pending', 'processing']))->exists(),
         ]);
     }
 }

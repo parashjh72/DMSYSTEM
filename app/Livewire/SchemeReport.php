@@ -7,6 +7,7 @@ use App\Services\Export\ExportService;
 use App\Services\Reporting\FilterOptions;
 use App\Services\Reporting\ReportFilters;
 use App\Services\Reporting\SchemeService;
+use App\Support\RecordScope;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -33,6 +34,8 @@ class SchemeReport extends Component
     public function mount(Scheme $scheme): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
+        // Scheme achievement spans all territories — not for TSO-scoped users.
+        abort_if(RecordScope::restricted(), 403);
         $this->uuid = $scheme->uuid;
     }
 

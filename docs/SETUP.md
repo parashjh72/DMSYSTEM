@@ -144,6 +144,30 @@ Exports screen.
 | Manager | dashboard, reports, explorer, exports, view imports |
 | Report User | dashboard, reports, view exports |
 | Import User | dashboard, run imports |
+| TSO | reports, IMEI search, exports — **only rows for their own TSO(s)** |
+
+### TSO (territory-scoped) users
+
+Give a field TSO a login under **Settings → Users & TSO access** (or **Users**):
+set the role to **TSO** and tick one or more TSO names. That user then sees only
+`sales_activation_records` whose `tso` is in their list — on every report, the
+stock/sellout pivots, IMEI search and all exports (the scope is frozen into each
+queued export so the worker applies it too). They have no dashboard, imports,
+master data, or settings access and land on Standard Reports after signing in.
+The scope is enforced server-side in `App\Support\RecordScope`; leave the TSO
+list empty (any other role) for unrestricted access.
+
+## Mail (SMTP) & password reset
+
+Users can reset their own password from the **Forgot password?** link on the
+sign-in page — this needs working outgoing mail.
+
+Configure SMTP under **Settings → Mail (SMTP)** (admin only): host, port,
+encryption, username, password, from-address. Settings are stored in the
+`settings` table (password encrypted with `APP_KEY`) and applied over the
+`.env` mail config at boot, so no redeploy is needed. Use **Send test email**
+to check it. If nothing is configured there, the `MAIL_*` values in `.env`
+are used unchanged.
 
 ## What is verified
 

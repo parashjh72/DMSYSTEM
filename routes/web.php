@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Livewire\Dashboard;
@@ -9,6 +10,7 @@ use App\Livewire\ExportManager;
 use App\Livewire\ImeiSearch;
 use App\Livewire\ImportDetail;
 use App\Livewire\ImportManager;
+use App\Livewire\MailSettings;
 use App\Livewire\MasterData;
 use App\Livewire\ModelPrices;
 use App\Livewire\QuickReports;
@@ -21,9 +23,10 @@ use App\Livewire\Settings;
 use App\Livewire\StockReport;
 use App\Livewire\Transfer;
 use App\Livewire\UserManager;
+use App\Support\Home;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('dashboard'));
+Route::get('/', fn () => redirect()->route(Home::route()));
 
 // HTTP scheduler trigger for curl-based cron. Enabled only when CRON_TOKEN is set.
 Route::get('cron/{token}', CronController::class)->name('cron');
@@ -31,6 +34,13 @@ Route::get('cron/{token}', CronController::class)->name('cron');
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
     Route::post('login', [LoginController::class, 'login']);
+
+    Route::get('forgot-password', [PasswordResetController::class, 'request'])->name('password.request');
+    Route::post('forgot-password', [PasswordResetController::class, 'email'])
+        ->middleware('throttle:6,1')->name('password.email');
+    Route::get('reset-password/{token}', [PasswordResetController::class, 'reset'])->name('password.reset');
+    Route::post('reset-password', [PasswordResetController::class, 'update'])
+        ->middleware('throttle:6,1')->name('password.update');
 });
 
 Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
@@ -61,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:settings.manage')->group(function () {
         Route::get('settings', Settings::class)->name('settings.index');
         Route::get('settings/transfer', Transfer::class)->name('settings.transfer');
+        Route::get('settings/mail', MailSettings::class)->name('settings.mail');
     });
 
     Route::get('users', UserManager::class)->middleware('can:users.manage')->name('users.index');
