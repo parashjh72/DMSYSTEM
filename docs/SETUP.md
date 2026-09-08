@@ -65,9 +65,29 @@ so they show as **Failed** (retry from the batch page) rather than hanging.
 
 Runs: nightly `reports:rebuild-summaries` (safety net; imports refresh summaries
 incrementally already), `import:reap-stale` every 5 min, `exports:prune` nightly,
-and per-minute **scheduler + queue heartbeats** that drive the **System status**
-card on the dashboard (visible to `settings.manage` users) — green when the cron
-and the queue worker are both alive, red otherwise.
+a per-minute `queue:work --stop-when-empty` (**drains the queue — no separate
+worker cron needed on shared hosting**), and per-minute **scheduler + queue
+heartbeats** that drive the **System status** card on the dashboard (visible to
+`settings.manage` users) — green when the cron and the queue worker are both
+alive, red otherwise.
+
+### If cron can only run curl/wget (not a PHP command)
+
+Some panels only let a cron job hit a URL. Set a secret in the production `.env`:
+
+```
+CRON_TOKEN=<long-random-string>
+```
+
+then `php artisan config:clear`. A per-minute cron of:
+
+```
+* * * * * curl -s "https://dms.parashojha.com/cron/<long-random-string>" >/dev/null 2>&1
+```
+
+hits `GET /cron/{token}`, which runs `schedule:run` (and therefore the queue
+drain) when the token matches. Any other token — or an unset `CRON_TOKEN` —
+returns 404, so the endpoint is inert until you configure it.
 
 ## Importing
 
