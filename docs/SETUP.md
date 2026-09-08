@@ -157,6 +157,27 @@ master data, or settings access and land on Standard Reports after signing in.
 The scope is enforced server-side in `App\Support\RecordScope`; leave the TSO
 list empty (any other role) for unrestricted access.
 
+## Scheduled reports (auto-emailed)
+
+**Reports → Scheduled Reports** lets any user with `exports.create` define a
+report that is built and emailed on a schedule:
+
+- pick the report (RD/RT/TSO/Model/Date/Stock/Sellout/raw records) and format
+  (Excel or CSV);
+- a rolling data window — *yesterday*, *last 7 / 30 days*, *last full month*,
+  *month to date* — on a chosen date basis (ST / activation / sell-in). Stock
+  reports ignore the window (always a live snapshot);
+- daily, weekly (a weekday) or monthly (a day 1–28), at a time in
+  `config('reports.timezone')` (default **Asia/Kathmandu**);
+- one or more recipient emails.
+
+`reports:dispatch-scheduled` runs every minute from the scheduler, queues a
+`SendScheduledReportJob` for anything due (once per day, guarded), which builds
+the file through the normal export pipeline and emails it as an attachment via
+the configured SMTP. A TSO creator's row-scope is frozen into the schedule, so
+their emailed file only ever contains their territory. "Run now" on the list
+sends immediately for testing. Needs the scheduler cron **and** working mail.
+
 ## Mail (SMTP) & password reset
 
 Users can reset their own password from the **Forgot password?** link on the

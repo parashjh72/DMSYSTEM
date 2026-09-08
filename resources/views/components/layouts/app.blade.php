@@ -15,10 +15,11 @@
         ['route' => 'imports.index',   'label' => 'Imports',       'perm' => 'imports.view'],
         ['route' => 'explorer',        'label' => 'Data Explorer', 'perm' => 'explorer.view'],
         ['label' => 'Reports', 'perm' => 'reports.view', 'children' => [
-            ['route' => 'stock',         'label' => 'Stock Report'],
-            ['route' => 'sellout',       'label' => 'Sellout Report'],
-            ['route' => 'reports',       'label' => 'Standard Reports'],
-            ['route' => 'quick-reports', 'label' => 'Quick Reports'],
+            ['route' => 'stock',            'label' => 'Stock Report'],
+            ['route' => 'sellout',          'label' => 'Sellout Report'],
+            ['route' => 'reports',          'label' => 'Standard Reports'],
+            ['route' => 'quick-reports',    'label' => 'Quick Reports'],
+            ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'exports.create'],
         ]],
         ['route' => 'imei-search',     'label' => 'IMEI Search',   'perm' => 'reports.view'],
         ['route' => 'exports.index',   'label' => 'Exports',       'perm' => 'exports.view'],
@@ -49,6 +50,7 @@
                                 </button>
                                 <div x-show="open" x-cloak class="mt-1 space-y-1 pl-3">
                                     @foreach ($item['children'] as $child)
+                                        @continue(! empty($child['perm']) && ! auth()->user()?->can($child['perm']))
                                         <a href="{{ route($child['route']) }}"
                                            class="block rounded-lg px-3 py-1.5 text-sm {{ request()->routeIs($child['route']) || request()->routeIs($child['route'].'.*') ? $activeClass : $idleClass }}">
                                             {{ $child['label'] }}

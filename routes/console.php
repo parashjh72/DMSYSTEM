@@ -27,6 +27,10 @@ Schedule::command('queue:work --stop-when-empty --max-time=55 --tries=3 --queue=
 // runs after every import; this catches any drift).
 Schedule::command('reports:rebuild-summaries')->dailyAt('01:30')->withoutOverlapping();
 
+// Email any scheduled reports whose send time has arrived (times are evaluated
+// in config('reports.timezone')). Cheap — one indexed query per minute.
+Schedule::command('reports:dispatch-scheduled')->everyMinute()->withoutOverlapping();
+
 // Release import batches whose worker died mid-run.
 Schedule::command('import:reap-stale')->everyFiveMinutes()->withoutOverlapping();
 
