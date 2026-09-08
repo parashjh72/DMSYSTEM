@@ -2,9 +2,12 @@
     <div class="flex items-start justify-between">
         <div>
             <h1 class="text-xl font-semibold tracking-tight">Master Data</h1>
-            <p class="mt-1 text-sm text-gray-500">Lookup tables kept in sync by every import.</p>
+            <p class="mt-1 text-sm text-gray-500">Lookup tables kept in sync by every import — and editable here.</p>
         </div>
         <div class="flex gap-2">
+            @if ($editable)
+                <button class="btn-primary" wire:click="newRow">+ Add {{ $tab === 'rd' ? 'distributor' : ($tab === 'rt' ? 'retailer' : 'TSO') }}</button>
+            @endif
             <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
             <button class="btn-ghost" wire:click="export('csv')">CSV</button>
         </div>
@@ -18,6 +21,43 @@
             </button>
         @endforeach
     </div>
+
+    @if ($showForm && $editable)
+        <div class="card mt-4 space-y-3">
+            <h2 class="text-sm font-semibold">
+                {{ $editingId ? 'Edit' : 'Add' }} {{ $tab === 'rd' ? 'distributor' : ($tab === 'rt' ? 'retailer' : 'TSO') }}
+            </h2>
+            <div class="grid gap-3 sm:grid-cols-3">
+                @if ($tab !== 'tso')
+                    <div>
+                        <label class="label">Code</label>
+                        <input class="input" wire:model="formCode" @disabled($editingId)>
+                        @if ($editingId) <p class="text-xs text-gray-400">Code can't be changed.</p> @endif
+                        @error('formCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+                <div class="{{ $tab === 'tso' ? 'sm:col-span-3' : '' }}">
+                    <label class="label">{{ $tab === 'tso' ? 'TSO name' : 'Name' }}</label>
+                    <input class="input" wire:model="formName">
+                    @error('formName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+                @if ($tab === 'rt')
+                    <div>
+                        <label class="label">Distributor (RD code)</label>
+                        <select class="input" wire:model="formRdCode">
+                            <option value="">— none —</option>
+                            @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                        </select>
+                        @error('formRdCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                @endif
+            </div>
+            <div class="flex gap-3">
+                <button class="btn-primary" wire:click="saveRow">Save</button>
+                <button class="btn-ghost" wire:click="cancelForm">Cancel</button>
+            </div>
+        </div>
+    @endif
 
     <div class="card mt-4">
         <div class="flex flex-wrap items-center gap-3">
@@ -49,6 +89,7 @@
             <thead class="bg-gray-50"><tr>
                 @foreach ($columns as $c) <th class="th">{{ str_replace('_', ' ', $c) }}</th> @endforeach
                 @if ($isModels) <th class="th">Type</th> @endif
+                @if ($editable) <th class="th"></th> @endif
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             @forelse ($rows as $row)
@@ -65,9 +106,16 @@
                             </button>
                         </td>
                     @endif
+                    @if ($editable)
+                        <td class="td whitespace-nowrap text-right text-xs">
+                            <button class="text-indigo-600" wire:click="editRow({{ $row->id }})">Edit</button>
+                            <button class="ml-2 text-red-600" wire:click="deleteRow({{ $row->id }})"
+                                    wire:confirm="Delete this entry? It will come back on the next import if it's still in the data.">Delete</button>
+                        </td>
+                    @endif
                 </tr>
             @empty
-                <tr><td class="td text-gray-400" colspan="5">Nothing here yet.</td></tr>
+                <tr><td class="td text-gray-400" colspan="6">Nothing here yet.</td></tr>
             @endforelse
             </tbody>
         </table>
