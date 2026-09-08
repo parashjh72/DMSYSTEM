@@ -42,6 +42,21 @@ Supervisor (or `composer require laravel/horizon` once Redis is present). Keep t
 exports. **Deploy step:** `php artisan queue:restart` — `queue:work` caches code in
 memory and will otherwise run stale jobs/services after a release.
 
+### Shared hosting (Hostinger etc.) — no persistent process
+
+If you cannot keep a worker running, **an import will sit in "Queued" forever**.
+Add a per-minute cron that drains the queue and exits:
+
+```
+* * * * * cd /home/USER/domains/dms.parashojha.com/public_html && \
+  /usr/bin/php artisan queue:work --stop-when-empty --max-time=50 \
+  --queue=imports,summaries,exports,default >> /dev/null 2>&1
+```
+
+To clear a job that is already stuck: run that same `queue:work --stop-when-empty`
+once over SSH. `php artisan import:reap-stale` marks batches abandoned after 30 min
+so they show as **Failed** (retry from the batch page) rather than hanging.
+
 ## Scheduler
 
 ```
