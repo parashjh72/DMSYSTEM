@@ -77,7 +77,7 @@ class ImportBatch extends Model
         return match ($this->kind) {
             'sell_through' => 'Sell-through (RD → RT)',
             'activation' => 'Activation',
-            default => 'Model data',
+            default => 'ND → RD',
         };
     }
 

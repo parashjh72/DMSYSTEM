@@ -19,7 +19,7 @@
                 <button wire:click="$set('kind', 'records')"
                         class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
                         {{ $kind === 'records' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
-                    Model data (IMEI, model, TSO, RD, RT, dates…)
+                    ND → RD (ND to RD)
                 </button>
                 <button wire:click="$set('kind', 'sell_through')"
                         class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
@@ -36,7 +36,7 @@
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
                     Assigns retailers to existing IMEIs. File columns: <strong>IMEI, Model, RD Code, RTCode, ST Date</strong>
                     (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — Model and RD Code
-                    are informational (the device's model/RD come from the model import). RT name is filled from Master
+                    are informational (the device's model/RD come from the ND → RD import). RT name is filled from Master
                     Data. <strong>Only devices that have no RT code, RT name and ST date yet are updated</strong> — a device
                     already assigned to a retailer is left as-is and counted as skipped. IMEIs not already in the system
                     are reported as errors.
@@ -64,7 +64,7 @@
             <h2 class="text-sm font-semibold">
                 Review column mapping
                 <span class="badge {{ $rk === 'records' ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-800' }}">
-                    {{ ['records' => 'Model data', 'sell_through' => 'Sell-through (RD → RT)', 'activation' => 'Activation'][$rk] }}
+                    {{ ['records' => 'ND → RD', 'sell_through' => 'Sell-through (RD → RT)', 'activation' => 'Activation'][$rk] }}
                 </span>
             </h2>
             <p class="mt-1 text-xs text-gray-500">Detected headers: {{ implode(', ', $review['headers']) }}</p>
@@ -134,7 +134,7 @@
             @forelse ($batches as $b)
                 <tr wire:key="b-{{ $b->id }}">
                     <td class="td max-w-[220px] truncate">{{ $b->original_filename }}</td>
-                    <td class="td"><span class="badge {{ $b->kind === 'records' ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-800' }}">{{ ['records' => 'Model', 'sell_through' => 'Sell-thru', 'activation' => 'Activation'][$b->kind] ?? $b->kind }}</span></td>
+                    <td class="td"><span class="badge {{ $b->kind === 'records' ? 'bg-gray-100 text-gray-600' : 'bg-indigo-100 text-indigo-800' }}">{{ ['records' => 'ND-RD', 'sell_through' => 'Sell-thru', 'activation' => 'Activation'][$b->kind] ?? $b->kind }}</span></td>
                     <td class="td">
                         <span class="badge {{ match($b->status->value) {
                             'completed' => 'bg-green-100 text-green-800',
