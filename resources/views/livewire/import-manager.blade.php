@@ -34,9 +34,9 @@
             </div>
             @if ($kind === 'sell_through')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-                    Assigns retailers to existing IMEIs. File columns: <strong>IMEI, Model, RD Code, RTCode, ST Date</strong>
-                    (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — Model and RD Code
-                    are informational (the device's model/RD come from the ND → RD import). RT name is filled from Master
+                    Assigns retailers to existing IMEIs. File columns: <strong>IMEI, RD Code, RTCode, ST Date</strong>
+                    (ST Date = invoice date). <strong>Only IMEI, RTCode and ST Date are applied</strong> — RD Code
+                    is informational (the device's model/RD come from the ND → RD import). RT name is filled from Master
                     Data. <strong>Only devices that have no RT code, RT name and ST date yet are updated</strong> — a device
                     already assigned to a retailer is left as-is and counted as skipped. IMEIs not already in the system
                     are reported as errors.

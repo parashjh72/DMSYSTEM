@@ -24,13 +24,13 @@ class ImportTemplateController extends Controller
         ['<15-digit IMEI>', '2026-09-16'],
     ];
 
-    private const SELL_THROUGH_HEADERS = ['IMEI', 'Model', 'RD Code', 'RTCode', 'ST Date'];
+    private const SELL_THROUGH_HEADERS = ['IMEI', 'RD Code', 'RTCode', 'ST Date'];
 
     /* Placeholder rows — replace with your data. Only IMEI, RTCode and ST Date
-       are used on import; Model and RD Code are informational. */
+       are used on import; RD Code is informational. */
     private const SELL_THROUGH_ROWS = [
-        ['<15-digit IMEI>', '<model>', '<RD code>', '<RT code>', '2026-09-01'],
-        ['<15-digit IMEI>', '<model>', '<RD code>', '<RT code>', '2026-09-01'],
+        ['<15-digit IMEI>', '<RD code>', '<RT code>', '2026-09-01'],
+        ['<15-digit IMEI>', '<RD code>', '<RT code>', '2026-09-01'],
     ];
 
     public function __invoke(Request $request): StreamedResponse

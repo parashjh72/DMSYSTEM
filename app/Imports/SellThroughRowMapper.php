@@ -8,6 +8,7 @@ use App\Support\Imei;
 /**
  * Maps one row of a sell-through (RD -> RT) file: IMEI, RD code, RT code,
  * invoice date (stored as st_date). Assigns retailers to distributor stock.
+ * Any Model column in the file is ignored.
  */
 class SellThroughRowMapper
 {
@@ -41,11 +42,9 @@ class SellThroughRowMapper
         }
 
         $rdCode = trim((string) $this->cell($row, 'rd_code'));
-        $model = trim((string) $this->cell($row, 'model'));
 
         return [
             'imei' => $imei,
-            'model' => $model === '' ? null : mb_substr($model, 0, 100),
             'rd_code' => $rdCode === '' ? null : mb_substr($rdCode, 0, 40),
             'rt_code' => mb_substr($rtCode, 0, 40),
             'st_date' => $stDate,
