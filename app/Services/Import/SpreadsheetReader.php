@@ -103,7 +103,19 @@ class SpreadsheetReader
         return new XlsxReader(new XlsxOptions(
             SHOULD_FORMAT_DATES: false, // keep DateTime objects; DateNormalizer handles them
             SHOULD_PRESERVE_EMPTY_ROWS: false,
-            tempFolder: storage_path('app/openspout'),
+            tempFolder: $this->tempFolder(),
         ));
+    }
+
+    /** OpenSpout unzips XLSX here; create it, fall back to the system temp dir. */
+    private function tempFolder(): string
+    {
+        $dir = storage_path('app/openspout');
+
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        return is_writable($dir) ? $dir : sys_get_temp_dir();
     }
 }
