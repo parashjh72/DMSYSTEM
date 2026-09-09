@@ -29,10 +29,20 @@ class ResyncMasterDataCommand extends Command
         ");
 
         DB::statement("
-            INSERT INTO device_models (name, created_at, updated_at)
-            SELECT DISTINCT model, NOW(), NOW() FROM sales_activation_records
-            WHERE model IS NOT NULL AND model <> ''
-            ON DUPLICATE KEY UPDATE updated_at = NOW()
+            INSERT INTO device_models (name, product_code, created_at, updated_at)
+            SELECT model, NULLIF(product_code, ''), NOW(), NOW() FROM (
+                SELECT model, product_code,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY model
+                           ORDER BY (product_code IS NOT NULL AND product_code <> '') DESC, COUNT(*) DESC
+                       ) rn
+                FROM sales_activation_records
+                WHERE model IS NOT NULL AND model <> ''
+                GROUP BY model, product_code
+            ) a WHERE rn = 1
+            ON DUPLICATE KEY UPDATE
+                product_code = COALESCE(VALUES(product_code), device_models.product_code),
+                updated_at = NOW()
         ");
 
         DB::statement("

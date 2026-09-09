@@ -106,11 +106,25 @@ class FinalizeImportJob implements ShouldQueue
             WHERE last_import_batch_id = ? AND tso IS NOT NULL AND tso <> ""
             ON DUPLICATE KEY UPDATE updated_at = NOW()', [$batchId]);
 
-        DB::statement('
-            INSERT INTO device_models (name, created_at, updated_at)
-            SELECT DISTINCT model, NOW(), NOW() FROM sales_activation_records
-            WHERE last_import_batch_id = ? AND model IS NOT NULL AND model <> ""
-            ON DUPLICATE KEY UPDATE updated_at = NOW()', [$batchId]);
+        // Model + its product code = the code carried by the most records for that
+        // model (a non-empty code wins ties over an empty one). A blank incoming
+        // code never clears a code already on the master row.
+        DB::statement("
+            INSERT INTO device_models (name, product_code, created_at, updated_at)
+            SELECT model, NULLIF(product_code, ''), NOW(), NOW() FROM (
+                SELECT model, product_code,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY model
+                           ORDER BY (product_code IS NOT NULL AND product_code <> '') DESC, COUNT(*) DESC
+                       ) rn
+                FROM sales_activation_records
+                WHERE model IN (SELECT model FROM sales_activation_records WHERE last_import_batch_id = ?)
+                  AND model IS NOT NULL AND model <> ''
+                GROUP BY model, product_code
+            ) a WHERE rn = 1
+            ON DUPLICATE KEY UPDATE
+                product_code = COALESCE(VALUES(product_code), device_models.product_code),
+                updated_at = NOW()", [$batchId]);
 
         // Distributor name = the spelling used by the most records (not MAX, which
         // one stray mis-typed row could hijack). Whole-table scope so a fix in a

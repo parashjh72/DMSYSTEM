@@ -45,7 +45,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    @foreach (['imei' => 'IMEI', 'model' => 'Model', 'tso' => 'TSO', 'rd_code' => 'RD', 'rt_code' => 'RT', 'st_date' => 'ST Date', 'activation_date' => 'Activation', 'sell_in_date' => 'Sell-In', 'activation_days' => 'Days', 'source' => 'Source'] as $col => $label)
+                    @foreach (['imei' => 'IMEI', 'model' => 'Model', 'product_code' => 'Product Code', 'tso' => 'TSO', 'rd_code' => 'RD', 'rt_code' => 'RT', 'st_date' => 'ST Date', 'activation_date' => 'Activation', 'sell_in_date' => 'Sell-In', 'activation_days' => 'Days', 'source' => 'Source'] as $col => $label)
                         <th class="th cursor-pointer select-none" wire:click="sortBy('{{ $col }}')">
                             {{ $label }}
                             @if ($sort === $col) <span class="text-gray-400">{{ $dir === 'asc' ? '▲' : '▼' }}</span> @endif
@@ -59,6 +59,7 @@
                 <tr wire:key="r-{{ $r->id }}">
                     <td class="td font-mono">{{ $r->imei }}</td>
                     <td class="td">{{ $r->model }}</td>
+                    <td class="td">{{ $r->product_code ?? '—' }}</td>
                     <td class="td">{{ $r->tso }}</td>
                     <td class="td">{{ $r->rd_code }}</td>
                     <td class="td">{{ $r->rt_code }}</td>

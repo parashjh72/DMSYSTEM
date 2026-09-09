@@ -11,10 +11,10 @@ use App\Support\Imei;
  */
 class RowMapper
 {
-    private const TEXT_FIELDS = ['model', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name', 'source'];
+    private const TEXT_FIELDS = ['model', 'product_code', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name', 'source'];
 
     private const TEXT_LIMITS = [
-        'model' => 100, 'tso' => 120, 'rd_code' => 40, 'rd_name' => 191,
+        'model' => 100, 'product_code' => 60, 'tso' => 120, 'rd_code' => 40, 'rd_name' => 191,
         'rt_code' => 40, 'rt_name' => 191, 'source' => 40,
     ];
 

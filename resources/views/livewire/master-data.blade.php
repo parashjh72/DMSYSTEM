@@ -1,4 +1,8 @@
 <div>
+    @php
+        $noun = ['rd' => 'distributor', 'rt' => 'retailer', 'model' => 'model', 'tso' => 'TSO'][$tab] ?? 'entry';
+    @endphp
+
     <div class="flex items-start justify-between">
         <div>
             <h1 class="text-xl font-semibold tracking-tight">Master Data</h1>
@@ -6,7 +10,7 @@
         </div>
         <div class="flex gap-2">
             @if ($editable)
-                <button class="btn-primary" wire:click="newRow">+ Add {{ $tab === 'rd' ? 'distributor' : ($tab === 'rt' ? 'retailer' : 'TSO') }}</button>
+                <button class="btn-primary" wire:click="newRow">+ Add {{ $noun }}</button>
             @endif
             <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
             <button class="btn-ghost" wire:click="export('csv')">CSV</button>
@@ -24,31 +28,54 @@
 
     @if ($showForm && $editable)
         <div class="card mt-4 space-y-3">
-            <h2 class="text-sm font-semibold">
-                {{ $editingId ? 'Edit' : 'Add' }} {{ $tab === 'rd' ? 'distributor' : ($tab === 'rt' ? 'retailer' : 'TSO') }}
-            </h2>
+            <h2 class="text-sm font-semibold">{{ $editingId ? 'Edit' : 'Add' }} {{ $noun }}</h2>
             <div class="grid gap-3 sm:grid-cols-3">
-                @if ($tab !== 'tso')
+                @if ($tab === 'rd' || $tab === 'rt')
                     <div>
                         <label class="label">Code</label>
                         <input class="input" wire:model="formCode" @disabled($editingId)>
                         @if ($editingId) <p class="text-xs text-gray-400">Code can't be changed.</p> @endif
                         @error('formCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                @endif
-                <div class="{{ $tab === 'tso' ? 'sm:col-span-3' : '' }}">
-                    <label class="label">{{ $tab === 'tso' ? 'TSO name' : 'Name' }}</label>
-                    <input class="input" wire:model="formName">
-                    @error('formName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
-                @if ($tab === 'rt')
+                    <div class="{{ $tab === 'rd' ? 'sm:col-span-2' : '' }}">
+                        <label class="label">Name</label>
+                        <input class="input" wire:model="formName">
+                        @error('formName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    @if ($tab === 'rt')
+                        <div>
+                            <label class="label">Distributor (RD code)</label>
+                            <select class="input" wire:model="formRdCode">
+                                <option value="">— none —</option>
+                                @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                            </select>
+                            @error('formRdCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+                @elseif ($tab === 'model')
                     <div>
-                        <label class="label">Distributor (RD code)</label>
-                        <select class="input" wire:model="formRdCode">
-                            <option value="">— none —</option>
-                            @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                        <label class="label">Model name</label>
+                        <input class="input" wire:model="formName" @disabled($editingId)>
+                        @if ($editingId) <p class="text-xs text-gray-400">Model name can't be changed.</p> @endif
+                        @error('formName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="label">Product code</label>
+                        <input class="input" wire:model="formProductCode" placeholder="e.g. RMX3830">
+                        @error('formProductCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="label">Type</label>
+                        <select class="input" wire:model="formStatus">
+                            <option value="running">Running</option>
+                            <option value="out">Out</option>
                         </select>
-                        @error('formRdCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                @else
+                    <div class="sm:col-span-3">
+                        <label class="label">TSO name</label>
+                        <input class="input" wire:model="formName">
+                        @error('formName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @endif
             </div>
@@ -88,19 +115,14 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50"><tr>
                 @foreach ($columns as $c) <th class="th">{{ str_replace('_', ' ', $c) }}</th> @endforeach
-                @if ($isModels) <th class="th">Product code</th> <th class="th">Type</th> @endif
+                @if ($isModels) <th class="th">Type</th> @endif
                 @if ($editable) <th class="th"></th> @endif
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             @forelse ($rows as $row)
                 <tr wire:key="md-{{ $row->id }}">
-                    @foreach ($columns as $c) <td class="td">{{ $row->$c }}</td> @endforeach
+                    @foreach ($columns as $c) <td class="td">{{ $row->$c ?: '—' }}</td> @endforeach
                     @if ($isModels)
-                        <td class="td">
-                            <input type="text" wire:model.blur="modelCodes.{{ $row->id }}"
-                                   wire:key="pc-{{ $row->id }}" placeholder="—"
-                                   class="w-32 rounded border border-gray-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none">
-                        </td>
                         <td class="td">
                             <button wire:click="toggleModelStatus({{ $row->id }})"
                                     title="Click to toggle running / out"

@@ -77,11 +77,11 @@ class ExportDefinition
 
     private function records(ReportFilters $filters, callable $onProgress): array
     {
-        $header = ['IMEI', 'Model', 'TSO', 'RD Code', 'RD Name', 'RTCode', 'RT Name',
+        $header = ['IMEI', 'Model', 'Product Code', 'TSO', 'RD Code', 'RD Name', 'RTCode', 'RT Name',
             'ST Date', 'Activation', 'SELL-IN', 'Source', 'Activation Days', 'Import Batch'];
 
         $query = DB::table('sales_activation_records')->select([
-            'id', 'imei', 'model', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
+            'id', 'imei', 'model', 'product_code', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
             'st_date', 'activation_date', 'sell_in_date', 'source', 'activation_days', 'last_import_batch_id',
         ]);
         $filters->apply($query);
@@ -90,7 +90,7 @@ class ExportDefinition
             $done = 0;
             foreach ($this->chunkById($query, 5000) as $r) {
                 yield [
-                    $r->imei, $r->model, $r->tso, $r->rd_code, $r->rd_name, $r->rt_code, $r->rt_name,
+                    $r->imei, $r->model, $r->product_code, $r->tso, $r->rd_code, $r->rd_name, $r->rt_code, $r->rt_name,
                     $r->st_date, $r->activation_date, $r->sell_in_date, $r->source, $r->activation_days, $r->last_import_batch_id,
                 ];
                 if (++$done % 5000 === 0) {

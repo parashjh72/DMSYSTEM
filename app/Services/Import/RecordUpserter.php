@@ -17,7 +17,7 @@ class RecordUpserter
 {
     /** Columns copied from staging; names align 1:1 in both tables. */
     private const VALUE_COLUMNS = [
-        'model', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
+        'model', 'product_code', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
         'st_date', 'activation_date', 'sell_in_date', 'source',
     ];
 

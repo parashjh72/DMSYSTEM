@@ -67,6 +67,7 @@ return [
     'header_aliases' => [
         'imei' => ['imei', 'imei no', 'imei number', 'imei1'],
         'model' => ['model', 'model name', 'device model', 'sku'],
+        'product_code' => ['product code', 'productcode', 'product', 'material code', 'material', 'model code', 'article code'],
         'tso' => ['tso', 'tso name', 'territory sales officer', 'so'],
         'rd_code' => ['rd code', 'rdcode', 'distributor code', 'rd'],
         'rd_name' => ['rd name', 'rdname', 'distributor name', 'distributor'],

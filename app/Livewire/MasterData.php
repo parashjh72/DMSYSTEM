@@ -49,7 +49,7 @@ class MasterData extends Component
     ];
 
     /** Tabs that support manual add / edit / delete. */
-    private const EDITABLE = ['rd', 'rt', 'tso'];
+    private const EDITABLE = ['rd', 'rt', 'model', 'tso'];
 
     public bool $showForm = false;
 
@@ -61,8 +61,9 @@ class MasterData extends Component
 
     public string $formRdCode = '';
 
-    /** Models tab: id => product_code, bound to the inline input on each row. */
-    public array $modelCodes = [];
+    public string $formProductCode = '';
+
+    public string $formStatus = 'out';
 
     public function mount(): void
     {
@@ -80,6 +81,8 @@ class MasterData extends Component
 
     // ---- manual add / edit -------------------------------------------------
 
+    private const FORM_FIELDS = ['showForm', 'editingId', 'formCode', 'formName', 'formRdCode', 'formProductCode', 'formStatus'];
+
     private function editable(): bool
     {
         return in_array($this->tab, self::EDITABLE, true);
@@ -88,7 +91,7 @@ class MasterData extends Component
     public function newRow(): void
     {
         abort_unless(auth()->user()?->can('masterdata.view') && $this->editable(), 403);
-        $this->reset('editingId', 'formCode', 'formName', 'formRdCode');
+        $this->reset(self::FORM_FIELDS);
         $this->resetErrorBag();
         $this->showForm = true;
     }
@@ -104,13 +107,15 @@ class MasterData extends Component
         $this->formCode = $row->code ?? '';
         $this->formName = $row->name ?? '';
         $this->formRdCode = $row->rd_code ?? '';
+        $this->formProductCode = $row->product_code ?? '';
+        $this->formStatus = $row->status ?? 'out';
         $this->resetErrorBag();
         $this->showForm = true;
     }
 
     public function cancelForm(): void
     {
-        $this->reset('showForm', 'editingId', 'formCode', 'formName', 'formRdCode');
+        $this->reset(self::FORM_FIELDS);
     }
 
     public function saveRow(): void
@@ -125,6 +130,26 @@ class MasterData extends Component
                     Rule::unique('territory_officers', 'name')->ignore($this->editingId)],
             ]);
             TerritoryOfficer::updateOrCreate(['id' => $this->editingId], ['name' => trim($data['formName'])]);
+        } elseif ($this->tab === 'model') {
+            // Model name is the natural key (raw records reference it by value), so
+            // it is set on create and locked afterward.
+            $rules = [
+                'formProductCode' => ['nullable', 'string', 'max:60'],
+                'formStatus' => ['required', 'in:running,out'],
+            ];
+            if (! $this->editingId) {
+                $rules['formName'] = ['required', 'string', 'max:100', Rule::unique('device_models', 'name')];
+            }
+            $data = $this->validate($rules);
+
+            $attrs = [
+                'product_code' => trim((string) $data['formProductCode']) ?: null,
+                'status' => $data['formStatus'],
+            ];
+            if (! $this->editingId) {
+                $attrs['name'] = trim($data['formName']);
+            }
+            DeviceModel::updateOrCreate(['id' => $this->editingId], $attrs);
         } else {
             $rules = [
                 'formName' => ['nullable', 'string', 'max:191'],
@@ -182,17 +207,6 @@ class MasterData extends Component
 
         $model = DeviceModel::findOrFail($id);
         $model->update(['status' => $model->status === 'running' ? 'out' : 'running']);
-    }
-
-    /** Inline-save a model's product code when its row input changes. */
-    public function updatedModelCodes(mixed $value, string $key): void
-    {
-        abort_unless(auth()->user()?->can('masterdata.view'), 403);
-
-        $value = trim((string) $value);
-        DeviceModel::whereKey((int) $key)->update([
-            'product_code' => $value === '' ? null : mb_substr($value, 0, 60),
-        ]);
     }
 
     /** Re-apply config/models.php running-series rules to every model. */
@@ -276,7 +290,7 @@ class MasterData extends Component
         [$label, $table, $tabCols] = self::TABS[$this->tab] ?? self::TABS['rd'];
         $isModels = $this->tab === 'model';
         $isRetailers = $this->tab === 'rt';
-        $columns = $isModels ? ['name'] : $tabCols; // table shows Type separately
+        $columns = $isModels ? ['name', 'product_code'] : $tabCols; // Models add a Type column too
 
         $counts = $isModels
             ? DB::table('device_models')->selectRaw("
@@ -287,14 +301,6 @@ class MasterData extends Component
             : null;
 
         $rows = $query->orderBy($columns[0])->paginate(30);
-
-        if ($isModels) {
-            // Seed the inline product-code inputs for the rows on screen.
-            $this->modelCodes = $rows->getCollection()
-                ->pluck('product_code', 'id')
-                ->map(fn ($v) => (string) $v)
-                ->all();
-        }
 
         return view('livewire.master-data', [
             'tabs' => self::TABS,
