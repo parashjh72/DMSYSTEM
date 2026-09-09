@@ -177,6 +177,48 @@ see only their own import batches.
 has an *Also create a login* option (visible to `users.manage` users) that
 makes the distributor and an **RD** account scoped to it in one step.
 
+## Field force
+
+**Hierarchy** — `users.reports_to_id` (self-FK): a TSO reports to an ASM, an ASM
+to an NSM. Set it in **Users** (the "Reports to" picker appears for TSO/ASM
+roles). Backfilled from RD-code overlap on first migrate. PJP approval routing
+freezes `asm_id`/`nsm_id` onto each PJP at submit, resolved from this chain
+(falls back to RD-code overlap when the link is missing).
+
+**Retailer fields** — `retailers` now has `area`, `address`, `phone`,
+`latitude`, `longitude` (all nullable), edited on **Master Data → Retailers**.
+
+### Attendance
+
+**Attendance** (`attendance.check` — TSO/ASM): a mobile-first check-in / check-out
+that captures GPS via the browser Geolocation API (coordinates can't be typed).
+One record per user per day. Duration is computed at check-out. Errors
+(permission denied / unavailable / timeout / unsupported) show a plain message.
+**Attendance Report** (`attendance.view_all` — Admin/NSM/ASM) filters by date
+range / TSO / ASM / RD / status with map links + CSV; ASMs see only their own TSOs.
+
+### PJP (Planned Journey Plan)
+
+**PJP** (`pjp.access`) — one page, tabs by permission:
+
+- **My Plan** (TSO, `pjp.create`) — pick a month → calendar → per-day editor:
+  day status (Planned / Leave / Weekly Off / Holiday / No Plan), notes, and a
+  territory-scoped retailer multi-select (RD scope + search on code / name /
+  phone). **Save Draft**, then **Submit**. Locked from editing once submitted.
+- **ASM Review** (`pjp.asm_review`) — queue of the ASM's TSOs' submitted plans;
+  open one → **Approve & forward to NSM** (comment optional) or **Request
+  revision** (comment required, returns to the TSO).
+- **NSM Final Approval** (`pjp.nsm_final_approve`) — queue of ASM-approved plans;
+  **Final approve** (locks the PJP — nobody can edit), **Reject**, or **Request
+  revision**. *ASM approval is never final.*
+- **Reports** (`pjp.report`) — one row per PJP: planned days / planned visits /
+  actual visits / achievement % / status / revision count.
+
+After final approval the TSO marks each planned retailer **visited** with a GPS
+tap (`pjp_visits`); achievement % = visited ÷ planned. Every transition is in
+`pjp_events` (full history) and emails the next actor via the SMTP settings
+(best-effort — the in-app queue is the source of truth).
+
 ## Promoters (RA)
 
 **Promoters (RA)** (sidebar, `promoters.manage` — Admin / NSM / Super Admin).

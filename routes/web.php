@@ -15,6 +15,7 @@ use App\Livewire\ImportManager;
 use App\Livewire\MailSettings;
 use App\Livewire\MasterData;
 use App\Livewire\ModelPrices;
+use App\Livewire\Pjp;
 use App\Livewire\Promoters;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
@@ -56,6 +57,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('attendance', Attendance::class)->middleware('can:attendance.check')->name('attendance');
     Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
+    Route::get('pjp', Pjp::class)->middleware('can:pjp.access')->name('pjp');
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');
     Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.access')->name('imports.template');
