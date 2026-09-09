@@ -159,11 +159,23 @@ one or more distributor (RD) codes. That user then sees only
 `sales_activation_records` whose `rd_code` is in their list — on every report,
 the stock/sellout pivots, IMEI search, Data Explorer and all exports (the scope
 is frozen into each queued export and scheduled report so the worker applies it
-too). They have no dashboard, imports, master data, or settings access and land
-on the Stock Report after signing in. The scope is enforced server-side in
+too). They have no dashboard, master data, or settings access and land on the
+Stock Report after signing in. The scope is enforced server-side in
 `App\Support\RecordScope`; the three roles differ only by org position — an ASM
 is simply assigned more RD codes than a single RD login. Leave the list empty
 (Super Admin / Admin / NSM) for unrestricted access.
+
+**Sell-through import:** these roles get the `imports.sell_through` permission,
+so **Imports** appears in their sidebar showing only the **Sell-through (RD → RT)**
+type — they upload IMEI / RTCode / ST Date to assign a retailer and invoice
+date to their own devices. Rows for an IMEI outside their distributors are
+rejected ("belongs to another distributor"). Their RD scope is frozen onto the
+batch (`import_batches.scope_rd_codes`) so the queue worker enforces it. They
+see only their own import batches.
+
+**Creating an RD login:** in **Master Data → Distributors**, "Add distributor"
+has an *Also create a login* option (visible to `users.manage` users) that
+makes the distributor and an **RD** account scoped to it in one step.
 
 ## Scheduled reports (auto-emailed)
 
