@@ -150,4 +150,14 @@
             </div>
         @endforeach
     </div>
+
+    @can('reports.view')
+        <a href="{{ route('retailer-map') }}" wire:navigate class="card mt-6 flex items-center justify-between hover:ring-indigo-300">
+            <div>
+                <h2 class="text-sm font-semibold">Retailer Map</h2>
+                <p class="mt-1 text-xs text-gray-500">See your retailers plotted by their saved GPS location.</p>
+            </div>
+            <span class="text-indigo-600">Open map →</span>
+        </a>
+    @endcan
 </div>

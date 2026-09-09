@@ -266,6 +266,41 @@ class Pjp extends Component
                 ->where('code', 'like', $s.'%')->orWhere('name', 'like', '%'.$s.'%')
                 ->orWhere('phone', 'like', $s.'%')))
             ->orderBy('code')->limit(60)
-            ->get(['code', 'name', 'rd_code', 'area', 'address', 'phone']);
+            ->get(['code', 'name', 'rd_code', 'area', 'address', 'phone', 'latitude', 'longitude']);
+    }
+
+    /**
+     * A TSO pins an unmapped retailer on the map before they can plan a visit to it.
+     * Restricted to retailers inside the TSO's RD scope.
+     */
+    public function mapRetailer(string $code, float $lat, float $lng): void
+    {
+        abort_unless($this->canPlan(), 403);
+
+        if (abs($lat) > 90 || abs($lng) > 180 || ($lat === 0.0 && $lng === 0.0)) {
+            $this->addError('day', 'Pick a valid point on the map.');
+
+            return;
+        }
+
+        $codes = auth()->user()->scopedRdCodes();
+
+        $updated = DB::table('retailers')
+            ->where('code', $code)
+            ->when($codes, fn ($q) => $q->whereIn('rd_code', $codes))
+            ->update(['latitude' => round($lat, 7), 'longitude' => round($lng, 7), 'updated_at' => now()]);
+
+        if ($updated === 0) {
+            $this->addError('day', 'That retailer is outside your territory.');
+
+            return;
+        }
+
+        // Mapping is the gate to planning the visit — add it to the day now.
+        if ($this->dayStatus === 'planned' && ! in_array($code, $this->dayRetailers, true)) {
+            $this->dayRetailers[] = $code;
+        }
+
+        session()->flash('status', "Location saved for {$code}.");
     }
 }

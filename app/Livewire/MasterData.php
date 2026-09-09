@@ -155,6 +155,17 @@ class MasterData extends Component
         $this->reset(self::FORM_FIELDS);
     }
 
+    /** Fill the retailer lat/long fields from the map picker. */
+    public function setFormLatLng(string $id, float $lat, float $lng): void
+    {
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            return;
+        }
+
+        $this->formLat = (string) round($lat, 7);
+        $this->formLng = (string) round($lng, 7);
+    }
+
     public function saveRow(): void
     {
         abort_unless(auth()->user()?->can('masterdata.view') && $this->editable(), 403);

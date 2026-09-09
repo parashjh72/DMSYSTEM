@@ -13,12 +13,14 @@ use App\Livewire\ImeiSearch;
 use App\Livewire\ImportDetail;
 use App\Livewire\ImportManager;
 use App\Livewire\MailSettings;
+use App\Livewire\MapSettings;
 use App\Livewire\MasterData;
 use App\Livewire\ModelPrices;
 use App\Livewire\Pjp;
 use App\Livewire\Promoters;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
+use App\Livewire\RetailerMap;
 use App\Livewire\Returns;
 use App\Livewire\ScheduledReports;
 use App\Livewire\SchemeEnrolment;
@@ -78,6 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::get('schemes/{scheme}/retailers', SchemeRetailers::class)->middleware('can:schemes.enrol')->name('schemes.retailers');
     Route::get('schemes/{scheme}/achievement', SchemeReport::class)->middleware('can:reports.view')->name('schemes.report');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');
+    Route::get('retailer-map', RetailerMap::class)->middleware('can:reports.view')->name('retailer-map');
 
     Route::get('exports', ExportManager::class)->middleware('can:exports.view')->name('exports.index');
 
@@ -87,6 +90,7 @@ Route::middleware('auth')->group(function () {
         Route::get('settings', Settings::class)->name('settings.index');
         Route::get('settings/transfer', Transfer::class)->name('settings.transfer');
         Route::get('settings/mail', MailSettings::class)->name('settings.mail');
+        Route::get('settings/maps', MapSettings::class)->name('settings.maps');
     });
 
     Route::get('users', UserManager::class)->middleware('can:users.manage')->name('users.index');

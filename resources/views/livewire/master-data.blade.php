@@ -74,6 +74,11 @@
                             <input class="input" wire:model="formLng" placeholder="e.g. 80.1791">
                             @error('formLng') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
+                        <div class="sm:col-span-3">
+                            <x-map-picker :save="'setFormLatLng'" id="rt-form"
+                                          :lat="$formLat !== '' ? $formLat : null" :lng="$formLng !== '' ? $formLng : null"
+                                          label="Pick location on map" class="btn-ghost text-xs" />
+                        </div>
                     @endif
                 @elseif ($tab === 'model')
                     <div>

@@ -186,7 +186,21 @@ freezes `asm_id`/`nsm_id` onto each PJP at submit, resolved from this chain
 (falls back to RD-code overlap when the link is missing).
 
 **Retailer fields** — `retailers` now has `area`, `address`, `phone`,
-`latitude`, `longitude` (all nullable), edited on **Master Data → Retailers**.
+`latitude`, `longitude` (all nullable), edited on **Master Data → Retailers**
+(a "Pick location on map" button drops a pin).
+
+**Maps** — a Super Admin enters a Google Maps JavaScript API key under
+**Settings → Map settings** (`App\Support\MapConfig`, `settings` table key
+`maps`; `GOOGLE_MAPS_API_KEY` in `.env` is the fallback). The key is used
+client-side, so restrict it by HTTP referrer in Google Cloud. With a key set:
+- **Retailer Map** (`reports.view`, also linked from the Dashboard) plots every
+  RD-scoped retailer that has coordinates, filterable by RD code / area / search.
+- In the **PJP** day editor a retailer with no `latitude`/`longitude` shows
+  "Not mapped" — the TSO must pin it on the map (`Pjp::mapRetailer`, restricted
+  to their RD scope) before they can add it to a day's plan.
+
+Without a key the pickers show a message and the Retailer Map falls back to a
+table of Google-Maps links.
 
 ### Attendance
 

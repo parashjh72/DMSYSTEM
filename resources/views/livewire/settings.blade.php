@@ -36,6 +36,15 @@
             </p>
         </a>
 
+        @if (auth()->user()?->hasRole('Super Admin'))
+        <a href="{{ route('settings.maps') }}" wire:navigate class="card block hover:ring-indigo-300">
+            <h2 class="text-sm font-semibold">Map settings</h2>
+            <p class="mt-1 text-xs text-gray-500">
+                Google Maps API key for the retailer map and for TSOs pinning an unmapped retailer.
+            </p>
+        </a>
+        @endif
+
         @can('users.manage')
         <a href="{{ route('users.index') }}" wire:navigate class="card block hover:ring-indigo-300">
             <h2 class="text-sm font-semibold">Users &amp; roles</h2>
