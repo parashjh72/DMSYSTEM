@@ -92,4 +92,47 @@
     </div>
 
     <p class="mt-3 text-center text-xs text-gray-400">Location is captured automatically from your device — it cannot be entered manually.</p>
+
+    {{-- ---- Upcoming visits (from the TSO's PJP) ---------------------- --}}
+    @if ($upcoming->isNotEmpty())
+        <div class="mt-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-semibold">Upcoming visits</h2>
+                <a href="{{ route('pjp') }}" wire:navigate class="text-xs text-indigo-600">Open PJP →</a>
+            </div>
+            <div class="mt-2 space-y-3">
+                @foreach ($upcoming as $d)
+                    @php $isToday = $d->plan_date->isToday(); @endphp
+                    <div class="card p-3 {{ $isToday ? 'ring-1 ring-indigo-300' : '' }}">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm font-semibold">
+                                {{ $d->plan_date->format('D, d M') }}
+                                @if ($isToday) <span class="badge ml-1 bg-indigo-100 text-indigo-800">Today</span> @endif
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                {{ count($d->visited_codes) }} / {{ $d->retailers->count() }} visited
+                            </div>
+                        </div>
+                        <ul class="mt-2 space-y-1 text-xs">
+                            @foreach ($d->retailers as $r)
+                                <li class="flex items-center justify-between">
+                                    <span><span class="font-mono">{{ $r->rt_code }}</span> {{ $r->rt_name }}</span>
+                                    @if (in_array($r->rt_code, $d->visited_codes, true))
+                                        <span class="text-emerald-600">✓ visited</span>
+                                    @else
+                                        <span class="text-gray-400">planned</span>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($d->notes) <p class="mt-1 text-xs text-gray-400">{{ $d->notes }}</p> @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @elseif (auth()->user()->can('pjp.create'))
+        <div class="card mt-6 text-center text-sm text-gray-500">
+            No upcoming planned visits. <a href="{{ route('pjp') }}" wire:navigate class="text-indigo-600">Plan your month in PJP →</a>
+        </div>
+    @endif
 </div>
