@@ -31,6 +31,9 @@ class UserManager extends Component
     /** @var list<string> RD codes this user may see (ASM / TSO / RD roles only). */
     public array $scopedRdCodes = [];
 
+    /** The manager this user reports to — TSO → ASM, ASM → NSM. */
+    public ?int $reportsToId = null;
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('users.manage'), 403);
@@ -51,13 +54,23 @@ class UserManager extends Component
             'role' => ['required', Rule::in(Role::pluck('name'))],
             'scopedRdCodes' => ['array'],
             'scopedRdCodes.*' => ['string'],
+            'reportsToId' => ['nullable', 'integer', Rule::exists('users', 'id')],
         ];
+    }
+
+    /** The role a given role reports up to. */
+    private function managerRoleFor(string $role): ?string
+    {
+        return ['TSO' => 'ASM', 'ASM' => 'NSM'][$role] ?? null;
     }
 
     public function updatedRole(string $value): void
     {
         if (! in_array($value, $this->scopedRoles(), true)) {
             $this->scopedRdCodes = [];
+        }
+        if (! $this->managerRoleFor($value)) {
+            $this->reportsToId = null;
         }
     }
 
@@ -70,6 +83,7 @@ class UserManager extends Component
         $this->password = '';
         $this->role = $user->roles->first()?->name ?? 'RD';
         $this->scopedRdCodes = $user->scopedRdCodes();
+        $this->reportsToId = $user->reports_to_id;
         $this->showForm = true;
     }
 
@@ -101,31 +115,40 @@ class UserManager extends Component
             }
         }
 
+        $managerRole = $this->managerRoleFor($data['role']);
+
         $user = User::updateOrCreate(
             ['id' => $this->editingId],
             [
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'scoped_rd_codes' => $codes ?: null,
+                'reports_to_id' => $managerRole ? $data['reportsToId'] : null,
                 ...($data['password'] ? ['password' => Hash::make($data['password'])] : []),
             ],
         );
         $user->syncRoles([$data['role']]);
 
-        $this->reset('showForm', 'editingId', 'name', 'email', 'password', 'role', 'scopedRdCodes');
+        $this->reset('showForm', 'editingId', 'name', 'email', 'password', 'role', 'scopedRdCodes', 'reportsToId');
         session()->flash('status', 'User saved.');
     }
 
     public function render()
     {
+        $managerRole = $this->managerRoleFor($this->role);
+
         return view('livewire.user-manager', [
-            'users' => User::with('roles')->orderBy('name')->get(),
+            'users' => User::with('roles', 'reportsTo')->orderBy('name')->get(),
             'roles' => Role::orderByRaw("FIELD(name, 'Super Admin','Admin','NSM','ASM','TSO','RD')")->pluck('name'),
             'scopedRoles' => $this->scopedRoles(),
             'rdOptions' => DB::table('retail_distributors')
                 ->orderBy('code')
                 ->get(['code', 'name'])
                 ->map(fn ($r) => ['code' => $r->code, 'label' => trim($r->code.' — '.($r->name ?? ''), ' —')]),
+            'managerRole' => $managerRole,
+            'managerOptions' => $managerRole
+                ? User::role($managerRole)->orderBy('name')->pluck('name', 'id')
+                : collect(),
         ]);
     }
 }

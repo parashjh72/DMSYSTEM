@@ -18,6 +18,17 @@
                 </div>
             </div>
 
+            @if ($managerRole)
+                <div class="mt-4">
+                    <label class="label">Reports to ({{ $managerRole }})</label>
+                    <select class="input" wire:model="reportsToId">
+                        <option value="">— none —</option>
+                        @foreach ($managerOptions as $id => $name) <option value="{{ $id }}">{{ $name }}</option> @endforeach
+                    </select>
+                    @error('reportsToId')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                </div>
+            @endif
+
             @if (in_array($role, $scopedRoles, true))
                 <div class="mt-4">
                     <label class="label">Assigned distributors (RD)
@@ -48,13 +59,14 @@
 
     <div class="card mt-6 overflow-x-auto p-0">
         <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50"><tr><th class="th">Name</th><th class="th">Email</th><th class="th">Role</th><th class="th">Scope</th><th class="th"></th></tr></thead>
+            <thead class="bg-gray-50"><tr><th class="th">Name</th><th class="th">Email</th><th class="th">Role</th><th class="th">Reports to</th><th class="th">Scope</th><th class="th"></th></tr></thead>
             <tbody class="divide-y divide-gray-100">
             @foreach ($users as $u)
                 <tr>
                     <td class="td">{{ $u->name }}</td>
                     <td class="td">{{ $u->email }}</td>
                     <td class="td">{{ $u->roles->pluck('name')->join(', ') ?: '—' }}</td>
+                    <td class="td text-xs text-gray-500">{{ $u->reportsTo?->name ?? '—' }}</td>
                     <td class="td text-xs text-gray-500">{{ $u->scopedRdCodes() ? implode(', ', $u->scopedRdCodes()) : 'All data' }}</td>
                     <td class="td"><button class="text-indigo-600" wire:click="edit({{ $u->id }})">Edit</button></td>
                 </tr>

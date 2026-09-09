@@ -4,6 +4,8 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\ImportTemplateController;
+use App\Livewire\Attendance;
+use App\Livewire\AttendanceReport;
 use App\Livewire\Dashboard;
 use App\Livewire\DataExplorer;
 use App\Livewire\ExportManager;
@@ -50,6 +52,9 @@ Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', Dashboard::class)->middleware('can:dashboard.view')->name('dashboard');
+
+    Route::get('attendance', Attendance::class)->middleware('can:attendance.check')->name('attendance');
+    Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');
     Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.access')->name('imports.template');

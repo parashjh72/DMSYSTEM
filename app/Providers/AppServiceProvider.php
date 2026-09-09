@@ -41,5 +41,11 @@ class AppServiceProvider extends ServiceProvider
 
         // The Promoters (RA) page — roster/achievement for managers, RA Requests tab for the workflow.
         Gate::define('promoters.access', fn ($user) => $user->can('promoters.manage') || Gate::forUser($user)->allows('ra-requests.access'));
+
+        // Field-force areas.
+        Gate::define('attendance.access', fn ($user) => $user->canAny(['attendance.check', 'attendance.view_all']));
+        Gate::define('pjp.access', fn ($user) => $user->canAny([
+            'pjp.create', 'pjp.asm_review', 'pjp.nsm_final_approve', 'pjp.report',
+        ]));
     }
 }

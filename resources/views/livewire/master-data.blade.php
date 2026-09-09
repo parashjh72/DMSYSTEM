@@ -51,6 +51,29 @@
                             </select>
                             @error('formRdCode') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
+                        <div>
+                            <label class="label">Area</label>
+                            <input class="input" wire:model="formArea">
+                            @error('formArea') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="label">Phone</label>
+                            <input class="input" wire:model="formPhone">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="label">Address</label>
+                            <input class="input" wire:model="formAddress">
+                        </div>
+                        <div>
+                            <label class="label">Latitude</label>
+                            <input class="input" wire:model="formLat" placeholder="e.g. 28.9634">
+                            @error('formLat') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="label">Longitude</label>
+                            <input class="input" wire:model="formLng" placeholder="e.g. 80.1791">
+                            @error('formLng') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
                     @endif
                 @elseif ($tab === 'model')
                     <div>

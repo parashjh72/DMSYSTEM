@@ -45,7 +45,7 @@ class MasterData extends Component
 
     private const TABS = [
         'rd' => ['Distributors', 'retail_distributors', ['code', 'name']],
-        'rt' => ['Retailers', 'retailers', ['code', 'name', 'rd_code']],
+        'rt' => ['Retailers', 'retailers', ['code', 'name', 'rd_code', 'area']],
         'model' => ['Models', 'device_models', ['name']],
         'tso' => ['TSOs', 'territory_officers', ['name']],
     ];
@@ -66,6 +66,17 @@ class MasterData extends Component
     public string $formProductCode = '';
 
     public string $formStatus = 'out';
+
+    /** Retailers tab: field attributes. */
+    public string $formArea = '';
+
+    public string $formAddress = '';
+
+    public string $formPhone = '';
+
+    public string $formLat = '';
+
+    public string $formLng = '';
 
     /** Distributors tab: optionally create an RD-role login for the new distributor. */
     public bool $createLogin = false;
@@ -100,6 +111,7 @@ class MasterData extends Component
 
     private const FORM_FIELDS = [
         'showForm', 'editingId', 'formCode', 'formName', 'formRdCode', 'formProductCode', 'formStatus',
+        'formArea', 'formAddress', 'formPhone', 'formLat', 'formLng',
         'createLogin', 'loginName', 'loginEmail', 'loginPassword',
     ];
 
@@ -129,6 +141,11 @@ class MasterData extends Component
         $this->formRdCode = $row->rd_code ?? '';
         $this->formProductCode = $row->product_code ?? '';
         $this->formStatus = $row->status ?? 'out';
+        $this->formArea = $row->area ?? '';
+        $this->formAddress = $row->address ?? '';
+        $this->formPhone = $row->phone ?? '';
+        $this->formLat = (string) ($row->latitude ?? '');
+        $this->formLng = (string) ($row->longitude ?? '');
         $this->resetErrorBag();
         $this->showForm = true;
     }
@@ -180,6 +197,11 @@ class MasterData extends Component
             }
             if ($this->tab === 'rt') {
                 $rules['formRdCode'] = ['nullable', 'string', 'max:40'];
+                $rules['formArea'] = ['nullable', 'string', 'max:120'];
+                $rules['formAddress'] = ['nullable', 'string', 'max:255'];
+                $rules['formPhone'] = ['nullable', 'string', 'max:30'];
+                $rules['formLat'] = ['nullable', 'numeric', 'between:-90,90'];
+                $rules['formLng'] = ['nullable', 'numeric', 'between:-180,180'];
             }
             $wantsLogin = $this->tab === 'rd' && ! $this->editingId && $this->createLogin && $this->canCreateLogin();
             if ($wantsLogin) {
@@ -196,6 +218,11 @@ class MasterData extends Component
             }
             if ($this->tab === 'rt') {
                 $attrs['rd_code'] = trim((string) ($data['formRdCode'] ?? '')) ?: null;
+                $attrs['area'] = trim((string) ($data['formArea'] ?? '')) ?: null;
+                $attrs['address'] = trim((string) ($data['formAddress'] ?? '')) ?: null;
+                $attrs['phone'] = trim((string) ($data['formPhone'] ?? '')) ?: null;
+                $attrs['latitude'] = ($data['formLat'] ?? '') === '' ? null : (float) $data['formLat'];
+                $attrs['longitude'] = ($data['formLng'] ?? '') === '' ? null : (float) $data['formLng'];
             }
 
             $model = $this->tab === 'rd' ? RetailDistributor::class : Retailer::class;

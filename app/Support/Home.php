@@ -14,6 +14,7 @@ class Home
 
         return match (true) {
             $user?->can('dashboard.view') => 'dashboard',
+            $user?->can('attendance.check') => 'attendance',
             $user?->can('reports.view') => 'stock',
             $user?->can('imports.view') => 'imports.index',
             default => 'login',

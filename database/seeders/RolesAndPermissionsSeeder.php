@@ -24,6 +24,18 @@ class RolesAndPermissionsSeeder extends Seeder
         'promoter_requests.create',      // TSO: raise an RA request for a retailer
         'promoter_requests.approve_asm', // ASM: first-level approval
         'promoter_requests.approve_nsm', // NSM: final approval (creates the promoter)
+
+        'attendance.check',          // field user: own GPS check-in / check-out
+        'attendance.view_all',       // Admin / NSM / ASM: attendance reports
+
+        'schemes.enrol',             // enrol / deactivate retailers in a scheme
+
+        'pjp.create',                // TSO: own monthly Planned Journey Plan
+        'pjp.submit',                // TSO: submit for approval
+        'pjp.asm_review',            // ASM: approve / forward / request revision
+        'pjp.nsm_final_approve',     // NSM: final approve / reject / request revision
+        'pjp.report',                // Admin / NSM / ASM: PJP reports
+
         'masterdata.view',
         'settings.manage',
         'users.manage',
@@ -36,7 +48,8 @@ class RolesAndPermissionsSeeder extends Seeder
     private const NATIONAL = [
         'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
         'explorer.view', 'exports.view', 'exports.create', 'returns.review',
-        'promoters.manage', 'masterdata.view', 'settings.manage',
+        'promoters.manage', 'attendance.view_all', 'schemes.enrol', 'pjp.report',
+        'masterdata.view', 'settings.manage',
     ];
 
     /**
@@ -48,9 +61,11 @@ class RolesAndPermissionsSeeder extends Seeder
     public const ROLES = [
         'Super Admin' => self::PERMISSIONS,          // controls the whole system
         'Admin' => self::NATIONAL,                    // National Distributor level
-        'NSM' => [...self::NATIONAL, 'promoter_requests.approve_nsm'], // + final RA approval
-        'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm'], // handles RD(s) + first RA approval
-        'TSO' => [...self::RD_SCOPED, 'promoter_requests.create'],      // handles RD(s) + raises RA requests
+        'NSM' => [...self::NATIONAL, 'promoter_requests.approve_nsm', 'pjp.nsm_final_approve'],
+        'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm',
+            'attendance.check', 'attendance.view_all', 'pjp.asm_review', 'pjp.report'],
+        'TSO' => [...self::RD_SCOPED, 'promoter_requests.create',
+            'attendance.check', 'pjp.create', 'pjp.submit'],
         'RD' => [...self::RD_SCOPED, 'returns.request'],                // single distributor login — can raise returns
     ];
 
