@@ -62,8 +62,8 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="th">IMEI</th><th class="th">Model</th><th class="th">TSO</th>
-                        <th class="th">RD</th><th class="th">RT</th>
+                        <th class="th">IMEI</th><th class="th">Product Code</th><th class="th">Model</th><th class="th">TSO</th>
+                        <th class="th">RD</th><th class="th">RD Name</th><th class="th">RT</th><th class="th">RT Name</th>
                         <th class="th">ST Date</th><th class="th">Activation</th><th class="th">Sell-In</th>
                         <th class="th">Status</th><th class="th">Batch</th><th class="th">Timeline</th>
                     </tr>
@@ -72,10 +72,13 @@
                 @foreach ($records as $r)
                     <tr wire:key="rec-{{ $r->id }}">
                         <td class="td font-mono">{{ $r->imei }}</td>
+                        <td class="td">{{ $r->product_code ?? '—' }}</td>
                         <td class="td">{{ $r->model }}</td>
                         <td class="td">{{ $r->tso }}</td>
                         <td class="td">{{ $r->rd_code }}</td>
-                        <td class="td">{{ $r->rt_code }}</td>
+                        <td class="td">{{ $r->rd_name ?? '—' }}</td>
+                        <td class="td">{{ $r->rt_code ?? '—' }}</td>
+                        <td class="td">{{ $r->rt_name ?? '—' }}</td>
                         <td class="td">{{ $r->st_date?->toDateString() ?? '—' }}</td>
                         <td class="td">{{ $r->activation_date?->toDateString() ?? '—' }}</td>
                         <td class="td">{{ $r->sell_in_date?->toDateString() ?? '—' }}</td>
