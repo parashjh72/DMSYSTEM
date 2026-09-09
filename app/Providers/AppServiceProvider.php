@@ -33,5 +33,10 @@ class AppServiceProvider extends ServiceProvider
 
         // The Returns area: RD logins raise requests, Admin / Super Admin review them.
         Gate::define('returns.access', fn ($user) => $user->can('returns.request') || $user->can('returns.review'));
+
+        // RA Requests: TSO raises, ASM then NSM approve.
+        Gate::define('ra-requests.access', fn ($user) => $user->canAny([
+            'promoter_requests.create', 'promoter_requests.approve_asm', 'promoter_requests.approve_nsm',
+        ]));
     }
 }

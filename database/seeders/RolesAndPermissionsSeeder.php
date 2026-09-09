@@ -21,6 +21,9 @@ class RolesAndPermissionsSeeder extends Seeder
         'returns.request',           // RD: ask to pull devices back from a retailer
         'returns.review',            // Admin / NSM / Super Admin: approve or reject those requests
         'promoters.manage',          // manage promoters (RA) and track their monthly achievement
+        'promoter_requests.create',      // TSO: raise an RA request for a retailer
+        'promoter_requests.approve_asm', // ASM: first-level approval
+        'promoter_requests.approve_nsm', // NSM: final approval (creates the promoter)
         'masterdata.view',
         'settings.manage',
         'users.manage',
@@ -45,10 +48,10 @@ class RolesAndPermissionsSeeder extends Seeder
     public const ROLES = [
         'Super Admin' => self::PERMISSIONS,          // controls the whole system
         'Admin' => self::NATIONAL,                    // National Distributor level
-        'NSM' => self::NATIONAL,                      // National Sales Manager — same as Admin
-        'ASM' => self::RD_SCOPED,                     // handles particular RD(s) + their TSOs
-        'TSO' => self::RD_SCOPED,                     // handles some RD(s)
-        'RD' => [...self::RD_SCOPED, 'returns.request'], // single distributor login — can raise returns
+        'NSM' => [...self::NATIONAL, 'promoter_requests.approve_nsm'], // + final RA approval
+        'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm'], // handles RD(s) + first RA approval
+        'TSO' => [...self::RD_SCOPED, 'promoter_requests.create'],      // handles RD(s) + raises RA requests
+        'RD' => [...self::RD_SCOPED, 'returns.request'],                // single distributor login — can raise returns
     ];
 
     /** Roles whose users must be assigned one or more RD codes (users.scoped_rd_codes). */

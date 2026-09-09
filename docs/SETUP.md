@@ -188,6 +188,23 @@ switch to `st_date` for sell-through), the **attainment %**, and a status badge
 (Target hit / On track ≥70% / Behind). Filter by month, type or distributor;
 export to CSV / Excel. One grouped query drives the whole page.
 
+### RA Requests (TSO → ASM → NSM)
+
+**RA Requests** (sidebar) is the approval workflow for placing a new promoter:
+
+- A **TSO** (`promoter_requests.create`) picks an RA type and a retailer in
+  their territory. That retailer's **last 3 whole months** of activations /
+  sell-through load automatically and are frozen onto the request. Optional
+  proposed name, monthly target and note, then Submit.
+- **ASM** (`promoter_requests.approve_asm`) sees requests for retailers in
+  their RD scope and Approves (→ NSM) or Rejects.
+- **NSM** (`promoter_requests.approve_nsm`) gives final approval — which
+  **creates the Promoter**, linked back on the request — or Rejects.
+
+Super Admin holds every level; Admin is not in the chain. Status runs
+`Awaiting ASM → Awaiting NSM → Approved` (or `Rejected (ASM/NSM)`); the TSO
+sees their own requests with each reviewer's note.
+
 ## Returns
 
 **Returns** (sidebar) is a two-sided approval flow:
