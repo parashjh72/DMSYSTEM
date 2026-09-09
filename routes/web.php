@@ -15,6 +15,7 @@ use App\Livewire\MasterData;
 use App\Livewire\ModelPrices;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
+use App\Livewire\Returns;
 use App\Livewire\ScheduledReports;
 use App\Livewire\SchemeReport;
 use App\Livewire\SchemeRetailers;
@@ -59,6 +60,7 @@ Route::middleware('auth')->group(function () {
     Route::get('sellout-report', SelloutReport::class)->middleware('can:reports.view')->name('sellout');
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
     Route::get('scheduled-reports', ScheduledReports::class)->middleware('can:scheduled-reports.manage')->name('scheduled-reports');
+    Route::get('returns', Returns::class)->middleware('can:returns.access')->name('returns');
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');

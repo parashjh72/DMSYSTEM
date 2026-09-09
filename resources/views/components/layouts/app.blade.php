@@ -21,6 +21,7 @@
             ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'scheduled-reports.manage'],
         ]],
         ['route' => 'imei-search',     'label' => 'IMEI Search',   'perm' => 'reports.view'],
+        ['route' => 'returns',         'label' => 'Returns',       'perm' => 'returns.access'],
         ['route' => 'exports.index',   'label' => 'Exports',       'perm' => 'exports.view'],
         ['route' => 'masterdata',      'label' => 'Master Data',   'perm' => 'masterdata.view'],
         ['route' => 'model-prices',    'label' => 'Model Prices',  'perm' => 'masterdata.view'],

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\SalesActivationRecord;
+use App\Services\DeviceTimeline;
 use App\Support\Imei;
 use App\Support\RecordScope;
 use Livewire\Attributes\Layout;
@@ -28,6 +29,9 @@ class ImeiSearch extends Component
         return (int) config('import.imei_search_max', 20000);
     }
 
+    /** IMEI whose timeline is open in the modal. */
+    public ?string $timelineImei = null;
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
@@ -37,6 +41,25 @@ class ImeiSearch extends Component
     {
         $this->imeis = '';
         $this->resetPage();
+    }
+
+    public function showTimeline(string $imei): void
+    {
+        $imei = Imei::clean($imei);
+        $scope = RecordScope::rdCodes();
+
+        $visible = SalesActivationRecord::query()
+            ->when($scope, fn ($q, $c) => $q->whereIn('rd_code', $c))
+            ->where('imei', $imei)
+            ->exists();
+
+        abort_unless($visible, 403);
+        $this->timelineImei = $imei;
+    }
+
+    public function closeTimeline(): void
+    {
+        $this->timelineImei = null;
     }
 
     public function updatedImeis(): void
@@ -88,6 +111,7 @@ class ImeiSearch extends Component
             'unmatched' => $unmatched,
             'capped' => $capped,
             'maxImeis' => $this->max(),
+            'timeline' => $this->timelineImei ? app(DeviceTimeline::class)->for($this->timelineImei) : null,
         ]);
     }
 }

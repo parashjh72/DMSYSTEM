@@ -177,6 +177,25 @@ see only their own import batches.
 has an *Also create a login* option (visible to `users.manage` users) that
 makes the distributor and an **RD** account scoped to it in one step.
 
+## Returns
+
+**Returns** (sidebar) is a two-sided approval flow:
+
+- An **RD** login pastes IMEIs currently at a retailer, in its own
+  distributor(s), and submits a return request (`returns.request`). IMEIs that
+  are missing, belong to another distributor, aren't at a retailer, or already
+  have a pending request are skipped and listed back.
+- **Admin / NSM / Super Admin** (`returns.review`) see the pending queue and
+  Approve / Reject each request. On **approve**, every still-eligible IMEI has
+  its `rt_code`, `rt_name` and `st_date` cleared — it drops back to unassigned
+  stock under the same `rd_code`. `activation_date` is left as-is.
+
+Every step writes to **`device_events`**, an immutable per-IMEI log. In
+**IMEI Search**, each result row has a **View** button that opens the device
+**timeline** — the record's own dates (received / assigned / activated) merged
+with the events (return requested / approved / rejected, transfers), oldest
+first.
+
 ## Scheduled reports (auto-emailed)
 
 **Reports → Scheduled Reports** (Super Admin only) lets you define a

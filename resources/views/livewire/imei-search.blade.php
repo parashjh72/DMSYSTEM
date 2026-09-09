@@ -65,7 +65,7 @@
                         <th class="th">IMEI</th><th class="th">Model</th><th class="th">TSO</th>
                         <th class="th">RD</th><th class="th">RT</th>
                         <th class="th">ST Date</th><th class="th">Activation</th><th class="th">Sell-In</th>
-                        <th class="th">Status</th><th class="th">Batch</th>
+                        <th class="th">Status</th><th class="th">Batch</th><th class="th">Timeline</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
@@ -85,6 +85,7 @@
                             </span>
                         </td>
                         <td class="td text-gray-400">#{{ $r->last_import_batch_id }}</td>
+                        <td class="td"><button class="text-indigo-600 text-xs" wire:click="showTimeline('{{ $r->imei }}')">View</button></td>
                     </tr>
                 @endforeach
                 </tbody>
@@ -93,5 +94,41 @@
         <div class="mt-3">{{ $records->links() }}</div>
     @elseif ($searched && $records && $records->isEmpty())
         <div class="card mt-4 text-sm text-gray-500">None of the {{ number_format($totalWanted) }} IMEIs were found.</div>
+    @endif
+
+    {{-- ---- Device timeline modal ---------------------------------------- --}}
+    @if ($timelineImei !== null)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+             wire:click.self="closeTimeline">
+            <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+                    <h2 class="text-sm font-semibold">Timeline · <span class="font-mono">{{ $timelineImei }}</span></h2>
+                    <button class="text-gray-400 hover:text-gray-600" wire:click="closeTimeline">&times;</button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto px-5 py-4">
+                    @forelse ($timeline as $e)
+                        <div class="relative flex gap-3 pb-4 last:pb-0">
+                            <div class="mt-1 h-2 w-2 shrink-0 rounded-full
+                                {{ match ($e['kind']) {
+                                    'return_approved' => 'bg-green-500',
+                                    'return_requested' => 'bg-blue-500',
+                                    'return_rejected' => 'bg-red-500',
+                                    'activated' => 'bg-emerald-500',
+                                    'assigned' => 'bg-indigo-500',
+                                    default => 'bg-gray-400',
+                                } }}"></div>
+                            <div class="min-w-0">
+                                <p class="text-sm">{{ $e['title'] }}
+                                    @if ($e['detail']) <span class="text-gray-500">— {{ $e['detail'] }}</span> @endif
+                                </p>
+                                <p class="text-xs text-gray-400">{{ $e['at'] ? \Illuminate\Support\Carbon::parse($e['at'])->format('d M Y, H:i') : \Illuminate\Support\Carbon::parse($e['when'])->format('d M Y') }}</p>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-sm text-gray-400">No history recorded for this device.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
     @endif
 </div>

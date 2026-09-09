@@ -10,6 +10,15 @@
             </p>
         </a>
 
+        @can('returns.review')
+        <a href="{{ route('returns') }}" wire:navigate class="card block hover:ring-indigo-300">
+            <h2 class="text-sm font-semibold">Return requests</h2>
+            <p class="mt-1 text-xs text-gray-500">
+                Approve or reject RD requests to pull devices back from a retailer into distributor stock.
+            </p>
+        </a>
+        @endcan
+
         <div class="card opacity-60">
             <h2 class="text-sm font-semibold">Activation-lag buckets</h2>
             <p class="mt-1 text-xs text-gray-500">Configure 0 / 1–7 / 8–15 / 16–30 / 31+ day thresholds. (coming soon)</p>

@@ -18,6 +18,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'reports.view',
         'explorer.view',
         'exports.view', 'exports.create',
+        'returns.request',           // RD: ask to pull devices back from a retailer
+        'returns.review',            // Admin / NSM / Super Admin: approve or reject those requests
         'masterdata.view',
         'settings.manage',
         'users.manage',
@@ -29,7 +31,8 @@ class RolesAndPermissionsSeeder extends Seeder
      */
     private const NATIONAL = [
         'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
-        'explorer.view', 'exports.view', 'exports.create', 'masterdata.view', 'settings.manage',
+        'explorer.view', 'exports.view', 'exports.create', 'returns.review',
+        'masterdata.view', 'settings.manage',
     ];
 
     /**
@@ -44,7 +47,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'NSM' => self::NATIONAL,                      // National Sales Manager — same as Admin
         'ASM' => self::RD_SCOPED,                     // handles particular RD(s) + their TSOs
         'TSO' => self::RD_SCOPED,                     // handles some RD(s)
-        'RD' => self::RD_SCOPED,                      // single distributor login
+        'RD' => [...self::RD_SCOPED, 'returns.request'], // single distributor login — can raise returns
     ];
 
     /** Roles whose users must be assigned one or more RD codes (users.scoped_rd_codes). */

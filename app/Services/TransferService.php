@@ -60,6 +60,12 @@ class TransferService
                 'created_at' => now(),
             ]);
 
+            foreach (array_slice($existing, 0, 2_000) as $imei) {
+                DeviceTimeline::log($imei, 'transferred',
+                    "Transferred to retailer {$target['rt_code']}",
+                    ['to_rt_code' => $target['rt_code']], $target['rd_code'] ?? null, $target['rt_code'], $userId);
+            }
+
             $this->afterTransfer($target);
 
             return $transfer;

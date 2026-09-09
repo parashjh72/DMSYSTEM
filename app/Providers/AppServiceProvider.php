@@ -30,5 +30,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Scheduled Reports is a Super Admin-only feature.
         Gate::define('scheduled-reports.manage', fn ($user) => $user->hasRole('Super Admin'));
+
+        // The Returns area: RD logins raise requests, Admin / Super Admin review them.
+        Gate::define('returns.access', fn ($user) => $user->can('returns.request') || $user->can('returns.review'));
     }
 }
