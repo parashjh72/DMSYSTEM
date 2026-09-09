@@ -25,7 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'promoter_requests.approve_asm', // ASM: first-level approval
         'promoter_requests.approve_nsm', // NSM: final approval (creates the promoter)
 
-        'attendance.check',          // field user: own GPS check-in / check-out
+        'attendance.check',          // TSO only: own GPS check-in / check-out
         'attendance.view_all',       // Admin / NSM / ASM: attendance reports
 
         'schemes.enrol',             // enrol / deactivate retailers in a scheme
@@ -63,7 +63,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'Admin' => self::NATIONAL,                    // National Distributor level
         'NSM' => [...self::NATIONAL, 'promoter_requests.approve_nsm', 'pjp.nsm_final_approve'],
         'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm',
-            'attendance.check', 'attendance.view_all', 'pjp.asm_review', 'pjp.report'],
+            'attendance.view_all', 'pjp.asm_review', 'pjp.report'],
         'TSO' => [...self::RD_SCOPED, 'promoter_requests.create',
             'attendance.check', 'pjp.create', 'pjp.submit'],
         'RD' => [...self::RD_SCOPED, 'returns.request'],                // single distributor login — can raise returns

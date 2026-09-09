@@ -190,7 +190,7 @@ freezes `asm_id`/`nsm_id` onto each PJP at submit, resolved from this chain
 
 ### Attendance
 
-**Attendance** (`attendance.check` — TSO/ASM): a mobile-first check-in / check-out
+**Attendance** (`attendance.check` — TSO only): a mobile-first check-in / check-out
 that captures GPS via the browser Geolocation API (coordinates can't be typed).
 One record per user per day. Duration is computed at check-out. Errors
 (permission denied / unavailable / timeout / unsupported) show a plain message.
