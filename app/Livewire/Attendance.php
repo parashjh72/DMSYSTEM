@@ -18,13 +18,13 @@ class Attendance extends Component
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->can('attendance.check'), 403);
+        abort_unless(auth()->user()?->can('attendance.self'), 403);
     }
 
     /** Called from Alpine after navigator.geolocation resolves. Coords never come from a form field. */
     public function checkIn(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null): void
     {
-        abort_unless(auth()->user()?->can('attendance.check'), 403);
+        abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
         try {
@@ -37,7 +37,7 @@ class Attendance extends Component
 
     public function checkOut(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null): void
     {
-        abort_unless(auth()->user()?->can('attendance.check'), 403);
+        abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
         try {

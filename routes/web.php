@@ -57,7 +57,7 @@ Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->n
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', Dashboard::class)->middleware('can:dashboard.view')->name('dashboard');
 
-    Route::get('attendance', Attendance::class)->middleware('can:attendance.check')->name('attendance');
+    Route::get('attendance', Attendance::class)->middleware('can:attendance.self')->name('attendance');
     Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
     Route::get('pjp', Pjp::class)->middleware('can:pjp.access')->name('pjp');
 

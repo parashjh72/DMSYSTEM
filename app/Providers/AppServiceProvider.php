@@ -43,7 +43,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('promoters.access', fn ($user) => $user->can('promoters.manage') || Gate::forUser($user)->allows('ra-requests.access'));
 
         // Field-force areas.
-        Gate::define('attendance.access', fn ($user) => $user->canAny(['attendance.check', 'attendance.view_all']));
+        // Check-in / check-out is for field TSOs only — not office roles, and not
+        // Super Admin (who holds every permission but does not run a journey plan).
+        Gate::define('attendance.self', fn ($user) => $user->hasRole('TSO'));
+        Gate::define('attendance.access', fn ($user) => $user->hasRole('TSO') || $user->can('attendance.view_all'));
         Gate::define('pjp.access', fn ($user) => $user->canAny([
             'pjp.create', 'pjp.asm_review', 'pjp.nsm_final_approve', 'pjp.report',
         ]));
