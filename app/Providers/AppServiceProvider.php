@@ -38,5 +38,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('ra-requests.access', fn ($user) => $user->canAny([
             'promoter_requests.create', 'promoter_requests.approve_asm', 'promoter_requests.approve_nsm',
         ]));
+
+        // The Promoters (RA) page — roster/achievement for managers, RA Requests tab for the workflow.
+        Gate::define('promoters.access', fn ($user) => $user->can('promoters.manage') || Gate::forUser($user)->allows('ra-requests.access'));
     }
 }

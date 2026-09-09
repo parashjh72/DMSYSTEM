@@ -190,7 +190,9 @@ export to CSV / Excel. One grouped query drives the whole page.
 
 ### RA Requests (TSO → ASM → NSM)
 
-**RA Requests** (sidebar) is the approval workflow for placing a new promoter:
+The **RA Requests** tab inside **Promoters (RA)** is the approval workflow for
+placing a new promoter. A TSO (who can't see the roster) lands straight on this
+tab; managers get both tabs.
 
 - A **TSO** (`promoter_requests.create`) picks an RA type and a retailer in
   their territory. That retailer's **last 3 whole months** of activations /

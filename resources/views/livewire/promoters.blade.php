@@ -7,13 +7,35 @@
                 retailer's {{ config('promoters.achievement_basis') === 'st_date' ? 'sell-through' : 'activations' }} for the month.
             </p>
         </div>
-        <div class="flex flex-wrap gap-2">
-            <button class="btn-primary" wire:click="newRow">+ Add promoter</button>
-            <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
-            <button class="btn-ghost" wire:click="export('csv')">CSV</button>
-        </div>
+        @if ($tab === 'roster' && $this->canManage())
+            <div class="flex flex-wrap gap-2">
+                <button class="btn-primary" wire:click="newRow">+ Add promoter</button>
+                <button class="btn-ghost" wire:click="export('xlsx')">Export → Excel</button>
+                <button class="btn-ghost" wire:click="export('csv')">CSV</button>
+            </div>
+        @endif
     </div>
 
+    @if ($this->canManage() && $this->canRequests())
+        <div class="mt-4 flex gap-2">
+            <button wire:click="$set('tab', 'roster')"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium {{ $tab === 'roster' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">
+                Roster &amp; achievement
+            </button>
+            <button wire:click="$set('tab', 'requests')"
+                    class="rounded-lg px-3 py-1.5 text-sm font-medium {{ $tab === 'requests' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300' }}">
+                RA Requests
+            </button>
+        </div>
+    @endif
+
+    @if ($tab === 'requests' && $this->canRequests())
+        <div class="mt-4">
+            <livewire:promoter-requests wire:key="ra-requests" />
+        </div>
+    @endif
+
+    @if ($tab === 'roster' && $this->canManage())
     @if ($showForm)
         <div class="card mt-4 space-y-3">
             <h2 class="text-sm font-semibold">{{ $editingId ? 'Edit' : 'Add' }} promoter</h2>
@@ -136,4 +158,5 @@
             @endif
         </table>
     </div>
+    @endif {{-- roster tab --}}
 </div>

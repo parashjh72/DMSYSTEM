@@ -1,7 +1,7 @@
 <div>
-    <h1 class="text-xl font-semibold tracking-tight">RA Requests</h1>
-    <p class="mt-1 text-sm text-gray-500">
-        A TSO requests a promoter (RA) for a retailer. Approval: <strong>ASM → NSM</strong>. On final approval the promoter is created.
+    <p class="text-sm text-gray-500">
+        A TSO requests a promoter (RA) for a retailer. Approval: <strong>ASM → NSM</strong>.
+        On final approval the promoter appears in the roster.
     </p>
 
     {{-- ---- TSO: raise a request -------------------------------------- --}}

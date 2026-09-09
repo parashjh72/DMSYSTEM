@@ -21,6 +21,9 @@ use OpenSpout\Writer\XLSX\Writer;
 class Promoters extends Component
 {
     #[Url]
+    public string $tab = 'roster';   // roster | requests
+
+    #[Url]
     public string $month = '';
 
     #[Url]
@@ -49,8 +52,23 @@ class Promoters extends Component
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->can('promoters.manage'), 403);
+        abort_unless(auth()->user()?->can('promoters.access'), 403);
         $this->month = $this->month ?: now(config('reports.timezone', 'Asia/Kathmandu'))->format('Y-m');
+
+        // Users who can't manage the roster (e.g. TSO) only get the requests tab.
+        if (! $this->canManage()) {
+            $this->tab = 'requests';
+        }
+    }
+
+    public function canManage(): bool
+    {
+        return (bool) auth()->user()?->can('promoters.manage');
+    }
+
+    public function canRequests(): bool
+    {
+        return (bool) auth()->user()?->can('ra-requests.access');
     }
 
     private const FORM = ['showForm', 'editingId', 'fName', 'fPhone', 'fType', 'fRtCode', 'fRtSearch', 'fTarget', 'fActive'];
@@ -189,12 +207,14 @@ class Promoters extends Component
 
     public function render(PromoterService $service, FilterOptions $options)
     {
-        $data = $this->achievementData($service);
+        $roster = ($this->tab === 'roster' && $this->canManage())
+            ? $this->achievementData($service)
+            : ['month' => $this->month, 'rows' => collect(), 'totals' => ['target' => 0, 'achieved' => 0, 'pct' => null]];
 
         return view('livewire.promoters', [
-            'month' => $data['month'],
-            'rows' => $data['rows'],
-            'totals' => $data['totals'],
+            'month' => $roster['month'],
+            'rows' => $roster['rows'],
+            'totals' => $roster['totals'],
             'types' => config('promoters.types'),
             'rdOptions' => $options->distributors(),
             'rtOptions' => $this->showForm ? $options->retailers(null, $this->fRtSearch)['options'] : [],

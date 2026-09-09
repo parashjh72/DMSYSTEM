@@ -7,13 +7,13 @@ use App\Services\PromoterRequestService;
 use App\Support\RecordScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 use RuntimeException;
 
-#[Layout('components.layouts.app')]
-#[Title('RA Requests')]
+/**
+ * The RA request → ASM → NSM approval workflow. Rendered as a tab inside the
+ * Promoters (RA) page.
+ */
 class PromoterRequests extends Component
 {
     // ---- request form (TSO) ------------------------------------------
@@ -116,7 +116,7 @@ class PromoterRequests extends Component
             } else {
                 abort_unless($this->canNsm(), 403);
                 $service->approveNsm($request, auth()->user(), trim($this->reviewNote) ?: null);
-                $msg = 'Approved — promoter created.';
+                $msg = 'Approved — the promoter is now in the roster.';
             }
         } catch (RuntimeException $e) {
             $this->addError('reviewNote', $e->getMessage());
