@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -25,14 +26,20 @@ class UserManager extends Component
 
     public string $password = '';
 
-    public string $role = 'Report User';
+    public string $role = 'RD';
 
-    /** @var list<string> TSO names this user may see (role = TSO only). */
-    public array $scopedTsos = [];
+    /** @var list<string> RD codes this user may see (ASM / TSO / RD roles only). */
+    public array $scopedRdCodes = [];
 
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('users.manage'), 403);
+    }
+
+    /** @return list<string> */
+    private function scopedRoles(): array
+    {
+        return RolesAndPermissionsSeeder::SCOPED_ROLES;
     }
 
     public function rules(): array
@@ -42,15 +49,15 @@ class UserManager extends Component
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($this->editingId)],
             'password' => [$this->editingId ? 'nullable' : 'required', 'min:8'],
             'role' => ['required', Rule::in(Role::pluck('name'))],
-            'scopedTsos' => ['array'],
-            'scopedTsos.*' => ['string'],
+            'scopedRdCodes' => ['array'],
+            'scopedRdCodes.*' => ['string'],
         ];
     }
 
     public function updatedRole(string $value): void
     {
-        if ($value !== 'TSO') {
-            $this->scopedTsos = [];
+        if (! in_array($value, $this->scopedRoles(), true)) {
+            $this->scopedRdCodes = [];
         }
     }
 
@@ -61,8 +68,8 @@ class UserManager extends Component
         $this->name = $user->name;
         $this->email = $user->email;
         $this->password = '';
-        $this->role = $user->roles->first()?->name ?? 'Report User';
-        $this->scopedTsos = $user->scopedTsos();
+        $this->role = $user->roles->first()?->name ?? 'RD';
+        $this->scopedRdCodes = $user->scopedRdCodes();
         $this->showForm = true;
     }
 
@@ -70,11 +77,13 @@ class UserManager extends Component
     {
         $data = $this->validate();
 
-        $isTso = $data['role'] === 'TSO';
-        $tsos = $isTso ? array_values(array_filter($data['scopedTsos'], fn ($v) => trim((string) $v) !== '')) : [];
+        $isScoped = in_array($data['role'], $this->scopedRoles(), true);
+        $codes = $isScoped
+            ? array_values(array_filter($data['scopedRdCodes'], fn ($v) => trim((string) $v) !== ''))
+            : [];
 
-        if ($isTso && $tsos === []) {
-            $this->addError('scopedTsos', 'Pick at least one TSO for a TSO user.');
+        if ($isScoped && $codes === []) {
+            $this->addError('scopedRdCodes', 'Pick at least one distributor (RD) for an ASM / TSO / RD user.');
 
             return;
         }
@@ -84,13 +93,13 @@ class UserManager extends Component
             [
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'scoped_tsos' => $tsos ?: null,
+                'scoped_rd_codes' => $codes ?: null,
                 ...($data['password'] ? ['password' => Hash::make($data['password'])] : []),
             ],
         );
         $user->syncRoles([$data['role']]);
 
-        $this->reset('showForm', 'editingId', 'name', 'email', 'password', 'role', 'scopedTsos');
+        $this->reset('showForm', 'editingId', 'name', 'email', 'password', 'role', 'scopedRdCodes');
         session()->flash('status', 'User saved.');
     }
 
@@ -98,8 +107,12 @@ class UserManager extends Component
     {
         return view('livewire.user-manager', [
             'users' => User::with('roles')->orderBy('name')->get(),
-            'roles' => Role::orderBy('name')->pluck('name'),
-            'tsoOptions' => DB::table('territory_officers')->orderBy('name')->pluck('name'),
+            'roles' => Role::orderByRaw("FIELD(name, 'Super Admin','Admin','NSM','ASM','TSO','RD')")->pluck('name'),
+            'scopedRoles' => $this->scopedRoles(),
+            'rdOptions' => DB::table('retail_distributors')
+                ->orderBy('code')
+                ->get(['code', 'name'])
+                ->map(fn ($r) => ['code' => $r->code, 'label' => trim($r->code.' — '.($r->name ?? ''), ' —')]),
         ]);
     }
 }

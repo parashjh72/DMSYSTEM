@@ -11,9 +11,9 @@ class ExportService
 {
     public function queue(string $type, ReportFilters $filters, ?int $userId, string $format = 'csv'): ExportJob
     {
-        // Freeze the requester's TSO row-scope into the payload — the queue worker
+        // Freeze the requester's RD row-scope into the payload — the queue worker
         // that builds the file runs with no authenticated user.
-        $filters->tsoScope = $filters->tsoScope ?: (RecordScope::tsos() ?? []);
+        $filters->rdScope = $filters->rdScope ?: (RecordScope::rdCodes() ?? []);
 
         $export = ExportJob::create([
             'type' => $type,

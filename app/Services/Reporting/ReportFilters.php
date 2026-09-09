@@ -35,7 +35,7 @@ class ReportFilters
         public ?string $schemeUuid = null,       // scheme achievement export
         public bool $schemeEnrolledOnly = false,
         public ?int $importBatch = null,         // records touched by one import batch
-        public array $tsoScope = [],             // TSO-user row scope — always enforced, not user-set
+        public array $rdScope = [],              // RD-scoped-role row scope — always enforced, not user-set
     ) {}
 
     public static function fromArray(array $data): self
@@ -67,11 +67,11 @@ class ReportFilters
             schemeUuid: $clean('scheme_uuid'),
             schemeEnrolledOnly: (bool) ($data['scheme_enrolled_only'] ?? false),
             importBatch: isset($data['import_batch']) && $data['import_batch'] !== '' ? (int) $data['import_batch'] : null,
-            // Row scope for TSO users. Taken from the stored payload when present
-            // (queued exports run without an authenticated user), otherwise from
-            // the current request's user. Never comes from user input.
-            tsoScope: array_values(array_filter(
-                (array) ($data['tso_scope'] ?? RecordScope::tsos() ?? []),
+            // Row scope for RD-scoped roles. Taken from the stored payload when
+            // present (queued exports run without an authenticated user),
+            // otherwise from the current request's user. Never user input.
+            rdScope: array_values(array_filter(
+                (array) ($data['rd_scope'] ?? RecordScope::rdCodes() ?? []),
                 fn ($v) => trim((string) $v) !== '',
             )),
         );
@@ -103,7 +103,7 @@ class ReportFilters
             'scheme_uuid' => $this->schemeUuid,
             'scheme_enrolled_only' => $this->schemeEnrolledOnly ?: null,
             'import_batch' => $this->importBatch,
-            'tso_scope' => $this->tsoScope ?: null,
+            'rd_scope' => $this->rdScope ?: null,
         ], fn ($v) => $v !== null);
     }
 
@@ -116,7 +116,7 @@ class ReportFilters
             ->when($this->activationDateTo, fn ($q, $v) => $q->where('activation_date', '<=', $v))
             ->when($this->sellInDateFrom, fn ($q, $v) => $q->where('sell_in_date', '>=', $v))
             ->when($this->sellInDateTo, fn ($q, $v) => $q->where('sell_in_date', '<=', $v))
-            ->when($this->tsoScope !== [], fn ($q) => $q->whereIn('tso', $this->tsoScope))
+            ->when($this->rdScope !== [], fn ($q) => $q->whereIn('rd_code', $this->rdScope))
             ->when($this->tso, fn ($q, $v) => $q->where('tso', $v))
             ->when($this->rdCode, fn ($q, $v) => $q->where('rd_code', $v))
             ->when($this->rdName, fn ($q, $v) => $q->where('rd_name', 'like', $v.'%'))

@@ -22,22 +22,29 @@ class RolesAndPermissionsSeeder extends Seeder
         'users.manage',
     ];
 
-    public const ROLES = [
-        // Import permission is deliberately separate from report permission (§21).
-        'Super Admin' => self::PERMISSIONS,
-        'Admin' => [
-            'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
-            'explorer.view', 'exports.view', 'exports.create', 'masterdata.view', 'settings.manage',
-        ],
-        'Manager' => [
-            'dashboard.view', 'imports.view', 'reports.view', 'explorer.view',
-            'exports.view', 'exports.create', 'masterdata.view',
-        ],
-        'Report User' => ['dashboard.view', 'reports.view', 'exports.view'],
-        'Import User' => ['dashboard.view', 'imports.view', 'imports.create'],
-        // Field role: sees only its own TSO's rows (users.scoped_tsos). No dashboard.
-        'TSO' => ['reports.view', 'exports.view', 'exports.create'],
+    /**
+     * The full-access read/write set given to Admin and NSM (everything except
+     * user management, which stays Super-Admin only).
+     */
+    private const NATIONAL = [
+        'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
+        'explorer.view', 'exports.view', 'exports.create', 'masterdata.view', 'settings.manage',
     ];
+
+    /** View + export only — these roles are also limited to their RD codes. */
+    private const RD_SCOPED = ['reports.view', 'exports.view', 'exports.create'];
+
+    public const ROLES = [
+        'Super Admin' => self::PERMISSIONS,          // controls the whole system
+        'Admin' => self::NATIONAL,                    // National Distributor level
+        'NSM' => self::NATIONAL,                      // National Sales Manager — same as Admin
+        'ASM' => self::RD_SCOPED,                     // handles particular RD(s) + their TSOs
+        'TSO' => self::RD_SCOPED,                     // handles some RD(s)
+        'RD' => self::RD_SCOPED,                      // single distributor login
+    ];
+
+    /** Roles whose users must be assigned one or more RD codes (users.scoped_rd_codes). */
+    public const SCOPED_ROLES = ['ASM', 'TSO', 'RD'];
 
     public function run(): void
     {
@@ -50,6 +57,11 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach (self::ROLES as $role => $permissions) {
             Role::findOrCreate($role)->syncPermissions($permissions);
         }
+
+        // Drop roles that are no longer part of the hierarchy (Manager, Report
+        // User, Import User). Any user still holding one loses it and must be
+        // re-assigned in Users.
+        Role::whereNotIn('name', array_keys(self::ROLES))->delete();
 
         $admin = User::firstOrCreate(
             ['email' => 'admin@dmsystem.local'],

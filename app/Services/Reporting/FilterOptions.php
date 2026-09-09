@@ -18,12 +18,8 @@ class FilterOptions
     /** @return list<string> */
     public function tso(): array
     {
-        $all = Cache::remember('filters:tso', self::TTL, fn () => DB::table('territory_officers')
+        return Cache::remember('filters:tso', self::TTL, fn () => DB::table('territory_officers')
             ->orderBy('name')->pluck('name')->all());
-
-        $scope = RecordScope::tsos();
-
-        return $scope === null ? $all : array_values(array_intersect($all, $scope));
     }
 
     /** @return list<string> */
@@ -36,11 +32,15 @@ class FilterOptions
     /** @return array<string,string> code => "code — name" */
     public function distributors(): array
     {
-        return Cache::remember('filters:rd', self::TTL, fn () => DB::table('retail_distributors')
+        $all = Cache::remember('filters:rd', self::TTL, fn () => DB::table('retail_distributors')
             ->orderBy('code')
             ->get(['code', 'name'])
             ->mapWithKeys(fn ($r) => [$r->code => trim($r->code.' — '.($r->name ?? ''), ' —')])
             ->all());
+
+        $scope = RecordScope::rdCodes();
+
+        return $scope === null ? $all : array_intersect_key($all, array_flip($scope));
     }
 
     /** Hard ceiling on how many RT options are handed to a <select>. */

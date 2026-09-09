@@ -3,8 +3,8 @@
 namespace App\Support;
 
 /**
- * Where a signed-in user should land. Not everyone can see the dashboard
- * (TSO field users cannot), so "/" and post-login resolve per ability.
+ * Where a signed-in user should land. The RD-scoped roles (ASM, TSO, RD) have no
+ * dashboard, so "/" and post-login resolve per ability.
  */
 class Home
 {
@@ -14,7 +14,7 @@ class Home
 
         return match (true) {
             $user?->can('dashboard.view') => 'dashboard',
-            $user?->can('reports.view') => 'reports',
+            $user?->can('reports.view') => 'stock',
             $user?->can('imports.view') => 'imports.index',
             default => 'login',
         };

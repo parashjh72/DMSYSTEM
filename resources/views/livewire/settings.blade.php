@@ -29,9 +29,9 @@
 
         @can('users.manage')
         <a href="{{ route('users.index') }}" wire:navigate class="card block hover:ring-indigo-300">
-            <h2 class="text-sm font-semibold">Users &amp; TSO access</h2>
+            <h2 class="text-sm font-semibold">Users &amp; roles</h2>
             <p class="mt-1 text-xs text-gray-500">
-                Add logins. A <strong>TSO</strong> user sees only their own territory's data.
+                Add logins. <strong>ASM / TSO / RD</strong> users see only rows for their assigned distributor codes.
             </p>
         </a>
         @endcan

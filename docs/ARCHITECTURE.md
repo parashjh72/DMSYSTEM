@@ -243,10 +243,11 @@ large exports (XLSX only for < ~100k rows). Never build a file in a web request.
 
 ## 7. Security (Phase 6)
 
-`spatie/laravel-permission`. Roles: Super Admin, Admin, Manager, Report User, Import
-User. Permissions gate features independently — `imports.*`, `reports.*`, `exports.*`,
-`masterdata.*`, `settings.*`, `users.*`. Import permission is separate from report
-permission by design.
+`spatie/laravel-permission`. Roles: Super Admin, Admin, NSM, ASM, TSO, RD. Permissions
+gate features independently — `imports.*`, `reports.*`, `exports.*`, `masterdata.*`,
+`settings.*`, `users.*`. Import permission is separate from report permission by
+design. ASM / TSO / RD are additionally row-scoped to their assigned `rd_code`s
+(`users.scoped_rd_codes`, enforced in `App\Support\RecordScope`).
 
 ---
 

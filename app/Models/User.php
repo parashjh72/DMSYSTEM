@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'scoped_tsos'])]
+#[Fillable(['name', 'email', 'password', 'scoped_rd_codes'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -19,19 +19,19 @@ class User extends Authenticatable
     use HasFactory, HasRoles, Notifiable;
 
     /**
-     * TSO names this user is limited to (from the territory_officers master).
-     * Empty / null means no restriction.
+     * Distributor (RD) codes this user is limited to. Empty / null means the
+     * user sees every record (Super Admin, Admin, NSM).
      *
      * @return list<string>
      */
-    public function scopedTsos(): array
+    public function scopedRdCodes(): array
     {
-        return array_values(array_filter((array) ($this->scoped_tsos ?? []), fn ($v) => trim((string) $v) !== ''));
+        return array_values(array_filter((array) ($this->scoped_rd_codes ?? []), fn ($v) => trim((string) $v) !== ''));
     }
 
-    public function isTsoScoped(): bool
+    public function isScoped(): bool
     {
-        return $this->scopedTsos() !== [];
+        return $this->scopedRdCodes() !== [];
     }
 
     /**
@@ -44,7 +44,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'scoped_tsos' => 'array',
+            'scoped_rd_codes' => 'array',
         ];
     }
 }

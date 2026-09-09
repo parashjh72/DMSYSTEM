@@ -18,22 +18,24 @@
                 </div>
             </div>
 
-            @if ($role === 'TSO')
+            @if (in_array($role, $scopedRoles, true))
                 <div class="mt-4">
-                    <label class="label">Visible TSOs <span class="text-gray-400">— this user sees only rows for the ticked TSOs</span></label>
-                    @if ($tsoOptions->isEmpty())
-                        <p class="text-xs text-amber-600">No TSOs in the system yet. Import model data first.</p>
+                    <label class="label">Assigned distributors (RD)
+                        <span class="text-gray-400">— this {{ $role }} sees only rows for the ticked RD codes</span>
+                    </label>
+                    @if ($rdOptions->isEmpty())
+                        <p class="text-xs text-amber-600">No distributors in the system yet. Import ND → RD data or add one in Master Data first.</p>
                     @else
                         <div class="mt-1 max-h-56 overflow-y-auto rounded-lg border border-gray-200 p-2">
-                            @foreach ($tsoOptions as $t)
-                                <label class="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
-                                    <input type="checkbox" value="{{ $t }}" wire:model="scopedTsos" class="rounded border-gray-300">
-                                    {{ $t }}
+                            @foreach ($rdOptions as $rd)
+                                <label wire:key="rd-{{ $rd['code'] }}" class="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-gray-50">
+                                    <input type="checkbox" value="{{ $rd['code'] }}" wire:model="scopedRdCodes" class="rounded border-gray-300">
+                                    {{ $rd['label'] }}
                                 </label>
                             @endforeach
                         </div>
                     @endif
-                    @error('scopedTsos')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                    @error('scopedRdCodes')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
                 </div>
             @endif
 
@@ -53,7 +55,7 @@
                     <td class="td">{{ $u->name }}</td>
                     <td class="td">{{ $u->email }}</td>
                     <td class="td">{{ $u->roles->pluck('name')->join(', ') ?: '—' }}</td>
-                    <td class="td text-xs text-gray-500">{{ $u->scopedTsos() ? implode(', ', $u->scopedTsos()) : 'All data' }}</td>
+                    <td class="td text-xs text-gray-500">{{ $u->scopedRdCodes() ? implode(', ', $u->scopedRdCodes()) : 'All data' }}</td>
                     <td class="td"><button class="text-indigo-600" wire:click="edit({{ $u->id }})">Edit</button></td>
                 </tr>
             @endforeach

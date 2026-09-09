@@ -137,25 +137,33 @@ Exports screen.
 
 ## Roles
 
-| Role | Can |
-|---|---|
-| Super Admin | everything, incl. user management |
-| Admin | everything except user management |
-| Manager | dashboard, reports, explorer, exports, view imports |
-| Report User | dashboard, reports, view exports |
-| Import User | dashboard, run imports |
-| TSO | reports, IMEI search, exports — **only rows for their own TSO(s)** |
+Six-level hierarchy (`database/seeders/RolesAndPermissionsSeeder.php`):
 
-### TSO (territory-scoped) users
+| Role | Can | Data |
+|---|---|---|
+| Super Admin | everything, incl. user management | all |
+| Admin | everything except user management (National Distributor level) | all |
+| NSM | same as Admin | all |
+| ASM | reports, IMEI search, exports | **only assigned RD codes** |
+| TSO | reports, IMEI search, exports | **only assigned RD codes** |
+| RD | reports, IMEI search, exports | **only assigned RD codes** |
 
-Give a field TSO a login under **Settings → Users & TSO access** (or **Users**):
-set the role to **TSO** and tick one or more TSO names. That user then sees only
-`sales_activation_records` whose `tso` is in their list — on every report, the
-stock/sellout pivots, IMEI search and all exports (the scope is frozen into each
-queued export so the worker applies it too). They have no dashboard, imports,
-master data, or settings access and land on Standard Reports after signing in.
-The scope is enforced server-side in `App\Support\RecordScope`; leave the TSO
-list empty (any other role) for unrestricted access.
+Re-run `php artisan db:seed --class=RolesAndPermissionsSeeder --force` after a
+deploy to apply changes; it also **deletes** any role not in the list above, so
+users on an old role (Manager / Report User / Import User) must be re-assigned.
+
+### RD-scoped users (ASM / TSO / RD)
+
+Under **Settings → Users** set the role to **ASM**, **TSO** or **RD** and tick
+one or more distributor (RD) codes. That user then sees only
+`sales_activation_records` whose `rd_code` is in their list — on every report,
+the stock/sellout pivots, IMEI search, Data Explorer and all exports (the scope
+is frozen into each queued export and scheduled report so the worker applies it
+too). They have no dashboard, imports, master data, or settings access and land
+on the Stock Report after signing in. The scope is enforced server-side in
+`App\Support\RecordScope`; the three roles differ only by org position — an ASM
+is simply assigned more RD codes than a single RD login. Leave the list empty
+(Super Admin / Admin / NSM) for unrestricted access.
 
 ## Scheduled reports (auto-emailed)
 
@@ -174,8 +182,8 @@ report that is built and emailed on a schedule:
 `reports:dispatch-scheduled` runs every minute from the scheduler, queues a
 `SendScheduledReportJob` for anything due (once per day, guarded), which builds
 the file through the normal export pipeline and emails it as an attachment via
-the configured SMTP. A TSO creator's row-scope is frozen into the schedule, so
-their emailed file only ever contains their territory. "Run now" on the list
+the configured SMTP. An RD-scoped creator's row-scope is frozen into the
+schedule, so their emailed file only ever contains their distributors. "Run now" on the list
 sends immediately for testing. Needs the scheduler cron **and** working mail.
 
 ## Mail (SMTP) & password reset

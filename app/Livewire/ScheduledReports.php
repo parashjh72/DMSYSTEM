@@ -119,8 +119,8 @@ class ScheduledReports extends Component
             'format' => $data['format'],
             'period' => $dateable ? $data['period'] : 'none',
             'date_basis' => $data['date_basis'],
-            // Freeze the creator's TSO row-scope so the emailed file stays scoped.
-            'filters' => array_filter(['tso_scope' => RecordScope::tsos()]),
+            // Freeze the creator's RD row-scope so the emailed file stays scoped.
+            'filters' => array_filter(['rd_scope' => RecordScope::rdCodes()]),
             'frequency' => $data['frequency'],
             'day_of_week' => $data['frequency'] === 'weekly' ? $data['day_of_week'] : null,
             'day_of_month' => $data['frequency'] === 'monthly' ? $data['day_of_month'] : null,

@@ -64,9 +64,9 @@ class ImeiSearch extends Component
         $found = [];
 
         if ($wanted !== []) {
-            $scope = RecordScope::tsos();
+            $scope = RecordScope::rdCodes();
             $scoped = fn () => SalesActivationRecord::query()
-                ->when($scope, fn ($q, $t) => $q->whereIn('tso', $t))
+                ->when($scope, fn ($q, $c) => $q->whereIn('rd_code', $c))
                 ->whereIn('imei', $wanted);
 
             // Full found set — just the imei column, one indexed lookup, cheap even at 20k.
