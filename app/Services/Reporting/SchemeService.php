@@ -59,7 +59,7 @@ class SchemeService
         ', $rdCode ? [$from, $to, $rdCode] : [$from, $to]);
 
         $slabs = $scheme->slabs()->get();
-        $enrolled = $scheme->retailers()->get()->keyBy('rt_code');
+        $enrolled = $scheme->retailers()->active()->get()->keyBy('rt_code');
 
         $catLabels = collect(config('schemes.categories'))->map(fn ($c) => $c['label']);
         $planLabels = config('schemes.plans');

@@ -28,6 +28,7 @@
         ['route' => 'model-prices',     'label' => 'Model Prices',   'perm' => 'masterdata.view'],
         ['route' => 'promoters',        'label' => 'Promoters (RA)', 'perm' => 'promoters.access'],
         ['route' => 'schemes.index',    'label' => 'Schemes',        'perm' => 'settings.manage'],
+        ['route' => 'scheme-enrolment', 'label' => 'Scheme Enrolment','perm' => 'schemes.enrol'],
         ['route' => 'settings.index',   'label' => 'Settings',       'perm' => 'settings.manage'],
         ['route' => 'users.index',      'label' => 'Users',          'perm' => 'users.manage'],
     ];

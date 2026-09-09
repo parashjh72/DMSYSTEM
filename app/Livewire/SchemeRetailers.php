@@ -29,7 +29,7 @@ class SchemeRetailers extends Component
 
     public function mount(Scheme $scheme): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         $this->uuid = $scheme->uuid;
     }
 
@@ -40,16 +40,24 @@ class SchemeRetailers extends Component
 
     public function add(string $rtCode): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         $rt = DB::table('retailers')->where('code', $rtCode)->first();
         if (! $rt) {
             return;
         }
 
+        $scheme = $this->scheme();
+
         SchemeRetailer::updateOrCreate(
-            ['scheme_id' => $this->scheme()->id, 'rt_code' => $rt->code],
+            ['scheme_id' => $scheme->id, 'rt_code' => $rt->code],
             [
                 'rt_name' => $rt->name,
+                'enrolled_on' => now()->toDateString(),
+                'effective_from' => $scheme->effective_from,
+                'effective_to' => $scheme->effective_to,
+                'status' => 'active',
+                'deactivated_at' => null,
+                'deactivated_by' => null,
                 'plan' => $this->defaultPlan,
                 'category' => $this->defaultCategory,
                 'added_by' => auth()->id(),
@@ -58,9 +66,25 @@ class SchemeRetailers extends Component
         $this->search = '';
     }
 
+    public function deactivate(int $id): void
+    {
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
+        SchemeRetailer::whereKey($id)->update([
+            'status' => 'inactive', 'deactivated_at' => now(), 'deactivated_by' => auth()->id(),
+        ]);
+    }
+
+    public function reactivate(int $id): void
+    {
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
+        SchemeRetailer::whereKey($id)->update([
+            'status' => 'active', 'deactivated_at' => null, 'deactivated_by' => null,
+        ]);
+    }
+
     public function matchAndAdd(FilterOptions $options): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         $tokens = preg_split('/[\r\n,;\t]+/', trim($this->paste), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $result = $options->matchRetailers($tokens);
 
@@ -73,7 +97,7 @@ class SchemeRetailers extends Component
 
     public function updateRow(int $id, string $field, string $value): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         if (! in_array($field, ['plan', 'category', 'note'], true)) {
             return;
         }
@@ -82,13 +106,13 @@ class SchemeRetailers extends Component
 
     public function updateMinSlab(int $id, ?string $value): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         SchemeRetailer::whereKey($id)->update(['min_slab' => $value === '' || $value === null ? null : (int) $value]);
     }
 
     public function remove(int $id): void
     {
-        abort_unless(auth()->user()?->can('settings.manage'), 403);
+        abort_unless(auth()->user()?->can('schemes.enrol'), 403);
         SchemeRetailer::whereKey($id)->delete();
     }
 
@@ -98,7 +122,7 @@ class SchemeRetailers extends Component
 
         return view('livewire.scheme-retailers', [
             'scheme' => $scheme,
-            'enrolled' => $scheme->retailers()->orderBy('rt_code')->get(),
+            'enrolled' => $scheme->retailers()->orderByRaw("status = 'inactive'")->orderBy('rt_code')->get(),
             'searchResults' => $this->search !== ''
                 ? $options->retailers(null, $this->search)['options']
                 : [],

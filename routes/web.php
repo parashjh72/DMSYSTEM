@@ -20,6 +20,7 @@ use App\Livewire\QuickReports;
 use App\Livewire\Reports;
 use App\Livewire\Returns;
 use App\Livewire\ScheduledReports;
+use App\Livewire\SchemeEnrolment;
 use App\Livewire\SchemeReport;
 use App\Livewire\SchemeRetailers;
 use App\Livewire\Schemes;
@@ -71,7 +72,8 @@ Route::middleware('auth')->group(function () {
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');
-    Route::get('schemes/{scheme}/retailers', SchemeRetailers::class)->middleware('can:settings.manage')->name('schemes.retailers');
+    Route::get('scheme-enrolment', SchemeEnrolment::class)->middleware('can:schemes.enrol')->name('scheme-enrolment');
+    Route::get('schemes/{scheme}/retailers', SchemeRetailers::class)->middleware('can:schemes.enrol')->name('schemes.retailers');
     Route::get('schemes/{scheme}/achievement', SchemeReport::class)->middleware('can:reports.view')->name('schemes.report');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');
 

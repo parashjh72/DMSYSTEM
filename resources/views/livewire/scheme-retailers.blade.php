@@ -48,15 +48,21 @@
     <div class="card mt-4 overflow-x-auto p-0">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50"><tr>
-                <th class="th">RT Code</th><th class="th">RT Name</th>
+                <th class="th">RT Code</th><th class="th">RT Name</th><th class="th">Enrolled</th><th class="th">Status</th>
                 <th class="th">Plan</th><th class="th">Category</th>
                 <th class="th">Min slab</th><th class="th">Note</th><th class="th"></th>
             </tr></thead>
             <tbody class="divide-y divide-gray-100">
             @forelse ($enrolled as $e)
-                <tr wire:key="en-{{ $e->id }}">
+                <tr wire:key="en-{{ $e->id }}" class="{{ $e->isActive() ? '' : 'opacity-50' }}">
                     <td class="td font-mono">{{ $e->rt_code }}</td>
                     <td class="td">{{ $e->rt_name }}</td>
+                    <td class="td text-xs text-gray-500">{{ $e->enrolled_on?->format('d M Y') ?? '—' }}</td>
+                    <td class="td">
+                        <span class="badge {{ $e->isActive() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
+                            {{ $e->isActive() ? 'Active' : 'Inactive' }}
+                        </span>
+                    </td>
                     <td class="td">
                         <select class="input py-1 text-xs" wire:change="updateRow({{ $e->id }}, 'plan', $event.target.value)">
                             @foreach ($plans as $k => $l) <option value="{{ $k }}" @selected($e->plan === $k)>{{ $l }}</option> @endforeach
@@ -77,10 +83,18 @@
                         <input class="input py-1 text-xs" value="{{ $e->note }}"
                                wire:change="updateRow({{ $e->id }}, 'note', $event.target.value)">
                     </td>
-                    <td class="td"><button class="text-xs text-red-500" wire:click="remove({{ $e->id }})">remove</button></td>
+                    <td class="td whitespace-nowrap text-xs">
+                        @if ($e->isActive())
+                            <button class="text-amber-600" wire:click="deactivate({{ $e->id }})">deactivate</button>
+                        @else
+                            <button class="text-emerald-600" wire:click="reactivate({{ $e->id }})">reactivate</button>
+                        @endif
+                        <button class="ml-2 text-red-500" wire:click="remove({{ $e->id }})"
+                                wire:confirm="Remove this enrolment entirely?">remove</button>
+                    </td>
                 </tr>
             @empty
-                <tr><td class="td text-gray-400" colspan="7">No retailers enrolled yet.</td></tr>
+                <tr><td class="td text-gray-400" colspan="9">No retailers enrolled yet.</td></tr>
             @endforelse
             </tbody>
         </table>
