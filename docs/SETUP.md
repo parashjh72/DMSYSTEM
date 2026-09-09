@@ -177,6 +177,17 @@ see only their own import batches.
 has an *Also create a login* option (visible to `users.manage` users) that
 makes the distributor and an **RD** account scoped to it in one step.
 
+## Promoters (RA)
+
+**Promoters (RA)** (sidebar, `promoters.manage` — Admin / NSM / Super Admin).
+Add a promoter with a **type** (Conditional RA / Real RA), an assigned
+**retailer**, and a **monthly unit target**. The table then shows, for the
+selected month, each promoter's **achieved** = their retailer's activations that
+month (`config('promoters.achievement_basis')`, default `activation_date`;
+switch to `st_date` for sell-through), the **attainment %**, and a status badge
+(Target hit / On track ≥70% / Behind). Filter by month, type or distributor;
+export to CSV / Excel. One grouped query drives the whole page.
+
 ## Returns
 
 **Returns** (sidebar) is a two-sided approval flow:

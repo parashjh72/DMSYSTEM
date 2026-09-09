@@ -20,6 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'exports.view', 'exports.create',
         'returns.request',           // RD: ask to pull devices back from a retailer
         'returns.review',            // Admin / NSM / Super Admin: approve or reject those requests
+        'promoters.manage',          // manage promoters (RA) and track their monthly achievement
         'masterdata.view',
         'settings.manage',
         'users.manage',
@@ -32,7 +33,7 @@ class RolesAndPermissionsSeeder extends Seeder
     private const NATIONAL = [
         'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
         'explorer.view', 'exports.view', 'exports.create', 'returns.review',
-        'masterdata.view', 'settings.manage',
+        'promoters.manage', 'masterdata.view', 'settings.manage',
     ];
 
     /**

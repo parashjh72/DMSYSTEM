@@ -13,6 +13,7 @@ use App\Livewire\ImportManager;
 use App\Livewire\MailSettings;
 use App\Livewire\MasterData;
 use App\Livewire\ModelPrices;
+use App\Livewire\Promoters;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
 use App\Livewire\Returns;
@@ -61,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
     Route::get('scheduled-reports', ScheduledReports::class)->middleware('can:scheduled-reports.manage')->name('scheduled-reports');
     Route::get('returns', Returns::class)->middleware('can:returns.access')->name('returns');
+    Route::get('promoters', Promoters::class)->middleware('can:promoters.manage')->name('promoters');
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');
