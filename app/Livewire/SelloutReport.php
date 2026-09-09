@@ -12,6 +12,8 @@ class SelloutReport extends StockReport
     public const TYPES = [
         'rd' => 'RD-wise sellout',
         'rt' => 'RT-wise sellout',
+        'tso' => 'TSO-wise sellout',
+        'asm' => 'ASM-wise sellout',
         'model' => 'Model-wise sellout',
     ];
 

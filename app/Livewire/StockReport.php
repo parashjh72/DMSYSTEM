@@ -51,6 +51,8 @@ class StockReport extends Component
     public const TYPES = [
         'rd' => 'RD-wise stock',
         'rt' => 'RT-wise stock',
+        'tso' => 'TSO-wise stock',
+        'asm' => 'ASM-wise stock',
         'model' => 'Model-wise stock',
     ];
 
@@ -153,9 +155,12 @@ class StockReport extends Component
             $rows = $stock->modelWise($rd, 50);
         } else {
             $columns = $stock->modelColumns($this->type, $rd, $rtCodes);
-            $rows = $this->type === 'rt'
-                ? $stock->rtWise($rd, $rtCodes, $columns['models'], 50)
-                : $stock->rdWise($rd, $columns['models'], 50);
+            $rows = match ($this->type) {
+                'rt' => $stock->rtWise($rd, $rtCodes, $columns['models'], 50),
+                'tso' => $stock->tsoWise($rd, $columns['models'], 50),
+                'asm' => $stock->asmWise($rd, $columns['models'], 50),
+                default => $stock->rdWise($rd, $columns['models'], 50),
+            };
         }
 
         // Checklist: search results plus any selected code that falls outside them.
@@ -175,6 +180,7 @@ class StockReport extends Component
             'rtOptions' => $rtOptions,
             'rtTruncated' => $rtList['truncated'],
             'types' => static::TYPES,
+            'labelHeaders' => StockReportService::LABELS[$this->type] ?? [],
             'noun' => $this->mode(),
         ]);
     }

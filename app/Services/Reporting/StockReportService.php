@@ -2,8 +2,10 @@
 
 namespace App\Services\Reporting;
 
+use App\Models\User;
 use App\Support\RecordScope;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -24,6 +26,14 @@ class StockReportService
 
     /** Max model columns before the tail is folded into an "Other" column. */
     public const MODEL_COLUMNS = 60;
+
+    /** Label (non-model) columns shown before the pivot, per report scope. */
+    public const LABELS = [
+        'rd' => ['RD Code', 'RD Name'],
+        'rt' => ['RD Code', 'RD Name', 'RT Code', 'RT Name'],
+        'tso' => ['TSO'],
+        'asm' => ['ASM'],
+    ];
 
     /** null = both, otherwise 'running' | 'out' — restricts by device_models.status. */
     private ?string $lifecycle = null;
@@ -131,6 +141,7 @@ class StockReportService
             ->paginate($perPage);
 
         $this->attachModelCells($rows, 'rd', ['rd_code'], $modelColumns);
+        $rows->getCollection()->each(fn ($r) => $r->labels = [$r->rd_code, $r->rd_name]);
 
         return $rows;
     }
@@ -145,8 +156,92 @@ class StockReportService
             ->paginate($perPage);
 
         $this->attachModelCells($rows, 'rt', ['rd_code', 'rt_code'], $modelColumns);
+        $rows->getCollection()->each(fn ($r) => $r->labels = [$r->rd_code, $r->rd_name, $r->rt_code, $r->rt_name]);
 
         return $rows;
+    }
+
+    /** TSO-wise, pivoted: row per TSO, column per model. All unsold / sold in the territory. */
+    public function tsoWise(?string $rdCode, array $modelColumns, int $perPage = 50): LengthAwarePaginator
+    {
+        $rows = $this->stockQuery('tso', $rdCode)
+            ->selectRaw('tso, COUNT(*) AS total_qty')
+            ->whereNotNull('tso')->where('tso', '<>', '')
+            ->groupBy('tso')
+            ->orderByDesc('total_qty')
+            ->paginate($perPage);
+
+        $this->attachModelCells($rows, 'tso', ['tso'], $modelColumns);
+        $rows->getCollection()->each(fn ($r) => $r->labels = [$r->tso]);
+
+        return $rows;
+    }
+
+    /**
+     * ASM-wise: an ASM is a user role scoped to RD codes, so device → ASM is
+     * resolved via users.scoped_rd_codes. Aggregation is folded in PHP (there are
+     * only a handful of ASMs); devices whose RD has no ASM show as "(unassigned)".
+     */
+    public function asmWise(?string $rdCode, array $modelColumns, int $perPage = 50): LengthAwarePaginator
+    {
+        $rdToAsm = $this->rdToAsm();
+        $modelSet = array_flip($modelColumns);
+
+        $raw = $this->stockQuery('asm', $rdCode)
+            ->selectRaw('rd_code, model, COUNT(*) AS qty')
+            ->whereNotNull('rd_code')->where('rd_code', '<>', '')
+            ->groupBy('rd_code', 'model')
+            ->get();
+
+        /** @var array<string, array{total:int, cells:array<string,int>}> $byAsm */
+        $byAsm = [];
+        foreach ($raw as $r) {
+            $asm = $rdToAsm[$r->rd_code] ?? '(unassigned)';
+            $byAsm[$asm] ??= ['total' => 0, 'cells' => []];
+            $byAsm[$asm]['total'] += (int) $r->qty;
+            if (isset($modelSet[$r->model])) {
+                $byAsm[$asm]['cells'][$r->model] = ($byAsm[$asm]['cells'][$r->model] ?? 0) + (int) $r->qty;
+            }
+        }
+
+        $items = collect($byAsm)
+            ->map(fn ($g, $asm) => (object) [
+                'labels' => [$asm],
+                'total_qty' => $g['total'],
+                'cells' => $g['cells'],
+                'other' => max(0, $g['total'] - array_sum($g['cells'])),
+            ])
+            ->sortByDesc('total_qty')
+            ->values();
+
+        return $this->paginateCollection($items, $perPage);
+    }
+
+    /** @return array<string,string> rd_code => ASM name (first ASM wins on overlap) */
+    private function rdToAsm(): array
+    {
+        $map = [];
+        foreach (User::role('ASM')->get(['id', 'name', 'scoped_rd_codes']) as $asm) {
+            foreach ($asm->scopedRdCodes() as $code) {
+                $map[$code] ??= $asm->name;
+            }
+        }
+
+        return $map;
+    }
+
+    /** @param  Collection<int,object>  $items */
+    private function paginateCollection(Collection $items, int $perPage): LengthAwarePaginator
+    {
+        $page = Paginator::resolveCurrentPage();
+
+        return new LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()],
+        );
     }
 
     /** Model-wise. Stock: RD/RT/total split. Sellout: qty per model. */
@@ -197,15 +292,62 @@ class StockReportService
             ->first() ?? (object) ['rd_stock' => 0, 'rt_stock' => 0, 'total_stock' => 0, 'models' => 0];
     }
 
-    /** Every stock row, pivoted, for export (no pagination). @return list<array<string,mixed>> */
+    /**
+     * Every pivot row for export (no pagination), uniform shape across scopes.
+     *
+     * @return list<array{labels: list<string>, cells: array<string,int>, other: int, total: int}>
+     */
     public function exportRows(string $scope, ?string $rdCode, array $rtCodes, array $modelColumns, bool $hasOther): array
     {
-        $keyCols = $scope === 'rt' ? ['rd_code', 'rt_code'] : ['rd_code'];
+        $modelSet = array_flip($modelColumns);
+
+        // ASM is derived — fold RD rows in PHP.
+        if ($scope === 'asm') {
+            $rdToAsm = $this->rdToAsm();
+            $raw = $this->stockQuery('asm', $rdCode)
+                ->selectRaw('rd_code, model, COUNT(*) AS qty')
+                ->whereNotNull('rd_code')->where('rd_code', '<>', '')
+                ->groupBy('rd_code', 'model')->get();
+
+            $byAsm = [];
+            foreach ($raw as $r) {
+                $asm = $rdToAsm[$r->rd_code] ?? '(unassigned)';
+                $byAsm[$asm] ??= ['total' => 0, 'cells' => []];
+                $byAsm[$asm]['total'] += (int) $r->qty;
+                if (isset($modelSet[$r->model])) {
+                    $byAsm[$asm]['cells'][$r->model] = ($byAsm[$asm]['cells'][$r->model] ?? 0) + (int) $r->qty;
+                }
+            }
+
+            $out = [];
+            foreach ($byAsm as $asm => $g) {
+                $out[] = ['labels' => [$asm], 'cells' => $g['cells'],
+                    'other' => $hasOther ? max(0, $g['total'] - array_sum($g['cells'])) : 0, 'total' => $g['total']];
+            }
+            usort($out, fn ($a, $b) => $b['total'] <=> $a['total']);
+
+            return $out;
+        }
+
+        $keyCols = match ($scope) {
+            'rt' => ['rd_code', 'rt_code'],
+            'tso' => ['tso'],
+            default => ['rd_code'],
+        };
+        $labelCols = match ($scope) {
+            'rt' => ['rd_code', 'rd_name', 'rt_code', 'rt_name'],
+            'tso' => ['tso'],
+            default => ['rd_code', 'rd_name'],
+        };
+        $nameSelect = match ($scope) {
+            'rt' => ', MAX(rd_name) AS rd_name, MAX(rt_name) AS rt_name',
+            'tso' => '',
+            default => ', MAX(rd_name) AS rd_name',
+        };
 
         $groups = $this->stockQuery($scope, $rdCode, $rtCodes)
-            ->selectRaw(implode(', ', $keyCols).', MAX(rd_name) AS rd_name'
-                .($scope === 'rt' ? ', MAX(rt_name) AS rt_name' : '')
-                .', model, COUNT(*) AS qty')
+            ->selectRaw(implode(', ', $keyCols).$nameSelect.', model, COUNT(*) AS qty')
+            ->when($scope === 'tso', fn ($q) => $q->whereNotNull('tso')->where('tso', '<>', ''))
             ->groupBy(...array_merge($keyCols, ['model']))
             ->get()
             ->groupBy(fn ($r) => implode('|', array_map(fn ($c) => $r->$c, $keyCols)));
@@ -213,27 +355,21 @@ class StockReportService
         $out = [];
         foreach ($groups as $rows) {
             $first = $rows->first();
-            $line = ['rd_code' => $first->rd_code, 'rd_name' => $first->rd_name];
-            if ($scope === 'rt') {
-                $line['rt_code'] = $first->rt_code;
-                $line['rt_name'] = $first->rt_name;
-            }
             $byModel = $rows->pluck('qty', 'model');
             $total = (int) $rows->sum('qty');
-            $accounted = 0;
+            $cells = [];
             foreach ($modelColumns as $m) {
-                $q = (int) ($byModel[$m] ?? 0);
-                $line[$m] = $q;
-                $accounted += $q;
+                $cells[$m] = (int) ($byModel[$m] ?? 0);
             }
-            if ($hasOther) {
-                $line['Other'] = $total - $accounted;
-            }
-            $line['Total'] = $total;
-            $out[] = $line;
+            $out[] = [
+                'labels' => array_map(fn ($c) => (string) ($first->$c ?? ''), $labelCols),
+                'cells' => $cells,
+                'other' => $hasOther ? $total - array_sum($cells) : 0,
+                'total' => $total,
+            ];
         }
 
-        usort($out, fn ($a, $b) => $b['Total'] <=> $a['Total']);
+        usort($out, fn ($a, $b) => $b['total'] <=> $a['total']);
 
         return $out;
     }
@@ -253,7 +389,13 @@ class StockReportService
                 $query->whereRaw(self::HAS_RT);
             }
         } else {
-            $query->whereRaw($scope === 'rt' ? self::HAS_RT : self::NO_RT);
+            // rd = distributor warehouse (no RT); rt = on a retailer's shelf;
+            // tso / asm span the whole territory (every unsold device).
+            match ($scope) {
+                'rt' => $query->whereRaw(self::HAS_RT),
+                'rd' => $query->whereRaw(self::NO_RT),
+                default => null,
+            };
         }
 
         return $this->applyDateRange($this->applyLifecycle($query));

@@ -53,11 +53,15 @@ class ExportDefinition
                 ['ST Date', 'Total Sell-Through', 'Activated', 'Not Activated', 'Activation %']),
             'stock_rd' => $this->stockPivot('rd', $filters, 'stock'),
             'stock_rt' => $this->stockPivot('rt', $filters, 'stock'),
+            'stock_tso' => $this->stockPivot('tso', $filters, 'stock'),
+            'stock_asm' => $this->stockPivot('asm', $filters, 'stock'),
             'stock_model' => $this->grouped(
                 $this->stock->forLifecycle($filters->lifecycle)->forMode('stock')->modelWise($filters->rdCode, PHP_INT_MAX),
                 ['Model', 'RD stock', 'RT stock', 'Total stock']),
             'sellout_rd' => $this->stockPivot('rd', $filters, 'sellout'),
             'sellout_rt' => $this->stockPivot('rt', $filters, 'sellout'),
+            'sellout_tso' => $this->stockPivot('tso', $filters, 'sellout'),
+            'sellout_asm' => $this->stockPivot('asm', $filters, 'sellout'),
             'sellout_model' => $this->grouped(
                 $this->stock->forLifecycle($filters->lifecycle)->forMode('sellout')
                     ->forDateRange($filters->activationDateFrom, $filters->activationDateTo)
@@ -127,34 +131,38 @@ class ExportDefinition
         ['models' => $models, 'hasOther' => $hasOther] = $this->stock->modelColumns($scope, $rd, $rtCodes);
         $rows = $this->stock->exportRows($scope, $rd, $rtCodes, $models, $hasOther);
 
-        $keyCols = $scope === 'rt'
-            ? ['rd_code' => 'RD Code', 'rd_name' => 'RD Name', 'rt_code' => 'RT Code', 'rt_name' => 'RT Name']
-            : ['rd_code' => 'RD Code', 'rd_name' => 'RD Name'];
+        $labelCols = StockReportService::LABELS[$scope] ?? ['Label'];
+        $header = array_merge($labelCols, $models, $hasOther ? ['Other'] : [], ['Total']);
 
-        $dataKeys = array_merge(array_keys($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
-        $header = array_merge(array_values($keyCols), $models, $hasOther ? ['Other'] : [], ['Total']);
-
-        $matrix = array_map(fn ($r) => array_map(fn ($k) => $r[$k] ?? 0, $dataKeys), $rows);
+        $matrix = array_map(fn ($r) => array_merge(
+            $r['labels'],
+            array_map(fn ($m) => $r['cells'][$m] ?? 0, $models),
+            $hasOther ? [$r['other']] : [],
+            [$r['total']],
+        ), $rows);
 
         // Second XLSX sheet for RT: RT Code + RT Name only, one row per RT code
         // (rows for the same retailer under different distributors are summed).
         $extraSheets = [];
         if ($scope === 'rt') {
-            $numericCount = count($matrix ? $matrix[0] : []) - count($keyCols); // models (+Other) + Total
             $byRt = [];
-            foreach ($matrix as $row) {
-                $rtCode = $row[2];
-                $byRt[$rtCode] ??= ['name' => $row[3], 'nums' => array_fill(0, $numericCount, 0)];
-                foreach (array_slice($row, count($keyCols)) as $i => $v) {
-                    $byRt[$rtCode]['nums'][$i] += (int) $v;
+            foreach ($rows as $r) {
+                [$rdCode, $rdName, $rtCode, $rtName] = $r['labels'];
+                $byRt[$rtCode] ??= ['name' => $rtName, 'cells' => array_fill_keys($models, 0), 'other' => 0, 'total' => 0];
+                foreach ($models as $m) {
+                    $byRt[$rtCode]['cells'][$m] += $r['cells'][$m] ?? 0;
                 }
+                $byRt[$rtCode]['other'] += $r['other'];
+                $byRt[$rtCode]['total'] += $r['total'];
             }
 
             $compact = [];
             foreach ($byRt as $rtCode => $g) {
-                $compact[] = array_merge([$rtCode, $g['name']], $g['nums']);
+                $compact[] = array_merge([$rtCode, $g['name']],
+                    array_map(fn ($m) => $g['cells'][$m], $models),
+                    $hasOther ? [$g['other']] : [], [$g['total']]);
             }
-            usort($compact, fn ($a, $b) => end($b) <=> end($a)); // by Total
+            usort($compact, fn ($a, $b) => end($b) <=> end($a));
 
             $extraSheets[] = [
                 'name' => 'By retailer',
