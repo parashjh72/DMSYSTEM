@@ -49,9 +49,9 @@ Route::post('logout', [LoginController::class, 'logout'])->middleware('auth')->n
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', Dashboard::class)->middleware('can:dashboard.view')->name('dashboard');
 
-    Route::get('imports', ImportManager::class)->middleware('can:imports.view')->name('imports.index');
-    Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.view')->name('imports.template');
-    Route::get('imports/{batch}', ImportDetail::class)->middleware('can:imports.view')->name('imports.show');
+    Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');
+    Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.access')->name('imports.template');
+    Route::get('imports/{batch}', ImportDetail::class)->middleware('can:imports.access')->name('imports.show');
 
     Route::get('explorer', DataExplorer::class)->middleware('can:explorer.view')->name('explorer');
     Route::get('reports', Reports::class)->middleware('can:reports.view')->name('reports');

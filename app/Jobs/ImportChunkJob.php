@@ -123,20 +123,27 @@ class ImportChunkJob implements ShouldQueue
                 }
 
                 if ($updateOnly) {
-                    // log IMEIs that aren't in the system before the update runs
+                    $scope = $sell ? ($batch->scope_rd_codes ?: null) : null;
+
+                    // Log IMEIs that can't be updated before the update runs: not
+                    // in the system at all, or (for a scoped import) not one of
+                    // the importer's own distributors.
                     $missing = DB::table('import_staging_rows as s')
                         ->leftJoin('sales_activation_records as r', 'r.imei', '=', 's.imei')
                         ->where('s.import_batch_id', $batch->id)
                         ->whereBetween('s.row_number', [$chunk->start_row, $chunk->end_row])
-                        ->whereNull('r.id')
-                        ->pluck('s.row_number', 's.imei');
-                    foreach ($missing as $imei => $rowNum) {
-                        $errors[] = $this->errorRow($batch->id, (int) $rowNum, 'imei_not_found',
-                            "IMEI {$imei} is not in the system — import the model data first.", [$imei]);
+                        ->where(fn ($q) => $q->whereNull('r.id')
+                            ->when($scope, fn ($w) => $w->orWhereNotIn('r.rd_code', $scope)))
+                        ->get(['s.row_number', 's.imei', 'r.id as record_id']);
+                    foreach ($missing as $row) {
+                        $message = $row->record_id === null
+                            ? "IMEI {$row->imei} is not in the system — import the ND → RD data first."
+                            : "IMEI {$row->imei} belongs to another distributor.";
+                        $errors[] = $this->errorRow($batch->id, (int) $row->row_number, 'imei_not_found', $message, [$row->imei]);
                     }
 
                     $r = $sell
-                        ? $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row)
+                        ? $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row, $scope)
                         : $activation->apply($batch->id, $chunk->start_row, $chunk->end_row);
                     // Existing IMEIs that already carry the info are skipped, not updated.
                     $applied = ['inserted' => 0, 'updated' => $r['applied'], 'skipped' => $r['skipped']];

@@ -32,6 +32,23 @@ class ImportManager extends Component
     /** records | sell_through | activation */
     public string $kind = 'records';
 
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('imports.access'), 403);
+
+        if ($this->sellThroughOnly()) {
+            $this->kind = 'sell_through';
+        }
+    }
+
+    /** RD-scoped users may run only the Sell-through (RD → RT) import. */
+    public function sellThroughOnly(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && ! $user->can('imports.create') && $user->can('imports.sell_through');
+    }
+
     public function updatedFile(): void
     {
         $this->authorizePermission();
@@ -42,7 +59,10 @@ class ImportManager extends Component
                 .'For larger files use: php artisan records:import <path>',
         ]);
 
-        $kind = in_array($this->kind, ['sell_through', 'activation'], true) ? $this->kind : 'records';
+        $kind = $this->sellThroughOnly()
+            ? 'sell_through'
+            : (in_array($this->kind, ['sell_through', 'activation'], true) ? $this->kind : 'records');
+
         $batch = app(ImportService::class)->createFromUpload($this->file, auth()->id(), $kind);
 
         $path = Storage::disk($batch->disk)->path($batch->stored_path);
@@ -99,7 +119,13 @@ class ImportManager extends Component
 
     private function authorizePermission(): void
     {
-        abort_unless(auth()->user()?->can('imports.create'), 403);
+        $user = auth()->user();
+        $kind = $this->review['kind'] ?? $this->kind;
+
+        $allowed = $user?->can('imports.create')
+            || ($kind === 'sell_through' && $user?->can('imports.sell_through'));
+
+        abort_unless($allowed, 403);
     }
 
     public function render()
@@ -107,10 +133,16 @@ class ImportManager extends Component
         $reviewKind = $this->review['kind'] ?? $this->kind;
         [$aliases, $required] = ImportService::schemaFor($reviewKind);
 
+        $batches = ImportBatch::with('creator')
+            ->when($this->sellThroughOnly(), fn ($q) => $q->where('created_by', auth()->id()))
+            ->latest()
+            ->paginate(15);
+
         return view('livewire.import-manager', [
             'fields' => array_keys($aliases),
             'requiredFields' => $required,
-            'batches' => ImportBatch::with('creator')->latest()->paginate(15),
+            'batches' => $batches,
+            'sellThroughOnly' => $this->sellThroughOnly(),
         ]);
     }
 }

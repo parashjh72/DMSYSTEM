@@ -88,6 +88,19 @@ class UserManager extends Component
             return;
         }
 
+        // Never leave the system without a Super Admin.
+        if ($this->editingId && $data['role'] !== 'Super Admin') {
+            $editing = User::find($this->editingId);
+            $lastSuperAdmin = $editing?->hasRole('Super Admin')
+                && User::role('Super Admin')->count() === 1;
+
+            if ($lastSuperAdmin) {
+                $this->addError('role', 'This is the only Super Admin — promote another user first.');
+
+                return;
+            }
+        }
+
         $user = User::updateOrCreate(
             ['id' => $this->editingId],
             [

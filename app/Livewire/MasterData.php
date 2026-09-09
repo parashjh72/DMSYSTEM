@@ -6,10 +6,12 @@ use App\Models\DeviceModel;
 use App\Models\RetailDistributor;
 use App\Models\Retailer;
 use App\Models\TerritoryOfficer;
+use App\Models\User;
 use App\Services\Reporting\FilterOptions;
 use App\Support\ModelClassifier;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -65,9 +67,24 @@ class MasterData extends Component
 
     public string $formStatus = 'out';
 
+    /** Distributors tab: optionally create an RD-role login for the new distributor. */
+    public bool $createLogin = false;
+
+    public string $loginName = '';
+
+    public string $loginEmail = '';
+
+    public string $loginPassword = '';
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('masterdata.view'), 403);
+    }
+
+    /** Whether the current user may create an RD login alongside a distributor. */
+    public function canCreateLogin(): bool
+    {
+        return (bool) auth()->user()?->can('users.manage');
     }
 
     public function updatedTab(): void
@@ -81,7 +98,10 @@ class MasterData extends Component
 
     // ---- manual add / edit -------------------------------------------------
 
-    private const FORM_FIELDS = ['showForm', 'editingId', 'formCode', 'formName', 'formRdCode', 'formProductCode', 'formStatus'];
+    private const FORM_FIELDS = [
+        'showForm', 'editingId', 'formCode', 'formName', 'formRdCode', 'formProductCode', 'formStatus',
+        'createLogin', 'loginName', 'loginEmail', 'loginPassword',
+    ];
 
     private function editable(): bool
     {
@@ -161,6 +181,13 @@ class MasterData extends Component
             if ($this->tab === 'rt') {
                 $rules['formRdCode'] = ['nullable', 'string', 'max:40'];
             }
+            $wantsLogin = $this->tab === 'rd' && ! $this->editingId && $this->createLogin && $this->canCreateLogin();
+            if ($wantsLogin) {
+                $rules['loginName'] = ['required', 'string', 'max:120'];
+                $rules['loginEmail'] = ['required', 'email', Rule::unique('users', 'email')];
+                $rules['loginPassword'] = ['required', 'string', 'min:8'];
+            }
+
             $data = $this->validate($rules);
 
             $attrs = ['name' => trim((string) $data['formName']) ?: null];
@@ -173,12 +200,25 @@ class MasterData extends Component
 
             $model = $this->tab === 'rd' ? RetailDistributor::class : Retailer::class;
             $model::updateOrCreate(['id' => $this->editingId], $attrs);
+
+            if ($wantsLogin) {
+                $user = User::create([
+                    'name' => trim($data['loginName']),
+                    'email' => trim($data['loginEmail']),
+                    'password' => Hash::make($data['loginPassword']),
+                    'scoped_rd_codes' => [trim($data['formCode'])],
+                ]);
+                $user->syncRoles(['RD']);
+            }
         }
 
         app(FilterOptions::class)->forget();
+        $createdLogin = $this->tab === 'rd' && ! $this->editingId && $this->createLogin && $this->canCreateLogin();
         $this->cancelForm();
         $this->resetPage();
-        session()->flash('status', 'Saved.');
+        session()->flash('status', $createdLogin
+            ? 'Distributor saved and an RD login was created for it.'
+            : 'Saved.');
     }
 
     public function deleteRow(int $id): void
@@ -308,6 +348,7 @@ class MasterData extends Component
             'isModels' => $isModels,
             'isRetailers' => $isRetailers,
             'editable' => $this->editable(),
+            'canCreateLogin' => $this->canCreateLogin(),
             'counts' => $counts,
             'rdOptions' => $isRetailers ? $options->distributors() : [],
             'rows' => $rows,

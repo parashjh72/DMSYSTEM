@@ -5,33 +5,45 @@
             <p class="mt-1 text-sm text-gray-500">CSV / XLSX · streamed and processed in background chunks.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('imports.template') }}" class="btn-ghost">Model template</a>
+            @unless ($sellThroughOnly)
+                <a href="{{ route('imports.template') }}" class="btn-ghost">Model template</a>
+            @endunless
             <a href="{{ route('imports.template', ['kind' => 'sell_through']) }}" class="btn-ghost">Sell-thru template</a>
-            <a href="{{ route('imports.template', ['kind' => 'activation']) }}" class="btn-ghost">Activation template</a>
+            @unless ($sellThroughOnly)
+                <a href="{{ route('imports.template', ['kind' => 'activation']) }}" class="btn-ghost">Activation template</a>
+            @endunless
         </div>
     </div>
 
-    @can('imports.create')
+    @if (auth()->user()?->can('imports.create') || $sellThroughOnly)
     <div class="card mt-6">
         @if (! $review)
-            <label class="label">Import type</label>
-            <div class="mb-3 flex flex-wrap gap-2">
-                <button wire:click="$set('kind', 'records')"
-                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
-                        {{ $kind === 'records' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
-                    ND → RD (ND to RD)
-                </button>
-                <button wire:click="$set('kind', 'sell_through')"
-                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
-                        {{ $kind === 'sell_through' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
-                    Sell-through (RD → RT)
-                </button>
-                <button wire:click="$set('kind', 'activation')"
-                        class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
-                        {{ $kind === 'activation' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
-                    Activation
-                </button>
-            </div>
+            @if ($sellThroughOnly)
+                <h2 class="text-sm font-semibold">Sell-through (RD → RT) import</h2>
+                <p class="mb-2 mt-1 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+                    Only devices in <strong>your distributor(s)</strong> are updated — an IMEI from another
+                    distributor is reported as an error. Everything else works as below.
+                </p>
+            @else
+                <label class="label">Import type</label>
+                <div class="mb-3 flex flex-wrap gap-2">
+                    <button wire:click="$set('kind', 'records')"
+                            class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                            {{ $kind === 'records' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                        ND → RD (ND to RD)
+                    </button>
+                    <button wire:click="$set('kind', 'sell_through')"
+                            class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                            {{ $kind === 'sell_through' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                        Sell-through (RD → RT)
+                    </button>
+                    <button wire:click="$set('kind', 'activation')"
+                            class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 ring-inset transition
+                            {{ $kind === 'activation' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-600 ring-gray-300 hover:bg-gray-50' }}">
+                        Activation
+                    </button>
+                </div>
+            @endif
             @if ($kind === 'sell_through')
                 <p class="mb-2 rounded bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
                     Assigns retailers to existing IMEIs. File columns: <strong>IMEI, RD Code, RTCode, ST Date</strong>
@@ -119,7 +131,7 @@
             </div>
         @endif
     </div>
-    @endcan
+    @endif
 
     <div class="card mt-6 overflow-x-auto p-0">
         <table class="min-w-full divide-y divide-gray-200">

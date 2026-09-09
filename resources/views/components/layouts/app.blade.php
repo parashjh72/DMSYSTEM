@@ -12,7 +12,7 @@
 @php
     $nav = [
         ['route' => 'dashboard',       'label' => 'Dashboard',     'perm' => 'dashboard.view'],
-        ['route' => 'imports.index',   'label' => 'Imports',       'perm' => 'imports.view'],
+        ['route' => 'imports.index',   'label' => 'Imports',       'perm' => 'imports.access'],
         ['route' => 'explorer',        'label' => 'Data Explorer', 'perm' => 'explorer.view'],
         ['label' => 'Reports', 'perm' => 'reports.view', 'children' => [
             ['route' => 'stock',            'label' => 'Stock Report'],

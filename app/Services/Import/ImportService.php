@@ -7,6 +7,7 @@ use App\Enums\ImportStatus;
 use App\Jobs\PrepareImportJob;
 use App\Models\ImportBatch;
 use App\Support\HeaderMap;
+use App\Support\RecordScope;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -95,6 +96,9 @@ class ImportService
             'file_size' => $size,
             'file_hash' => hash_file('sha256', $absolute),
             'kind' => $kind,
+            // Freeze the uploader's RD row-scope (null for full importers). The
+            // queue worker uses it to restrict a sell-through update to their devices.
+            'scope_rd_codes' => RecordScope::rdCodes(),
             'column_map' => $resolved['map'],
             'import_mode' => ImportMode::Upsert,
             'duplicate_strategy' => 'update',

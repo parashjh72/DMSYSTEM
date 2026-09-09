@@ -14,6 +14,7 @@ class RolesAndPermissionsSeeder extends Seeder
     public const PERMISSIONS = [
         'dashboard.view',
         'imports.view', 'imports.create',
+        'imports.sell_through',      // run only the Sell-through (RD → RT) import, scoped to own RDs
         'reports.view',
         'explorer.view',
         'exports.view', 'exports.create',
@@ -31,8 +32,11 @@ class RolesAndPermissionsSeeder extends Seeder
         'explorer.view', 'exports.view', 'exports.create', 'masterdata.view', 'settings.manage',
     ];
 
-    /** View + export only — these roles are also limited to their RD codes. */
-    private const RD_SCOPED = ['reports.view', 'exports.view', 'exports.create'];
+    /**
+     * View + export, plus the Sell-through (RD → RT) import for their own
+     * devices — these roles are also limited to their assigned RD codes.
+     */
+    private const RD_SCOPED = ['reports.view', 'exports.view', 'exports.create', 'imports.sell_through'];
 
     public const ROLES = [
         'Super Admin' => self::PERMISSIONS,          // controls the whole system

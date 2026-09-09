@@ -79,6 +79,39 @@
                     </div>
                 @endif
             </div>
+
+            @if ($tab === 'rd' && ! $editingId && $canCreateLogin)
+                <div class="rounded-lg border border-gray-200 p-3">
+                    <label class="flex items-center gap-2 text-sm font-medium">
+                        <input type="checkbox" wire:model.live="createLogin" class="rounded border-gray-300">
+                        Also create a login for this distributor (role <strong>RD</strong>, scoped to this code)
+                    </label>
+                    @if ($createLogin)
+                        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                            <div>
+                                <label class="label">Login name</label>
+                                <input class="input" wire:model="loginName">
+                                @error('loginName') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="label">Email</label>
+                                <input class="input" type="email" wire:model="loginEmail">
+                                @error('loginEmail') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="label">Password</label>
+                                <input class="input" type="password" wire:model="loginPassword">
+                                @error('loginPassword') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">
+                            This login can view its own reports/exports and run the Sell-through (RD → RT)
+                            import for its own devices.
+                        </p>
+                    @endif
+                </div>
+            @endif
+
             <div class="flex gap-3">
                 <button class="btn-primary" wire:click="saveRow">Save</button>
                 <button class="btn-ghost" wire:click="cancelForm">Cancel</button>

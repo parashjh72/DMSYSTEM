@@ -28,7 +28,10 @@ class ImportDetail extends Component
 
     public function mount(ImportBatch $batch): void
     {
-        abort_unless(auth()->user()?->can('imports.view'), 403);
+        $user = auth()->user();
+        $ownSellThrough = $user?->can('imports.sell_through') && $batch->created_by === $user->id;
+
+        abort_unless($user?->can('imports.view') || $ownSellThrough, 403);
         $this->uuid = $batch->uuid;
     }
 
