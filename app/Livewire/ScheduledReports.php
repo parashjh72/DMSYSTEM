@@ -42,7 +42,7 @@ class ScheduledReports extends Component
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->can('exports.create'), 403);
+        abort_unless(auth()->user()?->can('scheduled-reports.manage'), 403);
     }
 
     protected function rules(): array

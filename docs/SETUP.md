@@ -179,7 +179,7 @@ makes the distributor and an **RD** account scoped to it in one step.
 
 ## Scheduled reports (auto-emailed)
 
-**Reports → Scheduled Reports** lets any user with `exports.create` define a
+**Reports → Scheduled Reports** (Super Admin only) lets you define a
 report that is built and emailed on a schedule:
 
 - pick the report (RD/RT/TSO/Model/Date/Stock/Sellout/raw records) and format

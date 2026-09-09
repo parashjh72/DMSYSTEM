@@ -58,7 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::get('stock-report', StockReport::class)->middleware('can:reports.view')->name('stock');
     Route::get('sellout-report', SelloutReport::class)->middleware('can:reports.view')->name('sellout');
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
-    Route::get('scheduled-reports', ScheduledReports::class)->middleware('can:exports.create')->name('scheduled-reports');
+    Route::get('scheduled-reports', ScheduledReports::class)->middleware('can:scheduled-reports.manage')->name('scheduled-reports');
     Route::get('model-prices', ModelPrices::class)->middleware('can:masterdata.view')->name('model-prices');
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');

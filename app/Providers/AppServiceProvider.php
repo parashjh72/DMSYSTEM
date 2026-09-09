@@ -27,5 +27,8 @@ class AppServiceProvider extends ServiceProvider
         // The Imports area is reachable by full importers and by RD-scoped users
         // who may only run the Sell-through import.
         Gate::define('imports.access', fn ($user) => $user->can('imports.view') || $user->can('imports.sell_through'));
+
+        // Scheduled Reports is a Super Admin-only feature.
+        Gate::define('scheduled-reports.manage', fn ($user) => $user->hasRole('Super Admin'));
     }
 }

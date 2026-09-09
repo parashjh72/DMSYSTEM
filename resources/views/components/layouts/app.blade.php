@@ -18,7 +18,7 @@
             ['route' => 'stock',            'label' => 'Stock Report'],
             ['route' => 'sellout',          'label' => 'Sellout Report'],
             // Standard Reports + Quick Reports hidden for now (routes still live).
-            ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'exports.create'],
+            ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'scheduled-reports.manage'],
         ]],
         ['route' => 'imei-search',     'label' => 'IMEI Search',   'perm' => 'reports.view'],
         ['route' => 'exports.index',   'label' => 'Exports',       'perm' => 'exports.view'],
