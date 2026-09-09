@@ -240,8 +240,10 @@ class Pjp extends Component
         }
 
         if ($this->tab === 'nsm' && $this->canNsm()) {
+            // NSM approval is national — also surface PJPs that were forwarded before
+            // an NSM login existed (nsm_id never resolved). Acting on one claims it.
             $data['nsmQueue'] = PjpModel::with(['tso', 'asm'])
-                ->where('nsm_id', auth()->id())
+                ->where(fn ($q) => $q->where('nsm_id', auth()->id())->orWhereNull('nsm_id'))
                 ->whereIn('status', ['forwarded_to_nsm', 'nsm_review'])
                 ->latest('forwarded_to_nsm_at')->get();
         }
