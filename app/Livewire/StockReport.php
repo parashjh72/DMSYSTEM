@@ -62,13 +62,37 @@ class StockReport extends Component
         return 'stock';
     }
 
+    /**
+     * Report scopes this user may open. The ASM-wise rollup is hidden from the
+     * field roles (TSO / RD) — they work at their own retailer level.
+     *
+     * @return array<string,string>
+     */
+    public function availableTypes(): array
+    {
+        $types = static::TYPES;
+
+        if (auth()->user()?->hasAnyRole(['TSO', 'RD'])) {
+            unset($types['asm']);
+        }
+
+        return $types;
+    }
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('reports.view'), 403);
+
+        if (! isset($this->availableTypes()[$this->type])) {
+            $this->type = 'rd';
+        }
     }
 
     public function updatedType(): void
     {
+        if (! isset($this->availableTypes()[$this->type])) {
+            $this->type = 'rd';
+        }
         $this->resetPage();
     }
 
@@ -179,7 +203,7 @@ class StockReport extends Component
             'rdOptions' => $options->distributors(),
             'rtOptions' => $rtOptions,
             'rtTruncated' => $rtList['truncated'],
-            'types' => static::TYPES,
+            'types' => $this->availableTypes(),
             'labelHeaders' => StockReportService::LABELS[$this->type] ?? [],
             'noun' => $this->mode(),
         ]);
