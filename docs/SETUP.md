@@ -282,6 +282,24 @@ Every step writes to **`device_events`**, an immutable per-IMEI log. In
 with the events (return requested / approved / rejected, transfers), oldest
 first.
 
+## WOD Coverage
+
+**Reports → WOD Coverage** (`reports.view`) measures *width of distribution* —
+for each RD (or TSO territory) and model, the number of **distinct retailers
+currently holding unsold stock** of that model. A retailer that has since
+activated every unit no longer counts; only live shelf stock
+(`is_activated = 0`, sitting at a retailer) is measured. Example: a model that
+sits at five retailers with quantities 1, 2, 5, 0, 0 → coverage 3.
+
+- **RD-wise / TSO-wise** tabs — one row per RD or TSO, one column per model.
+- Filter by a single **distributor**, a single **model**, and model status
+  (**running / out / both**).
+- Row *Total RTs* and the column / grand totals are their own
+  `COUNT(DISTINCT rt_code)` figures, so they are **not** the sum of the cells
+  (a retailer stocking three models is one retailer, not three).
+- **Export CSV** streams the current pivot (respects every filter), RD- or
+  TSO-scoped. RD-scoped users see only their own distributors' rows.
+
 ## Scheduled reports (auto-emailed)
 
 **Reports → Scheduled Reports** (Super Admin only) lets you define a

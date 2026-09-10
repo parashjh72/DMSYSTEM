@@ -20,6 +20,7 @@
         ['label' => 'Reports', 'perm' => 'reports.view', 'children' => [
             ['route' => 'stock',            'label' => 'Stock Report'],
             ['route' => 'sellout',          'label' => 'Sellout Report'],
+            ['route' => 'wod-coverage',     'label' => 'WOD Coverage'],
             ['route' => 'scheduled-reports', 'label' => 'Scheduled Reports', 'perm' => 'scheduled-reports.manage'],
         ]],
         ['route' => 'imei-search',      'label' => 'IMEI Search',    'perm' => 'reports.view'],

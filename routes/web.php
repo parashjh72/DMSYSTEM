@@ -32,6 +32,7 @@ use App\Livewire\Settings;
 use App\Livewire\StockReport;
 use App\Livewire\Transfer;
 use App\Livewire\UserManager;
+use App\Livewire\WodCoverage;
 use App\Support\Home;
 use Illuminate\Support\Facades\Route;
 
@@ -70,6 +71,7 @@ Route::middleware('auth')->group(function () {
     Route::get('stock-report', StockReport::class)->middleware('can:reports.view')->name('stock');
     Route::get('sellout-report', SelloutReport::class)->middleware('can:reports.view')->name('sellout');
     Route::get('quick-reports', QuickReports::class)->middleware('can:reports.view')->name('quick-reports');
+    Route::get('wod-coverage', WodCoverage::class)->middleware('can:reports.view')->name('wod-coverage');
     Route::get('scheduled-reports', ScheduledReports::class)->middleware('can:scheduled-reports.manage')->name('scheduled-reports');
     Route::get('returns', Returns::class)->middleware('can:returns.access')->name('returns');
     Route::get('promoters', Promoters::class)->middleware('can:promoters.access')->name('promoters');
