@@ -42,19 +42,22 @@
         <div class="card mt-4 p-0"
              wire:key="map-{{ md5($rdCode.'|'.$area.'|'.$tso.'|'.$search) }}"
              x-data="retailerMap({
-                 apiKey: @js($apiKey),
-                 centre: @js($centre),
                  points: @js($points->map(fn ($p) => [
                      'lat' => (float) $p->latitude, 'lng' => (float) $p->longitude,
                      'code' => $p->code, 'name' => $p->name, 'rd' => $p->rd_code, 'area' => $p->area, 'phone' => $p->phone,
                  ])->values()),
              })"
              x-init="init()">
+            <div x-show="error" x-cloak class="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700" x-text="error"></div>
             <div x-ref="map" wire:ignore class="h-[60vh] w-full rounded-xl bg-gray-100"></div>
         </div>
+        @if ($points->isEmpty())
+            <p class="mt-2 text-xs text-gray-500">No retailers in this view have a location yet — use <strong>Set location</strong> on a row below.</p>
+        @endif
     @else
         <div class="card mt-4 text-sm text-amber-700">
-            Google Maps is not configured — the list below still works.
+            Google Maps is not configured — the list below still works, and you can still set a retailer's
+            coordinates from <strong>Set location</strong> (enter them by hand).
             @if (auth()->user()?->hasRole('Super Admin'))
                 Add an API key in <a href="{{ route('settings.maps') }}" wire:navigate class="underline">Settings → Map settings</a> to see the map.
             @else
@@ -62,6 +65,8 @@
             @endif
         </div>
     @endif
+
+    @error('map') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
 
     {{-- ---- Retailer list ------------------------------------------------- --}}
     <div class="card mt-4 overflow-x-auto p-0">
@@ -83,12 +88,15 @@
                     <td class="td">{{ $r->rd_code ?: '—' }}</td>
                     <td class="td">{{ $r->area ?: '—' }}</td>
                     <td class="td">{{ $r->phone ?: '—' }}</td>
-                    <td class="td">
+                    <td class="td whitespace-nowrap">
                         @if ($r->latitude !== null && $r->longitude !== null)
                             <a class="text-indigo-600 underline" target="_blank"
                                href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}">on map</a>
+                            <x-map-picker :save="'mapRetailer'" :id="$r->code" :lat="$r->latitude" :lng="$r->longitude"
+                                          label="edit" class="ml-2 text-xs text-gray-400 underline" />
                         @else
-                            <span class="text-amber-600">not mapped</span>
+                            <x-map-picker :save="'mapRetailer'" :id="$r->code"
+                                          label="Set location" class="text-xs text-indigo-600 underline" />
                         @endif
                     </td>
                     <td class="td text-right">
@@ -151,20 +159,42 @@
 
 @script
 <script>
+    // Shared Google Maps loader (identical to the one in the map-picker component,
+    // guarded so whichever renders first defines it). Resolves only once
+    // google.maps is ready; gm_authFailure rejects with 'auth'.
+    window.__gmapsKey = window.__gmapsKey || @json($apiKey);
+    window.__gmapsCentre = window.__gmapsCentre || @json($centre);
+    window.__loadGmaps = window.__loadGmaps || function () {
+        if (window.__gmapsPromise) return window.__gmapsPromise;
+        if (! window.__gmapsKey) return Promise.reject(new Error('no-key'));
+        window.__gmapsPromise = new Promise((resolve, reject) => {
+            window.__gmapsReady = () => resolve();
+            window.gm_authFailure = () => reject(new Error('auth'));
+            const s = document.createElement('script');
+            s.src = 'https://maps.googleapis.com/maps/api/js?key='
+                + encodeURIComponent(window.__gmapsKey)
+                + '&loading=async&callback=__gmapsReady';
+            s.async = true;
+            s.onerror = () => reject(new Error('load-failed'));
+            document.head.appendChild(s);
+        });
+        return window.__gmapsPromise;
+    };
+
     Alpine.data('retailerMap', (cfg) => ({
         map: null,
         markers: [],
+        error: '',
         async init() {
-            if (! window.__gmapsPromise) {
-                window.__gmapsPromise = new Promise((resolve, reject) => {
-                    const s = document.createElement('script');
-                    s.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.apiKey}&loading=async`;
-                    s.async = true; s.onload = resolve; s.onerror = reject;
-                    document.head.appendChild(s);
-                });
+            try {
+                await window.__loadGmaps();
+            } catch (e) {
+                this.error = e.message === 'auth'
+                    ? 'Google rejected the Maps key — enable the Maps JavaScript API, turn on billing, and allow dms.parashojha.com in the key’s HTTP-referrer restrictions.'
+                    : 'Google Maps could not load. The list and Set location still work.';
+                return;
             }
-            try { await window.__gmapsPromise; } catch (e) { return; }
-            this.map = new google.maps.Map(this.$refs.map, { center: cfg.centre, zoom: 7 });
+            this.map = new google.maps.Map(this.$refs.map, { center: window.__gmapsCentre, zoom: 7 });
             this.draw(cfg.points);
         },
         draw(points) {

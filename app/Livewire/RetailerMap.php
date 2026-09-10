@@ -63,6 +63,30 @@ class RetailerMap extends Component
                 ->orWhere('name', 'like', '%'.$this->search.'%')));
     }
 
+    /**
+     * Pin (or move) a retailer's location. Restricted to retailers inside the
+     * viewer's RD scope so a scoped user can only map their own retailers.
+     */
+    public function mapRetailer(string $code, float $lat, float $lng): void
+    {
+        abort_unless(auth()->user()?->can('reports.view'), 403);
+
+        if (abs($lat) > 90 || abs($lng) > 180 || ($lat === 0.0 && $lng === 0.0)) {
+            $this->addError('map', 'Pick a valid point on the map.');
+
+            return;
+        }
+
+        $scope = RecordScope::rdCodes();
+
+        $updated = DB::table('retailers')
+            ->where('code', $code)
+            ->when($scope, fn ($q) => $q->whereIn('rd_code', $scope))
+            ->update(['latitude' => round($lat, 7), 'longitude' => round($lng, 7), 'updated_at' => now()]);
+
+        session()->flash('status', $updated ? "Location saved for {$code}." : 'That retailer is outside your access.');
+    }
+
     public function showTimeline(string $rtCode): void
     {
         $this->timelineRt = $rtCode;
