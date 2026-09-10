@@ -295,6 +295,15 @@ Every step writes to **`device_events`**, an immutable per-IMEI log. In
 with the events (return requested / approved / rejected, transfers), oldest
 first.
 
+## Annual Contracts
+
+**Contracts → Annual Contracts** (`contracts.manage` — Admin / NSM / Super
+Admin) is a CRUD list of sales-volume commitments: pick a retailer, a target
+volume (units), an incentive %, and a start / end date. Each row shows the
+retailer's **activations within the contract dates** as *Achieved* and the
+attainment %. Contracts can be edited, **Closed**, or deleted;
+`status` is `active` / `closed` / `cancelled`.
+
 ## WOD Coverage
 
 **Reports → WOD Coverage** (`reports.view`) measures *width of distribution* —

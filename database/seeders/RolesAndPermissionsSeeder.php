@@ -33,6 +33,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'retailer_location.request',  // TSO: ask an Admin to change a retailer's already-set location
         'retailer_location.review',   // Admin / NSM / Super Admin: approve or reject those requests
 
+        'contracts.manage',           // Admin / NSM / Super Admin: annual sales-volume contracts
+
         'pjp.create',                // TSO: own monthly Planned Journey Plan
         'pjp.submit',                // TSO: submit for approval
         'pjp.asm_review',            // ASM: approve / forward / request revision
@@ -52,7 +54,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
         'explorer.view', 'exports.view', 'exports.create', 'returns.review',
         'promoters.manage', 'attendance.view_all', 'schemes.enrol', 'pjp.report',
-        'retailer_location.review', 'masterdata.view', 'settings.manage',
+        'retailer_location.review', 'contracts.manage', 'masterdata.view', 'settings.manage',
     ];
 
     /**

@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\ImportTemplateController;
+use App\Livewire\AnnualContracts;
 use App\Livewire\Attendance;
 use App\Livewire\AttendanceReport;
 use App\Livewire\Dashboard;
@@ -80,6 +81,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('schemes', Schemes::class)->middleware('can:settings.manage')->name('schemes.index');
     Route::get('scheme-enrolment', SchemeEnrolment::class)->middleware('can:schemes.enrol')->name('scheme-enrolment');
+    Route::get('annual-contracts', AnnualContracts::class)->middleware('can:contracts.manage')->name('annual-contracts');
     Route::get('schemes/{scheme}/retailers', SchemeRetailers::class)->middleware('can:schemes.enrol')->name('schemes.retailers');
     Route::get('schemes/{scheme}/achievement', SchemeReport::class)->middleware('can:reports.view')->name('schemes.report');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');

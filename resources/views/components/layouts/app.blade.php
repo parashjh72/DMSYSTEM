@@ -33,6 +33,9 @@
         ['route' => 'promoters',        'label' => 'Promoters (RA)', 'perm' => 'promoters.access'],
         ['route' => 'schemes.index',    'label' => 'Schemes',        'perm' => 'settings.manage'],
         ['route' => 'scheme-enrolment', 'label' => 'Scheme Enrolment','perm' => 'schemes.enrol'],
+        ['label' => 'Contracts', 'perm' => 'contracts.manage', 'children' => [
+            ['route' => 'annual-contracts', 'label' => 'Annual Contracts'],
+        ]],
         ['route' => 'settings.index',   'label' => 'Settings',       'perm' => 'settings.manage'],
         ['route' => 'users.index',      'label' => 'Users',          'perm' => 'users.manage'],
     ];
