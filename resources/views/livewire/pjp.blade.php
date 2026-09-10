@@ -114,37 +114,17 @@
                             <input class="input" wire:model.live.debounce.300ms="rtSearch" placeholder="Search RT code / name / phone…">
                             <div class="mt-1 max-h-56 overflow-y-auto rounded-lg ring-1 ring-gray-200">
                                 @forelse ($retailerOptions as $rt)
-                                    @php $mapped = $rt->latitude !== null && $rt->longitude !== null; @endphp
-                                    <div wire:key="rt-{{ $rt->code }}"
-                                         class="flex items-start gap-2 px-3 py-1.5 text-xs hover:bg-indigo-50 {{ in_array($rt->code, $dayRetailers, true) ? 'bg-indigo-50' : '' }}">
-                                        @if ($mapped)
-                                            <input type="checkbox" class="mt-0.5 rounded border-gray-300"
-                                                   id="rt-cb-{{ $rt->code }}"
-                                                   wire:click="toggleRt('{{ $rt->code }}')" @checked(in_array($rt->code, $dayRetailers, true))>
-                                        @else
-                                            <span class="mt-0.5 inline-block h-3.5 w-3.5 rounded border border-amber-300 bg-amber-50"></span>
-                                        @endif
+                                    <label wire:key="rt-{{ $rt->code }}"
+                                           class="flex cursor-pointer items-start gap-2 px-3 py-1.5 text-xs hover:bg-indigo-50 {{ in_array($rt->code, $dayRetailers, true) ? 'bg-indigo-50' : '' }}">
+                                        <input type="checkbox" class="mt-0.5 rounded border-gray-300"
+                                               wire:click="toggleRt('{{ $rt->code }}')" @checked(in_array($rt->code, $dayRetailers, true))>
                                         <span class="flex-1">
-                                            <label @if ($mapped) for="rt-cb-{{ $rt->code }}" @endif class="{{ $mapped ? 'cursor-pointer' : '' }}">
-                                                <span class="font-mono">{{ $rt->code }}</span> — {{ $rt->name }}
-                                            </label>
+                                            <span class="font-mono">{{ $rt->code }}</span> — {{ $rt->name }}
                                             <span class="block text-gray-400">
                                                 RD {{ $rt->rd_code ?: '—' }}@if ($rt->area) · {{ $rt->area }} @endif@if ($rt->phone) · {{ $rt->phone }} @endif
                                             </span>
-                                            @if (! $mapped)
-                                                <span class="mt-0.5 block text-amber-600">
-                                                    Not mapped —
-                                                    <x-map-picker :save="'mapRetailer'" :id="$rt->code"
-                                                                  label="set location on map" class="font-medium text-indigo-600 underline" />
-                                                    before you can plan a visit.
-                                                </span>
-                                            @else
-                                                <x-map-picker :save="'mapRetailer'" :id="$rt->code"
-                                                              :lat="$rt->latitude" :lng="$rt->longitude"
-                                                              label="edit location" class="mt-0.5 block text-[11px] text-gray-400 underline" />
-                                            @endif
                                         </span>
-                                    </div>
+                                    </label>
                                 @empty
                                     <div class="px-3 py-2 text-xs text-gray-400">No retailers in your territory match.</div>
                                 @endforelse

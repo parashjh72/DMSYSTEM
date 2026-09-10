@@ -56,8 +56,8 @@
         @endif
     @else
         <div class="card mt-4 text-sm text-amber-700">
-            Google Maps is not configured — the list below still works, and you can still set a retailer's
-            coordinates from <strong>Set location</strong> (enter them by hand).
+            Google Maps is not configured — the list and the location actions below still work
+            (coordinates can be entered by hand).
             @if (auth()->user()?->hasRole('Super Admin'))
                 Add an API key in <a href="{{ route('settings.maps') }}" wire:navigate class="underline">Settings → Map settings</a> to see the map.
             @else
@@ -89,14 +89,28 @@
                     <td class="td">{{ $r->area ?: '—' }}</td>
                     <td class="td">{{ $r->phone ?: '—' }}</td>
                     <td class="td whitespace-nowrap">
-                        @if ($r->latitude !== null && $r->longitude !== null)
+                        @php $mapped = $r->latitude !== null && $r->longitude !== null; @endphp
+                        @if ($mapped)
                             <a class="text-indigo-600 underline" target="_blank"
                                href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}">on map</a>
-                            <x-map-picker :save="'mapRetailer'" :id="$r->code" :lat="$r->latitude" :lng="$r->longitude"
-                                          label="edit" class="ml-2 text-xs text-gray-400 underline" />
                         @else
+                            <span class="text-amber-600">not mapped</span>
+                        @endif
+
+                        @if ($canEditLocations)
                             <x-map-picker :save="'mapRetailer'" :id="$r->code"
-                                          label="Set location" class="text-xs text-indigo-600 underline" />
+                                          :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
+                                          :label="$mapped ? 'edit' : 'Set location'"
+                                          class="ml-2 text-xs {{ $mapped ? 'text-gray-400' : 'text-indigo-600' }} underline" />
+                        @elseif ($canRequestLocation)
+                            @if (in_array($r->code, $pendingCodes, true))
+                                <span class="ml-2 text-xs text-gray-400">change requested</span>
+                            @else
+                                <x-map-picker :save="'requestLocationChange'" :id="$r->code"
+                                              :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
+                                              :label="$mapped ? 'request change' : 'request location'"
+                                              class="ml-2 text-xs text-indigo-600 underline" />
+                            @endif
                         @endif
                     </td>
                     <td class="td text-right">

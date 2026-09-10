@@ -30,6 +30,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
         'schemes.enrol',             // enrol / deactivate retailers in a scheme
 
+        'retailer_location.request',  // TSO: ask an Admin to change a retailer's already-set location
+        'retailer_location.review',   // Admin / NSM / Super Admin: approve or reject those requests
+
         'pjp.create',                // TSO: own monthly Planned Journey Plan
         'pjp.submit',                // TSO: submit for approval
         'pjp.asm_review',            // ASM: approve / forward / request revision
@@ -49,7 +52,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'dashboard.view', 'imports.view', 'imports.create', 'reports.view',
         'explorer.view', 'exports.view', 'exports.create', 'returns.review',
         'promoters.manage', 'attendance.view_all', 'schemes.enrol', 'pjp.report',
-        'masterdata.view', 'settings.manage',
+        'retailer_location.review', 'masterdata.view', 'settings.manage',
     ];
 
     /**
@@ -65,7 +68,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm',
             'attendance.view_all', 'pjp.asm_review', 'pjp.report'],
         'TSO' => [...self::RD_SCOPED, 'promoter_requests.create',
-            'attendance.check', 'pjp.create', 'pjp.submit'],
+            'attendance.check', 'pjp.create', 'pjp.submit', 'retailer_location.request'],
         'RD' => [...self::RD_SCOPED, 'returns.request'],                // single distributor login — can raise returns
     ];
 

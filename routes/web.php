@@ -20,6 +20,7 @@ use App\Livewire\Pjp;
 use App\Livewire\Promoters;
 use App\Livewire\QuickReports;
 use App\Livewire\Reports;
+use App\Livewire\RetailerLocationRequests;
 use App\Livewire\RetailerMap;
 use App\Livewire\Returns;
 use App\Livewire\ScheduledReports;
@@ -83,6 +84,7 @@ Route::middleware('auth')->group(function () {
     Route::get('schemes/{scheme}/achievement', SchemeReport::class)->middleware('can:reports.view')->name('schemes.report');
     Route::get('imei-search', ImeiSearch::class)->middleware('can:reports.view')->name('imei-search');
     Route::get('retailer-map', RetailerMap::class)->middleware('can:reports.view')->name('retailer-map');
+    Route::get('retailer-location-requests', RetailerLocationRequests::class)->middleware('can:retailer-location.access')->name('retailer-location-requests');
 
     Route::get('exports', ExportManager::class)->middleware('can:exports.view')->name('exports.index');
 

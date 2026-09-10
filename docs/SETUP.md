@@ -192,15 +192,28 @@ freezes `asm_id`/`nsm_id` onto each PJP at submit, resolved from this chain
 **Maps** — a Super Admin enters a Google Maps JavaScript API key under
 **Settings → Map settings** (`App\Support\MapConfig`, `settings` table key
 `maps`; `GOOGLE_MAPS_API_KEY` in `.env` is the fallback). The key is used
-client-side, so restrict it by HTTP referrer in Google Cloud. With a key set:
-- **Retailer Map** (`reports.view`, also linked from the Dashboard) plots every
-  RD-scoped retailer that has coordinates, filterable by RD code / area / search.
-- In the **PJP** day editor a retailer with no `latitude`/`longitude` shows
-  "Not mapped" — the TSO must pin it on the map (`Pjp::mapRetailer`, restricted
-  to their RD scope) before they can add it to a day's plan.
+client-side, so restrict it by HTTP referrer in Google Cloud (enable the Maps
+JavaScript API and turn on billing too, or the map stays blank and the page
+shows why).
 
-Without a key the pickers show a message and the Retailer Map falls back to a
-table of Google-Maps links.
+**How a retailer gets its coordinates:**
+- A **TSO's first visit check-in** with GPS stamps the retailer's
+  `latitude`/`longitude` automatically (`PjpService::logVisit` — only when the
+  fields are still null). That is the TSO's one shot.
+- **Admin / NSM / Super Admin** (`retailer_location.review`) edit any retailer's
+  location directly on **Retailer Map** or Master Data.
+- A **TSO** wanting to move an already-set location uses **request change** on
+  Retailer Map → a row in **Location Requests** (`retailer_location.request`)
+  that an Admin approves (applies the coordinates) or rejects.
+
+The **PJP** day planner no longer deals with locations at all — it is a plain
+territory-scoped retailer checklist.
+
+**Retailer Map** (`reports.view`, also linked from the Dashboard) plots every
+RD-scoped retailer that has coordinates and lists them all, filterable by
+distributor / TSO / area / RT code-name, each row with a **View** (TSO visit
+timeline) and the location action for the viewer's role. Without a Maps key the
+list, filters and location actions still work (coordinates typed by hand).
 
 ### Attendance
 

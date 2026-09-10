@@ -179,7 +179,7 @@ class PjpService
             abort(403);
         }
 
-        return PjpVisit::updateOrCreate(
+        $visit = PjpVisit::updateOrCreate(
             ['pjp_day_id' => $day->id, 'rt_code' => $rtCode],
             [
                 'pjp_id' => $day->pjp_id,
@@ -191,6 +191,21 @@ class PjpService
                 'note' => $note,
             ],
         );
+
+        // The TSO's one automatic shot at the retailer's coordinates: the first
+        // visit with GPS stamps them. After that a change needs an Admin request.
+        if (isset($gps['latitude'], $gps['longitude'])) {
+            DB::table('retailers')
+                ->where('code', $rtCode)
+                ->whereNull('latitude')
+                ->update([
+                    'latitude' => round((float) $gps['latitude'], 7),
+                    'longitude' => round((float) $gps['longitude'], 7),
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return $visit;
     }
 
     // ---------------------------------------------------------------

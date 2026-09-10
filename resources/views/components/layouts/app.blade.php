@@ -25,6 +25,7 @@
         ]],
         ['route' => 'imei-search',      'label' => 'IMEI Search',    'perm' => 'reports.view'],
         ['route' => 'retailer-map',     'label' => 'Retailer Map',   'perm' => 'reports.view'],
+        ['route' => 'retailer-location-requests', 'label' => 'Location Requests', 'perm' => 'retailer-location.access'],
         ['route' => 'returns',          'label' => 'Returns',        'perm' => 'returns.access'],
         ['route' => 'exports.index',    'label' => 'Exports',        'perm' => 'exports.view'],
         ['route' => 'masterdata',       'label' => 'Master Data',    'perm' => 'masterdata.view'],

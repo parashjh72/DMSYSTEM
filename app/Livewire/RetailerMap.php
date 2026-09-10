@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\RetailerLocationRequest;
 use App\Services\Reporting\FilterOptions;
 use App\Support\MapConfig;
 use App\Support\RecordScope;
@@ -63,17 +64,31 @@ class RetailerMap extends Component
                 ->orWhere('name', 'like', '%'.$this->search.'%')));
     }
 
-    /**
-     * Pin (or move) a retailer's location. Restricted to retailers inside the
-     * viewer's RD scope so a scoped user can only map their own retailers.
-     */
-    public function mapRetailer(string $code, float $lat, float $lng): void
+    /** Reviewers (Admin / NSM / Super Admin) edit retailer locations directly. */
+    public function canEditLocations(): bool
     {
-        abort_unless(auth()->user()?->can('reports.view'), 403);
+        return (bool) auth()->user()?->can('retailer_location.review');
+    }
 
+    private function validCoords(float $lat, float $lng): bool
+    {
         if (abs($lat) > 90 || abs($lng) > 180 || ($lat === 0.0 && $lng === 0.0)) {
             $this->addError('map', 'Pick a valid point on the map.');
 
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Direct write — reviewers only. Restricted to retailers in the viewer's RD
+     * scope.
+     */
+    public function mapRetailer(string $code, float $lat, float $lng): void
+    {
+        abort_unless($this->canEditLocations(), 403);
+        if (! $this->validCoords($lat, $lng)) {
             return;
         }
 
@@ -85,6 +100,47 @@ class RetailerMap extends Component
             ->update(['latitude' => round($lat, 7), 'longitude' => round($lng, 7), 'updated_at' => now()]);
 
         session()->flash('status', $updated ? "Location saved for {$code}." : 'That retailer is outside your access.');
+    }
+
+    /**
+     * TSO route — a retailer whose location is already set can only be changed
+     * through an Admin-reviewed request.
+     */
+    public function requestLocationChange(string $code, float $lat, float $lng): void
+    {
+        abort_unless(auth()->user()?->can('retailer_location.request'), 403);
+        if (! $this->validCoords($lat, $lng)) {
+            return;
+        }
+
+        $scope = RecordScope::rdCodes();
+        $retailer = DB::table('retailers')->where('code', $code)
+            ->when($scope, fn ($q) => $q->whereIn('rd_code', $scope))
+            ->first(['code', 'latitude', 'longitude']);
+
+        if (! $retailer) {
+            session()->flash('status', 'That retailer is outside your access.');
+
+            return;
+        }
+
+        if (RetailerLocationRequest::pending()->where('rt_code', $code)->exists()) {
+            session()->flash('status', "A location request for {$code} is already awaiting review.");
+
+            return;
+        }
+
+        RetailerLocationRequest::create([
+            'rt_code' => $code,
+            'requested_by' => auth()->id(),
+            'proposed_latitude' => round($lat, 7),
+            'proposed_longitude' => round($lng, 7),
+            'previous_latitude' => $retailer->latitude,
+            'previous_longitude' => $retailer->longitude,
+            'status' => 'pending',
+        ]);
+
+        session()->flash('status', "Location change for {$code} sent to Admin for approval.");
     }
 
     public function showTimeline(string $rtCode): void
@@ -133,9 +189,17 @@ class RetailerMap extends Component
             ->whereNotNull('area')->where('area', '<>', '')
             ->distinct()->orderBy('area')->pluck('area');
 
+        $pendingCodes = DB::table('retailer_location_requests')
+            ->where('status', 'pending')
+            ->whereIn('rt_code', collect($list->items())->pluck('code'))
+            ->pluck('rt_code')->all();
+
         return view('livewire.retailer-map', [
             'points' => $mapped,
             'list' => $list,
+            'canEditLocations' => $this->canEditLocations(),
+            'canRequestLocation' => (bool) auth()->user()?->can('retailer_location.request'),
+            'pendingCodes' => $pendingCodes,
             'total' => (clone $this->base())->count(),
             'unmappedCount' => (clone $this->base())
                 ->where(fn ($w) => $w->whereNull('latitude')->orWhereNull('longitude'))->count(),
