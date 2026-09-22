@@ -8,18 +8,23 @@ define('LARAVEL_START', microtime(true));
 if (isset($_GET['info'])) {
     header('Content-Type: text/plain');
     echo "URI: " . ($_SERVER['REQUEST_URI'] ?? '') . "\n";
-    echo "SCRIPT: " . ($_SERVER['SCRIPT_NAME'] ?? '') . "\n";
     try {
         require __DIR__.'/../vendor/autoload.php';
+        /** @var Application $app */
         $app = require_once __DIR__.'/../bootstrap/app.php';
-        $request = Request::capture();
-        echo "Laravel Request URI: " . $request->getRequestUri() . "\n";
-        echo "Laravel PathInfo: " . $request->getPathInfo() . "\n";
+        $kernel = $app->make(\Illuminate\Contracts\Http\Kernel::class);
+        $kernel->bootstrap();
+        echo "Laravel Bootstrapped successfully!\n";
         echo "APP_KEY: " . (config('app.key') ? 'set' : 'NOT SET') . "\n";
+        echo "DB_CONNECTION: " . config('database.default') . "\n";
+        echo "DB_DATABASE: " . config('database.connections.' . config('database.default') . '.database') . "\n";
+        echo "DB_HOST: " . config('database.connections.' . config('database.default') . '.host') . "\n";
         \Illuminate\Support\Facades\DB::connection()->getPdo();
-        echo "DB: Connected to " . \Illuminate\Support\Facades\DB::connection()->getDatabaseName() . "\n";
+        echo "DB: Successfully connected to " . \Illuminate\Support\Facades\DB::connection()->getDatabaseName() . "\n";
     } catch (\Throwable $e) {
-        echo "Error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine() . "\n";
+        echo "Exception: " . get_class($e) . ": " . $e->getMessage() . "\n";
+        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
+        echo "Trace:\n" . $e->getTraceAsString() . "\n";
     }
     exit;
 }
