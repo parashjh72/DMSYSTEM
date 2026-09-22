@@ -19,12 +19,14 @@ if (isset($_GET['info'])) {
         echo "DB_CONNECTION: " . config('database.default') . "\n";
         echo "DB_DATABASE: " . config('database.connections.' . config('database.default') . '.database') . "\n";
         echo "DB_HOST: " . config('database.connections.' . config('database.default') . '.host') . "\n";
+        echo "Check .env in app root: " . (file_exists(__DIR__.'/../.env') ? 'exists' : 'does not exist') . "\n";
+        echo "Check .env in parent: " . (file_exists(__DIR__.'/../../.env') ? 'exists' : 'does not exist') . "\n";
+        $parentFiles = @scandir(__DIR__.'/../../') ?: [];
+        echo "Parent directory entries: " . implode(', ', $parentFiles) . "\n";
         \Illuminate\Support\Facades\DB::connection()->getPdo();
         echo "DB: Successfully connected to " . \Illuminate\Support\Facades\DB::connection()->getDatabaseName() . "\n";
     } catch (\Throwable $e) {
         echo "Exception: " . get_class($e) . ": " . $e->getMessage() . "\n";
-        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
-        echo "Trace:\n" . $e->getTraceAsString() . "\n";
     }
     exit;
 }
