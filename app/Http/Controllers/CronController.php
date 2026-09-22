@@ -21,9 +21,19 @@ class CronController extends Controller
         @set_time_limit(120);
         @ignore_user_abort(true);
 
-        Artisan::call('schedule:run');
+        if (request()->has('clear_cache')) {
+            Artisan::call('optimize:clear');
+            return response('Cache cleared: ' . Artisan::output(), 200);
+        }
 
-        return response(trim(Artisan::output()) ?: 'ok', 200)
-            ->header('Content-Type', 'text/plain');
+        try {
+            Artisan::call('schedule:run');
+
+            return response(trim(Artisan::output()) ?: 'ok', 200)
+                ->header('Content-Type', 'text/plain');
+        } catch (\Throwable $e) {
+            return response("Exception: " . $e->getMessage() . "\nFile: " . $e->getFile() . ":" . $e->getLine() . "\n" . $e->getTraceAsString(), 500)
+                ->header('Content-Type', 'text/plain');
+        }
     }
 }
