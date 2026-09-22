@@ -21,8 +21,18 @@ if (isset($_GET['info'])) {
         echo "DB_HOST: " . config('database.connections.' . config('database.default') . '.host') . "\n";
         echo "Check .env in app root: " . (file_exists(__DIR__.'/../.env') ? 'exists' : 'does not exist') . "\n";
         echo "Check .env in parent: " . (file_exists(__DIR__.'/../../.env') ? 'exists' : 'does not exist') . "\n";
-        $parentFiles = @scandir(__DIR__.'/../../') ?: [];
-        echo "Parent directory entries: " . implode(', ', $parentFiles) . "\n";
+        if (!file_exists(__DIR__.'/../.env') && file_exists(__DIR__.'/../../.env')) {
+            $copied = copy(__DIR__.'/../../.env', __DIR__.'/../.env');
+            echo "Copied .env from parent: " . ($copied ? 'SUCCESS' : 'FAILED') . "\n";
+        }
+        if (file_exists(__DIR__.'/../.env')) {
+            $envLines = file(__DIR__.'/../.env');
+            foreach ($envLines as $line) {
+                if (preg_match('/^(APP_KEY|APP_NAME|APP_ENV|DB_CONNECTION|DB_DATABASE|DB_USERNAME|DB_HOST)=/', $line)) {
+                    echo "Env entry: " . trim($line) . "\n";
+                }
+            }
+        }
         \Illuminate\Support\Facades\DB::connection()->getPdo();
         echo "DB: Successfully connected to " . \Illuminate\Support\Facades\DB::connection()->getDatabaseName() . "\n";
     } catch (\Throwable $e) {
