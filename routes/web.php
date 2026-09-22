@@ -47,33 +47,6 @@ Route::get('cron/{token}', CronController::class)->name('cron')->withoutMiddlewa
     \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
 ]);
 
-Route::get('diag', function () {
-    try {
-        \Illuminate\Support\Facades\DB::connection()->getPdo();
-        $dbStatus = 'Connected to: ' . \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
-    } catch (\Throwable $e) {
-        $dbStatus = 'DB Error: ' . $e->getMessage();
-    }
-
-    try {
-        app('view')->make('auth.login')->render();
-        $viewStatus = 'Login view rendered OK';
-    } catch (\Throwable $e) {
-        $viewStatus = 'View Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
-    }
-
-    return response()->json([
-        'status' => 'ok',
-        'php' => PHP_VERSION,
-        'app_key_set' => !empty(config('app.key')),
-        'db' => $dbStatus,
-        'view' => $viewStatus,
-    ]);
-})->withoutMiddleware([
-    \Illuminate\Session\Middleware\StartSession::class,
-    \Illuminate\Cookie\Middleware\EncryptCookies::class,
-    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-]);
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
