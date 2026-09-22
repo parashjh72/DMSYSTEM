@@ -1,45 +1,57 @@
-<div>
-    <div class="flex flex-wrap items-start justify-between gap-3">
+<div class="space-y-6">
+    {{-- Header --}}
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-xl font-semibold tracking-tight">Retailer Map</h1>
-            <p class="mt-1 text-sm text-gray-500">
-                {{ number_format($total) }} retailer{{ $total === 1 ? '' : 's' }} in view ·
-                {{ $points->count() }} mapped
-                @if ($unmappedCount) · <span class="text-amber-600">{{ number_format($unmappedCount) }} not yet mapped</span> @endif
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Retailer Map &amp; Geolocation</h1>
+                <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
+                    Spatial Directory
+                </span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">
+                {{ number_format($total) }} retailer store{{ $total === 1 ? '' : 's' }} in filtered scope &bull;
+                <strong class="text-emerald-700 font-semibold">{{ $points->count() }} geocoded</strong>
+                @if ($unmappedCount)
+                    &bull; <span class="badge-amber text-[10px]">{{ number_format($unmappedCount) }} unmapped</span>
+                @endif
             </p>
         </div>
     </div>
 
-    <div class="card mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-            <label class="label">Distributor (RD)</label>
-            <select class="input" wire:model.live="rdCode">
-                <option value="">All distributors</option>
-                @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="label">TSO</label>
-            <select class="input" wire:model.live="tso">
-                <option value="">All TSOs</option>
-                @foreach ($tsoOptions as $name) <option value="{{ $name }}">{{ $name }}</option> @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="label">Area</label>
-            <select class="input" wire:model.live="area">
-                <option value="">All areas</option>
-                @foreach ($areaOptions as $a) <option value="{{ $a }}">{{ $a }}</option> @endforeach
-            </select>
-        </div>
-        <div>
-            <label class="label">Retailer (RT code / name)</label>
-            <input class="input" wire:model.live.debounce.300ms="search" placeholder="Search RT code or name">
+    {{-- Filter Panel --}}
+    <div class="card space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+                <label class="label">Distributor (RD)</label>
+                <select class="input text-xs" wire:model.live="rdCode">
+                    <option value="">All Distributors</option>
+                    @foreach ($rdOptions as $code => $label) <option value="{{ $code }}">{{ $label }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Field Officer (TSO)</label>
+                <select class="input text-xs" wire:model.live="tso">
+                    <option value="">All TSOs</option>
+                    @foreach ($tsoOptions as $name) <option value="{{ $name }}">{{ $name }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Territory Area</label>
+                <select class="input text-xs" wire:model.live="area">
+                    <option value="">All Areas</option>
+                    @foreach ($areaOptions as $a) <option value="{{ $a }}">{{ $a }}</option> @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="label">Retailer Search</label>
+                <input class="input text-xs" wire:model.live.debounce.300ms="search" placeholder="Type RT code or store name…">
+            </div>
         </div>
     </div>
 
+    {{-- Map Canvas --}}
     @if ($mapsEnabled)
-        <div class="card mt-4 p-0"
+        <div class="card !p-0 overflow-hidden border border-slate-200/80 shadow-md"
              wire:key="map-{{ md5($rdCode.'|'.$area.'|'.$tso.'|'.$search) }}"
              x-data="retailerMap({
                  points: @js($points->map(fn ($p) => [
@@ -48,195 +60,149 @@
                  ])->values()),
              })"
              x-init="init()">
-            <div x-show="error" x-cloak class="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700" x-text="error"></div>
-            <div x-ref="map" wire:ignore class="h-[60vh] w-full rounded-xl bg-gray-100"></div>
+            <div x-show="error" x-cloak class="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 font-medium" x-text="error"></div>
+            <div x-ref="map" wire:ignore class="h-[55vh] min-h-[380px] w-full bg-slate-100"></div>
         </div>
         @if ($points->isEmpty())
-            <p class="mt-2 text-xs text-gray-500">No retailers in this view have a location yet — use <strong>Set location</strong> on a row below.</p>
+            <div class="rounded-xl bg-amber-50/70 p-3 text-xs text-amber-800 border border-amber-200">
+                ℹ️ No mapped retailers found for this filter. Use <strong>Set Location</strong> in the directory table below to assign GPS coordinates.
+            </div>
         @endif
     @else
-        <div class="card mt-4 text-sm text-amber-700">
-            Google Maps is not configured — the list and the location actions below still work
-            (coordinates can be entered by hand).
-            @if (auth()->user()?->hasRole('Super Admin'))
-                Add an API key in <a href="{{ route('settings.maps') }}" wire:navigate class="underline">Settings → Map settings</a> to see the map.
-            @else
-                Ask a Super Admin to add an API key under Settings → Map settings to see the map.
-            @endif
+        <div class="card bg-slate-50 border-slate-200 text-xs text-slate-600">
+            <div class="flex items-center gap-2 font-bold text-slate-800 mb-1">
+                <span>Google Maps API Key Not Detected</span>
+            </div>
+            <p>
+                Map rendering requires a Google Maps JavaScript API key. Coordinates and locations can still be manually managed in the directory below.
+                @if (auth()->user()?->hasRole('Super Admin'))
+                    Configure your API key under <a href="{{ route('settings.maps') }}" wire:navigate class="text-indigo-600 font-bold hover:underline">Settings &rarr; Map settings</a>.
+                @endif
+            </p>
         </div>
     @endif
 
-    @error('map') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
+    @error('map') <p class="text-xs text-rose-600 font-semibold">{{ $message }}</p> @enderror
 
-    {{-- ---- Retailer list ------------------------------------------------- --}}
-    <div class="card mt-4 overflow-x-auto p-0">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50"><tr>
-                <th class="th">RT Code</th>
-                <th class="th">RT Name</th>
-                <th class="th">RD</th>
-                <th class="th">Area</th>
-                <th class="th">Phone</th>
-                <th class="th">Location</th>
-                <th class="th"></th>
-            </tr></thead>
-            <tbody class="divide-y divide-gray-100">
-            @forelse ($list as $r)
-                <tr wire:key="rt-{{ $r->code }}">
-                    <td class="td font-mono">{{ $r->code }}</td>
-                    <td class="td">{{ $r->name ?: '—' }}</td>
-                    <td class="td">{{ $r->rd_code ?: '—' }}</td>
-                    <td class="td">{{ $r->area ?: '—' }}</td>
-                    <td class="td">{{ $r->phone ?: '—' }}</td>
-                    <td class="td whitespace-nowrap">
-                        @php $mapped = $r->latitude !== null && $r->longitude !== null; @endphp
-                        @if ($mapped)
-                            <a class="text-indigo-600 underline" target="_blank"
-                               href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}">on map</a>
-                        @else
-                            <span class="text-amber-600">not mapped</span>
-                        @endif
+    {{-- Retailer Directory Table --}}
+    <div class="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-100 text-xs">
+                <thead>
+                    <tr class="bg-slate-50/80 text-slate-500">
+                        <th class="th">RT Code</th>
+                        <th class="th">Retail Store Name</th>
+                        <th class="th">RD</th>
+                        <th class="th">Area</th>
+                        <th class="th">Phone</th>
+                        <th class="th">GPS Coordinates</th>
+                        <th class="th text-right">Audit</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse ($list as $r)
+                        <tr wire:key="rt-{{ $r->code }}" class="hover:bg-slate-50/70 transition-colors">
+                            <td class="td font-mono font-bold text-slate-900">{{ $r->code }}</td>
+                            <td class="td font-medium text-slate-800">{{ $r->name ?: '—' }}</td>
+                            <td class="td font-mono text-slate-600">{{ $r->rd_code ?: '—' }}</td>
+                            <td class="td text-slate-600">{{ $r->area ?: '—' }}</td>
+                            <td class="td text-slate-500 font-mono">{{ $r->phone ?: '—' }}</td>
+                            <td class="td whitespace-nowrap">
+                                @php $mapped = $r->latitude !== null && $r->longitude !== null; @endphp
+                                @if ($mapped)
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <a class="badge-emerald font-semibold" target="_blank"
+                                           href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}">
+                                            <span>Mapped ✓</span>
+                                        </a>
+                                    </div>
+                                @else
+                                    <span class="badge-amber font-medium">Unmapped</span>
+                                @endif
 
-                        @if ($canEditLocations)
-                            <x-map-picker :save="'mapRetailer'" :id="$r->code"
-                                          :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
-                                          :label="$mapped ? 'edit' : 'Set location'"
-                                          class="ml-2 text-xs {{ $mapped ? 'text-gray-400' : 'text-indigo-600' }} underline" />
-                        @elseif ($canRequestLocation)
-                            @if (in_array($r->code, $pendingCodes, true))
-                                <span class="ml-2 text-xs text-gray-400">change requested</span>
-                            @else
-                                <x-map-picker :save="'requestLocationChange'" :id="$r->code"
-                                              :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
-                                              :label="$mapped ? 'request change' : 'request location'"
-                                              class="ml-2 text-xs text-indigo-600 underline" />
-                            @endif
-                        @endif
-                    </td>
-                    <td class="td text-right">
-                        <button class="text-xs text-indigo-600" wire:click="showTimeline('{{ $r->code }}')">View</button>
-                    </td>
-                </tr>
-            @empty
-                <tr><td class="td text-gray-400" colspan="7">No retailers match these filters.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
+                                @if ($canEditLocations)
+                                    <x-map-picker :save="'mapRetailer'" :id="$r->code"
+                                                  :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
+                                                  :label="$mapped ? 'Edit GPS' : 'Set GPS'"
+                                                  class="ml-2 text-xs {{ $mapped ? 'text-slate-500' : 'text-indigo-600 font-semibold' }} hover:underline cursor-pointer" />
+                                @elseif ($canRequestLocation)
+                                    @if (in_array($r->code, $pendingCodes, true))
+                                        <span class="ml-2 text-xs text-amber-600 italic">Change Pending</span>
+                                    @else
+                                        <x-map-picker :save="'requestLocationChange'" :id="$r->code"
+                                                      :lat="$mapped ? $r->latitude : null" :lng="$mapped ? $r->longitude : null"
+                                                      :label="$mapped ? 'Request Relocate' : 'Request GPS'"
+                                                      class="ml-2 text-xs text-indigo-600 font-semibold hover:underline cursor-pointer" />
+                                    @endif
+                                @endif
+                            </td>
+                            <td class="td text-right">
+                                <button class="btn-ghost !py-1 !px-2.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700" wire:click="showTimeline('{{ $r->code }}')">
+                                    Visit Log
+                                </button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="py-12 text-center text-slate-400 text-xs">
+                                No retail stores match your filter parameters.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
-    <div class="mt-3">{{ $list->links() }}</div>
 
-    {{-- ---- TSO visit timeline modal ------------------------------------- --}}
+    <div>{{ $list->links() }}</div>
+
+    {{-- Visit Timeline Modal --}}
     @if ($timelineRt !== null)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" wire:click.self="closeTimeline">
-            <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-                <div class="flex items-start justify-between border-b border-gray-100 px-5 py-3">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" wire:click.self="closeTimeline">
+            <div class="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+                <div class="flex items-start justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
                     <div>
-                        <h2 class="text-sm font-semibold">
-                            TSO visits · <span class="font-mono">{{ $timelineRt }}</span>
+                        <h2 class="text-sm font-bold text-slate-900">
+                            Store Visit History &bull; <span class="font-mono text-indigo-600">{{ $timelineRt }}</span>
                         </h2>
                         @if ($timelineRetailer)
-                            <p class="text-xs text-gray-500">
+                            <p class="text-xs text-slate-500 mt-0.5">
                                 {{ $timelineRetailer->name }}
-                                @if ($timelineRetailer->rd_code) · RD {{ $timelineRetailer->rd_code }} @endif
-                                @if ($timelineRetailer->area) · {{ $timelineRetailer->area }} @endif
+                                @if ($timelineRetailer->rd_code) &bull; RD {{ $timelineRetailer->rd_code }} @endif
+                                @if ($timelineRetailer->area) &bull; {{ $timelineRetailer->area }} @endif
                             </p>
                         @endif
                     </div>
-                    <button class="text-gray-400 hover:text-gray-600" wire:click="closeTimeline">&times;</button>
+                    <button class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" wire:click="closeTimeline">&times;</button>
                 </div>
-                <div class="max-h-[60vh] overflow-y-auto px-5 py-4">
+
+                <div class="max-h-[60vh] overflow-y-auto px-6 py-5">
                     @forelse ($timeline as $v)
-                        <div class="relative flex gap-3 pb-4 last:pb-0">
-                            <div class="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500"></div>
+                        <div class="relative flex gap-3 pb-5 last:pb-0">
+                            <div class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 ring-4 ring-emerald-100"></div>
                             <div class="min-w-0">
-                                <p class="text-sm">
-                                    Visited by <span class="font-medium">{{ $v->tso_name ?: 'Unknown TSO' }}</span>
-                                    @if ($v->note) <span class="text-gray-500">— {{ $v->note }}</span> @endif
+                                <p class="text-xs font-bold text-slate-900">
+                                    Visited by <span class="text-indigo-600">{{ $v->tso_name ?: 'TSO Officer' }}</span>
+                                    @if ($v->note) <span class="font-normal text-slate-600">&mdash; {{ $v->note }}</span> @endif
                                 </p>
-                                <p class="text-xs text-gray-400">
+                                <p class="text-[11px] text-slate-400 mt-0.5">
                                     {{ \Illuminate\Support\Carbon::parse($v->visited_at)->timezone(config('pjp.timezone'))->format('d M Y, H:i') }}
                                     @if ($v->latitude !== null)
-                                        · <a class="text-indigo-600 underline" target="_blank"
-                                             href="https://www.google.com/maps?q={{ $v->latitude }},{{ $v->longitude }}">location</a>
+                                        &bull; <a class="text-indigo-600 font-semibold hover:underline" target="_blank"
+                                                 href="https://www.google.com/maps?q={{ $v->latitude }},{{ $v->longitude }}">View on Maps</a>
                                     @endif
                                 </p>
                             </div>
                         </div>
                     @empty
-                        <p class="text-sm text-gray-400">No TSO visits recorded at this retailer yet.</p>
+                        <p class="text-xs text-slate-400 text-center py-6">No previous check-in visits recorded for this store.</p>
                     @endforelse
+                </div>
+
+                <div class="border-t border-slate-100 px-6 py-3 bg-slate-50/50 flex justify-end">
+                    <button class="btn-ghost text-xs" wire:click="closeTimeline">Close</button>
                 </div>
             </div>
         </div>
     @endif
 </div>
-
-@script
-<script>
-    // Shared Google Maps loader (identical to the one in the map-picker component,
-    // guarded so whichever renders first defines it). Resolves only once
-    // google.maps is ready; gm_authFailure rejects with 'auth'.
-    window.__gmapsKey = window.__gmapsKey || @json($apiKey);
-    window.__gmapsCentre = window.__gmapsCentre || @json($centre);
-    window.__loadGmaps = window.__loadGmaps || function () {
-        if (window.__gmapsPromise) return window.__gmapsPromise;
-        if (! window.__gmapsKey) return Promise.reject(new Error('no-key'));
-        window.__gmapsPromise = new Promise((resolve, reject) => {
-            window.__gmapsReady = () => resolve();
-            window.gm_authFailure = () => reject(new Error('auth'));
-            const s = document.createElement('script');
-            s.src = 'https://maps.googleapis.com/maps/api/js?key='
-                + encodeURIComponent(window.__gmapsKey)
-                + '&loading=async&callback=__gmapsReady';
-            s.async = true;
-            s.onerror = () => reject(new Error('load-failed'));
-            document.head.appendChild(s);
-        });
-        return window.__gmapsPromise;
-    };
-
-    Alpine.data('retailerMap', (cfg) => ({
-        map: null,
-        markers: [],
-        error: '',
-        async init() {
-            try {
-                await window.__loadGmaps();
-            } catch (e) {
-                this.error = e.message === 'auth'
-                    ? 'Google rejected the Maps key — enable the Maps JavaScript API, turn on billing, and allow dms.parashojha.com in the key’s HTTP-referrer restrictions.'
-                    : 'Google Maps could not load. The list and Set location still work.';
-                return;
-            }
-            this.map = new google.maps.Map(this.$refs.map, { center: window.__gmapsCentre, zoom: 7 });
-            this.draw(cfg.points);
-        },
-        draw(points) {
-            this.markers.forEach(m => m.setMap(null));
-            this.markers = [];
-            if (! this.map || ! points.length) return;
-            const bounds = new google.maps.LatLngBounds();
-            const info = new google.maps.InfoWindow();
-            points.forEach(p => {
-                const pos = { lat: p.lat, lng: p.lng };
-                const marker = new google.maps.Marker({ position: pos, map: this.map, title: `${p.code} — ${p.name}` });
-                marker.addListener('click', () => {
-                    info.setContent(
-                        `<div style="font-size:12px"><strong>${p.code}</strong> — ${p.name}<br>` +
-                        `RD ${p.rd || '—'}${p.area ? ' · ' + p.area : ''}${p.phone ? '<br>' + p.phone : ''}</div>`
-                    );
-                    info.open(this.map, marker);
-                });
-                this.markers.push(marker);
-                bounds.extend(pos);
-            });
-            if (points.length > 1) {
-                this.map.fitBounds(bounds);
-            } else {
-                this.map.setCenter({ lat: points[0].lat, lng: points[0].lng });
-                this.map.setZoom(15);
-            }
-        },
-    }));
-</script>
-@endscript

@@ -81,36 +81,41 @@ class MailConfig
     /** Push the stored settings into the live config. Safe to call every boot. */
     public static function apply(): void
     {
-        if (! Schema::hasTable('settings')) {
-            return;
-        }
+        try {
+            if (! Schema::hasTable('settings')) {
+                return;
+            }
 
-        $s = static::raw();
-        if ($s['host'] === '') {
-            return;
-        }
+            $s = static::raw();
+            if ($s['host'] === '') {
+                return;
+            }
 
-        $scheme = match ($s['encryption']) {
-            'ssl' => 'smtps',
-            'none' => 'smtp',
-            default => null, // tls -> STARTTLS, transport decides
-        };
+            $scheme = match ($s['encryption']) {
+                'ssl' => 'smtps',
+                'none' => 'smtp',
+                default => null, // tls -> STARTTLS, transport decides
+            };
 
-        config([
-            'mail.default' => 'smtp',
-            'mail.mailers.smtp.host' => $s['host'],
-            'mail.mailers.smtp.port' => $s['port'],
-            'mail.mailers.smtp.username' => $s['username'] ?: null,
-            'mail.mailers.smtp.password' => $s['password'] ?: null,
-            'mail.mailers.smtp.scheme' => $scheme,
-            'mail.mailers.smtp.encryption' => $s['encryption'] === 'none' ? null : $s['encryption'],
-        ]);
-
-        if ($s['from_address'] !== '') {
             config([
-                'mail.from.address' => $s['from_address'],
-                'mail.from.name' => $s['from_name'] ?: config('app.name'),
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.host' => $s['host'],
+                'mail.mailers.smtp.port' => $s['port'],
+                'mail.mailers.smtp.username' => $s['username'] ?: null,
+                'mail.mailers.smtp.password' => $s['password'] ?: null,
+                'mail.mailers.smtp.scheme' => $scheme,
+                'mail.mailers.smtp.encryption' => $s['encryption'] === 'none' ? null : $s['encryption'],
             ]);
+
+            if ($s['from_address'] !== '') {
+                config([
+                    'mail.from.address' => $s['from_address'],
+                    'mail.from.name' => $s['from_name'] ?: config('app.name'),
+                ]);
+            }
+        } catch (\Throwable) {
+            // Silently ignore during migration, install, or if database is not reachable yet
+            return;
         }
     }
 }

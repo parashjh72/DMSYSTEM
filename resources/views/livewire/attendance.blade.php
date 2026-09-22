@@ -1,11 +1,11 @@
-<div class="mx-auto max-w-md"
+<div class="mx-auto max-w-lg space-y-6"
      x-data="{
         busy: false,
         capture(action) {
             this.busy = true;
             if (! ('geolocation' in navigator)) {
                 this.busy = false;
-                return $wire.reportGpsError('This browser does not support location. Use a modern mobile browser.');
+                return $wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
             }
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -15,124 +15,173 @@
                 (err) => {
                     this.busy = false;
                     const msg = {
-                        1: 'Please allow location access to check in / out.',
-                        2: 'Location is unavailable right now. Move to an open area and try again.',
-                        3: 'Location timed out. Please try again.',
-                    }[err.code] || 'Could not get your location. Please try again.';
+                        1: 'GPS permission denied. Please allow location access in your browser settings.',
+                        2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
+                        3: 'GPS request timed out. Please try again.',
+                    }[err.code] || 'Unable to retrieve GPS coordinates. Please try again.';
                     $wire.reportGpsError(msg);
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
         }
      }">
-    <h1 class="text-xl font-semibold tracking-tight">Today's Attendance</h1>
-    <p class="mt-1 text-sm text-gray-500">{{ $today->format('l, d M Y') }}</p>
+    {{-- Header --}}
+    <div class="text-center sm:text-left">
+        <div class="flex items-center justify-center sm:justify-start gap-2">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Field Attendance</h1>
+            <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                GPS Verified
+            </span>
+        </div>
+        <p class="mt-1 text-xs text-slate-500 font-medium">{{ $today->format('l, d F Y') }}</p>
+    </div>
 
+    {{-- Error Alert --}}
     @if ($error)
-        <div class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{{ $error }}</div>
+        <div class="rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-800 border border-rose-200 shadow-xs flex items-start gap-3">
+            <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div class="flex-1">{{ $error }}</div>
+        </div>
     @endif
 
-    <div class="card mt-4 space-y-4">
+    {{-- Punch Card --}}
+    <div class="card p-6 shadow-sm border border-slate-200/80 space-y-6">
         @if (! $record)
-            <div>
-                <div class="text-xs uppercase tracking-wide text-gray-500">Status</div>
-                <div class="mt-1 text-lg font-semibold text-amber-600">Not checked in</div>
+            <div class="text-center py-4">
+                <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 text-amber-600 ring-8 ring-amber-50/50 mb-4">
+                    <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <h2 class="text-base font-bold text-slate-900">Ready to start your work day?</h2>
+                <p class="text-xs text-slate-500 mt-1">Capture your current GPS coordinates to register Check-In.</p>
             </div>
-            <button class="btn-primary w-full py-3 text-base" :disabled="busy" @click="capture('checkIn')">
-                <span x-show="!busy">Check in</span>
-                <span x-show="busy" x-cloak>Getting location…</span>
+
+            <button class="btn-primary w-full py-3.5 text-sm font-bold shadow-md shadow-indigo-600/20"
+                    :disabled="busy" @click="capture('checkIn')">
+                <span x-show="!busy" class="flex items-center justify-center gap-2">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span>Check In Now</span>
+                </span>
+                <span x-show="busy" x-cloak class="flex items-center justify-center gap-2">
+                    <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                    <span>Acquiring GPS Position…</span>
+                </span>
             </button>
         @else
-            <div class="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                    <div class="text-xs uppercase tracking-wide text-gray-500">Check in</div>
-                    <div class="mt-1 font-semibold">{{ $record->check_in_at->timezone(config('attendance.timezone'))->format('h:i A') }}</div>
+            <div class="grid grid-cols-2 gap-4 text-xs border-b border-slate-100 pb-4">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Check-In Time</div>
+                    <div class="mt-1 text-base font-extrabold text-slate-900">
+                        {{ $record->check_in_at->timezone(config('attendance.timezone'))->format('h:i A') }}
+                    </div>
                 </div>
-                <div>
-                    <div class="text-xs uppercase tracking-wide text-gray-500">Location</div>
-                    <div class="mt-1 font-semibold text-emerald-600">Captured
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">GPS Precision</div>
+                    <div class="mt-1 flex items-center gap-1.5 text-base font-extrabold text-emerald-700">
+                        <span>Captured</span>
                         @if ($record->check_in_accuracy && $record->check_in_accuracy > $poorAccuracy)
-                            <span class="block text-xs font-normal text-amber-600">low accuracy (±{{ round($record->check_in_accuracy) }}m)</span>
+                            <span class="text-[10px] font-normal text-amber-600">(&plusmn;{{ round($record->check_in_accuracy) }}m)</span>
                         @endif
                     </div>
                 </div>
                 @if ($record->check_in_address)
-                    <div class="col-span-2 text-xs text-gray-500">{{ $record->check_in_address }}</div>
+                    <div class="col-span-2 text-xs text-slate-600 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100 flex items-start gap-1.5">
+                        <svg class="h-3.5 w-3.5 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                        <span>{{ $record->check_in_address }}</span>
+                    </div>
                 @endif
             </div>
 
             @if (! $record->isCheckedOut())
-                <div>
-                    <div class="text-xs uppercase tracking-wide text-gray-500">Status</div>
-                    <div class="mt-1 text-lg font-semibold text-emerald-600">Checked in</div>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between rounded-xl bg-emerald-50/80 p-3 border border-emerald-200/80">
+                        <div class="flex items-center gap-2">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-xs font-bold text-emerald-900">Active Shift On Duty</span>
+                        </div>
+                        <span class="text-xs font-semibold text-emerald-700">Field Active</span>
+                    </div>
+
+                    <button class="btn-primary w-full py-3.5 text-sm font-bold shadow-md shadow-indigo-600/20"
+                            :disabled="busy" @click="capture('checkOut')">
+                        <span x-show="!busy" class="flex items-center justify-center gap-2">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            <span>Check Out (End Day)</span>
+                        </span>
+                        <span x-show="busy" x-cloak class="flex items-center justify-center gap-2">
+                            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                            <span>Acquiring GPS Position…</span>
+                        </span>
+                    </button>
                 </div>
-                <button class="btn-primary w-full py-3 text-base" :disabled="busy" @click="capture('checkOut')">
-                    <span x-show="!busy">Check out</span>
-                    <span x-show="busy" x-cloak>Getting location…</span>
-                </button>
             @else
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <div class="text-xs uppercase tracking-wide text-gray-500">Check out</div>
-                        <div class="mt-1 font-semibold">{{ $record->check_out_at->timezone(config('attendance.timezone'))->format('h:i A') }}</div>
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Check-Out Time</div>
+                        <div class="mt-1 text-base font-extrabold text-slate-900">
+                            {{ $record->check_out_at->timezone(config('attendance.timezone'))->format('h:i A') }}
+                        </div>
                     </div>
-                    <div>
-                        <div class="text-xs uppercase tracking-wide text-gray-500">Working duration</div>
-                        <div class="mt-1 font-semibold">{{ $record->workingLabel() }}</div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Duration</div>
+                        <div class="mt-1 text-base font-extrabold text-indigo-700">
+                            {{ $record->workingLabel() }}
+                        </div>
                     </div>
-                    @if ($record->check_out_address)
-                        <div class="col-span-2 text-xs text-gray-500">{{ $record->check_out_address }}</div>
-                    @endif
                 </div>
-                <div class="rounded-lg bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-700">
-                    Attendance complete for today.
+
+                <div class="rounded-2xl bg-emerald-50/80 p-4 text-center border border-emerald-200">
+                    <div class="text-xs font-bold text-emerald-900">Daily Attendance Complete</div>
+                    <p class="text-[11px] text-emerald-700 mt-0.5">Great job! Your shift hours and GPS log have been archived.</p>
                 </div>
             @endif
         @endif
     </div>
 
-    <p class="mt-3 text-center text-xs text-gray-400">Location is captured automatically from your device — it cannot be entered manually.</p>
-
-    {{-- ---- Upcoming visits (from the TSO's PJP) ---------------------- --}}
+    {{-- Upcoming Visits --}}
     @if ($upcoming->isNotEmpty())
-        <div class="mt-6">
+        <div class="space-y-3">
             <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold">Upcoming visits</h2>
-                <a href="{{ route('pjp') }}" wire:navigate class="text-xs text-indigo-600">Open PJP →</a>
+                <h2 class="text-sm font-bold text-slate-900">Planned Retailer Route (PJP)</h2>
+                <a href="{{ route('pjp') }}" wire:navigate class="text-xs font-semibold text-indigo-600 hover:text-indigo-500">
+                    Full Month Schedule &rarr;
+                </a>
             </div>
-            <div class="mt-2 space-y-3">
+
+            <div class="space-y-2.5">
                 @foreach ($upcoming as $d)
                     @php $isToday = $d->plan_date->isToday(); @endphp
-                    <div class="card p-3 {{ $isToday ? 'ring-1 ring-indigo-300' : '' }}">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm font-semibold">
-                                {{ $d->plan_date->format('D, d M') }}
-                                @if ($isToday) <span class="badge ml-1 bg-indigo-100 text-indigo-800">Today</span> @endif
+                    <div class="card !p-4 transition {{ $isToday ? 'border-indigo-300 ring-2 ring-indigo-200/50 bg-indigo-50/20' : '' }}">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-slate-900">{{ $d->plan_date->format('l, d M') }}</span>
+                                @if ($isToday)
+                                    <span class="badge-indigo text-[10px] font-bold">Today</span>
+                                @endif
                             </div>
-                            <div class="text-xs text-gray-500">
-                                {{ count($d->visited_codes) }} / {{ $d->retailers->count() }} visited
-                            </div>
+                            <span class="text-xs font-semibold text-slate-500">
+                                {{ count($d->visited_codes) }} / {{ $d->retailers->count() }} Visited
+                            </span>
                         </div>
-                        <ul class="mt-2 space-y-1 text-xs">
+
+                        <ul class="space-y-1.5 text-xs">
                             @foreach ($d->retailers as $r)
-                                <li class="flex items-center justify-between">
-                                    <span><span class="font-mono">{{ $r->rt_code }}</span> {{ $r->rt_name }}</span>
-                                    @if (in_array($r->rt_code, $d->visited_codes, true))
-                                        <span class="text-emerald-600">✓ visited</span>
+                                @php $isVisited = in_array($r->rt_code, $d->visited_codes, true); @endphp
+                                <li class="flex items-center justify-between rounded-lg p-1.5 {{ $isVisited ? 'bg-emerald-50/60' : 'bg-slate-50/60' }}">
+                                    <span class="truncate">
+                                        <span class="font-mono font-bold text-slate-700">{{ $r->rt_code }}</span>
+                                        <span class="text-slate-600 ml-1">{{ $r->rt_name }}</span>
+                                    </span>
+                                    @if ($isVisited)
+                                        <span class="badge-emerald text-[10px] font-bold">Visited ✓</span>
                                     @else
-                                        <span class="text-gray-400">planned</span>
+                                        <span class="badge-slate text-[10px]">Planned</span>
                                     @endif
                                 </li>
                             @endforeach
                         </ul>
-                        @if ($d->notes) <p class="mt-1 text-xs text-gray-400">{{ $d->notes }}</p> @endif
                     </div>
                 @endforeach
             </div>
-        </div>
-    @elseif (auth()->user()->can('pjp.create'))
-        <div class="card mt-6 text-center text-sm text-gray-500">
-            No upcoming planned visits. <a href="{{ route('pjp') }}" wire:navigate class="text-indigo-600">Plan your month in PJP →</a>
         </div>
     @endif
 </div>

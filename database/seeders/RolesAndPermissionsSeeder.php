@@ -85,6 +85,8 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::findOrCreate($name);
         }
 
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (self::ROLES as $role => $permissions) {
             Role::findOrCreate($role)->syncPermissions($permissions);
         }

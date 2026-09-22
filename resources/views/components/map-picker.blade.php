@@ -113,34 +113,40 @@
     <button type="button" @click="open()" class="{{ $class }}">{{ $label }}</button>
 
     <template x-teleport="body">
-        <div x-show="shown" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="close()">
-            <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl" @click.outside="close()">
-                <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                    <h2 class="text-sm font-semibold">Set retailer location</h2>
-                    <button class="text-gray-400" @click="close()">&times;</button>
-                </div>
-                <div class="p-4">
-                    <template x-if="error"><p class="mb-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-700" x-text="error"></p></template>
-                    <div wire:ignore x-ref="map" x-show="!mapFailed" class="h-72 w-full rounded-lg bg-gray-100"></div>
-                    <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
-                        <button type="button" class="btn-ghost text-xs" @click="useMyLocation()">Use my current location</button>
-                        <span class="text-gray-500">
-                            <span x-show="!mapFailed">Tap the map or drag the pin. </span>
-                            <span class="font-mono" x-text="coordsLabel"></span>
-                        </span>
+        <div x-show="shown" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-all" @keydown.escape.window="close()">
+            <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-gray-100 overflow-hidden" @click.outside="close()">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 bg-gray-50/50">
+                    <div class="flex items-center gap-2">
+                        <span class="flex h-2 w-2 rounded-full bg-indigo-600"></span>
+                        <h2 class="text-sm font-bold text-gray-900">Pin Retailer Geolocation</h2>
                     </div>
-                    <div class="mt-3 grid grid-cols-2 gap-2" x-show="mapFailed">
-                        <label class="text-xs text-gray-500">Latitude
-                            <input class="input mt-0.5 text-xs" type="number" step="any" x-model.number="lat" placeholder="27.7172">
+                    <button class="text-gray-400 hover:text-gray-600 rounded-lg p-1 transition" @click="close()">&times;</button>
+                </div>
+                <div class="p-5">
+                    <template x-if="error"><p class="mb-3 rounded-xl bg-amber-50 p-3 border border-amber-200 text-xs font-medium text-amber-800" x-text="error"></p></template>
+                    <div wire:ignore x-ref="map" x-show="!mapFailed" class="h-80 w-full rounded-xl bg-gray-100 border border-gray-200 shadow-inner"></div>
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <button type="button" class="btn-ghost text-xs border border-gray-200 flex items-center gap-1.5" @click="useMyLocation()">
+                            <svg class="h-3.5 w-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                            Use Current GPS Location
+                        </button>
+                        <div class="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span x-show="!mapFailed" class="hidden sm:inline">Tap map or drag marker:</span>
+                            <span class="font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md" x-text="coordsLabel"></span>
+                        </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-2 gap-3" x-show="mapFailed">
+                        <label class="text-xs font-semibold text-gray-700">Latitude
+                            <input class="input mt-1 text-xs font-mono" type="number" step="any" x-model.number="lat" placeholder="27.7172">
                         </label>
-                        <label class="text-xs text-gray-500">Longitude
-                            <input class="input mt-0.5 text-xs" type="number" step="any" x-model.number="lng" placeholder="85.3240">
+                        <label class="text-xs font-semibold text-gray-700">Longitude
+                            <input class="input mt-1 text-xs font-mono" type="number" step="any" x-model.number="lng" placeholder="85.3240">
                         </label>
                     </div>
                 </div>
-                <div class="flex justify-end gap-2 border-t border-gray-100 px-4 py-3">
-                    <button class="btn-ghost" @click="close()">Cancel</button>
-                    <button class="btn-primary" @click="commit()">Save location</button>
+                <div class="flex justify-end gap-2 border-t border-gray-100 px-5 py-3.5 bg-gray-50/50">
+                    <button class="btn-ghost text-xs" @click="close()">Cancel</button>
+                    <button class="btn-primary text-xs" @click="commit()">Save & Confirm Location</button>
                 </div>
             </div>
         </div>
