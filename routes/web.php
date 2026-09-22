@@ -41,7 +41,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route(Home::route()));
 
 // HTTP scheduler trigger for curl-based cron. Enabled only when CRON_TOKEN is set.
-Route::get('cron/{token}', CronController::class)->name('cron');
+Route::get('cron/{token}', CronController::class)->name('cron')->withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+]);
 
 Route::get('diag', function () {
     try {
@@ -65,7 +69,11 @@ Route::get('diag', function () {
         'db' => $dbStatus,
         'view' => $viewStatus,
     ]);
-});
+})->withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+]);
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
