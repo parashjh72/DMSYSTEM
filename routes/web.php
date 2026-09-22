@@ -43,6 +43,30 @@ Route::get('/', fn () => redirect()->route(Home::route()));
 // HTTP scheduler trigger for curl-based cron. Enabled only when CRON_TOKEN is set.
 Route::get('cron/{token}', CronController::class)->name('cron');
 
+Route::get('diag', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        $dbStatus = 'Connected to: ' . \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
+    } catch (\Throwable $e) {
+        $dbStatus = 'DB Error: ' . $e->getMessage();
+    }
+
+    try {
+        app('view')->make('auth.login')->render();
+        $viewStatus = 'Login view rendered OK';
+    } catch (\Throwable $e) {
+        $viewStatus = 'View Error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+    }
+
+    return response()->json([
+        'status' => 'ok',
+        'php' => PHP_VERSION,
+        'app_key_set' => !empty(config('app.key')),
+        'db' => $dbStatus,
+        'view' => $viewStatus,
+    ]);
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
     Route::post('login', [LoginController::class, 'login']);
