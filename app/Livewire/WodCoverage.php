@@ -92,6 +92,10 @@ class WodCoverage extends Component
             : $wod->rdWise($rd, $model, $columns['models'], $columns['hasOther'], 50);
 
         return view('livewire.wod-coverage', [
+            'type' => $this->type,
+            'rdCode' => $this->rdCode,
+            'model' => $this->model,
+            'lifecycle' => $this->lifecycle,
             'rows' => $rows,
             'columns' => $columns,
             'summary' => $wod->summary($rd, $model),

@@ -112,7 +112,7 @@
                                 </td>
                             @endif
                             <td class="td text-right font-mono font-bold text-indigo-700 bg-indigo-50/30">
-                                {{ number_format($r->total_rts) }}
+                                {{ number_format((int) ($r->total_qty ?? $r->total_rts ?? 0)) }}
                             </td>
                         </tr>
                     @empty
