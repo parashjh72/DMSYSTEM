@@ -68,17 +68,15 @@ class CronController extends Controller
                 $html = $view->render();
                 $t7 = microtime(true);
 
+                $simReq = \Illuminate\Http\Request::create('/wod-coverage', 'GET');
+                $simReq->setLaravelSession(session());
+                $routeRes = app()->handle($simReq);
+
                 $out = [
                     'total_records' => $totalRecords,
-                    'time_count' => round($t1 - $t0, 3).'s',
-                    'time_columns' => round($t2 - $t1, 3).'s',
-                    'time_rows' => round($t3 - $t2, 3).'s',
-                    'time_summary' => round($t4 - $t3, 3).'s',
-                    'time_filter_dist' => round($t5 - $t4, 3).'s',
-                    'time_filter_models' => round($t6 - $t5, 3).'s',
-                    'time_blade_render' => round($t7 - $t6, 3).'s',
                     'total_time' => round($t7 - $t0, 3).'s',
                     'html_length' => strlen($html),
+                    'full_route_status' => $routeRes->getStatusCode(),
                 ];
 
                 return response()->json($out, 200);
