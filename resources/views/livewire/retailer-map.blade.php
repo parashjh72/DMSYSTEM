@@ -51,15 +51,16 @@
 
     {{-- Map Canvas --}}
     @if ($mapsEnabled)
-        <div class="card !p-0 overflow-hidden border border-slate-200/80 shadow-md"
+        <div class="card !p-0 overflow-hidden border border-slate-200/80 shadow-md relative"
              wire:key="map-{{ md5($rdCode.'|'.$area.'|'.$tso.'|'.$search) }}"
              x-data="retailerMap({
+                 apiKey: @js($apiKey),
+                 centre: @js($centre),
                  points: @js($points->map(fn ($p) => [
                      'lat' => (float) $p->latitude, 'lng' => (float) $p->longitude,
                      'code' => $p->code, 'name' => $p->name, 'rd' => $p->rd_code, 'area' => $p->area, 'phone' => $p->phone,
                  ])->values()),
-             })"
-             x-init="init()">
+             })">
             <div x-show="error" x-cloak class="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 font-medium" x-text="error"></div>
             <div x-ref="map" wire:ignore class="h-[55vh] min-h-[380px] w-full bg-slate-100"></div>
         </div>
@@ -111,9 +112,16 @@
                                 @php $mapped = $r->latitude !== null && $r->longitude !== null; @endphp
                                 @if ($mapped)
                                     <div class="inline-flex items-center gap-1.5">
-                                        <a class="badge-emerald font-semibold" target="_blank"
-                                           href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}">
+                                        <button type="button"
+                                                @click="$dispatch('focus-retailer', { lat: {{ $r->latitude }}, lng: {{ $r->longitude }}, code: '{{ $r->code }}' })"
+                                                class="badge-emerald font-semibold hover:bg-emerald-100 cursor-pointer transition-colors"
+                                                title="View on Map">
                                             <span>Mapped ✓</span>
+                                        </button>
+                                        <a class="text-slate-400 hover:text-indigo-600 transition-colors" target="_blank"
+                                           href="https://www.google.com/maps?q={{ $r->latitude }},{{ $r->longitude }}"
+                                           title="Open in external Google Maps">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                         </a>
                                     </div>
                                 @else
@@ -206,3 +214,128 @@
         </div>
     @endif
 </div>
+
+@once
+    <script>
+        window.__gmapsKey = window.__gmapsKey || @json($apiKey);
+        window.__gmapsCentre = window.__gmapsCentre || @json($centre);
+
+        window.__loadGmaps = window.__loadGmaps || function () {
+            if (window.__gmapsPromise) return window.__gmapsPromise;
+            if (! window.__gmapsKey) return Promise.reject(new Error('no-key'));
+            window.__gmapsPromise = new Promise((resolve, reject) => {
+                window.__gmapsReject = reject;
+                window.__gmapsReady = () => resolve();
+                window.gm_authFailure = () => reject(new Error('auth'));
+                const s = document.createElement('script');
+                s.src = 'https://maps.googleapis.com/maps/api/js?key='
+                    + encodeURIComponent(window.__gmapsKey)
+                    + '&loading=async&callback=__gmapsReady';
+                s.async = true;
+                s.onerror = () => reject(new Error('load-failed'));
+                document.head.appendChild(s);
+            });
+            return window.__gmapsPromise;
+        };
+
+        window.__registerRetailerMap = window.__registerRetailerMap || function () {
+            if (window.__retailerMapRegistered || ! window.Alpine) { return; }
+            window.__retailerMapRegistered = true;
+            Alpine.data('retailerMap', (cfg) => ({
+                map: null,
+                markers: [],
+                error: null,
+                async init() {
+                    window.__gmapsKey = window.__gmapsKey || cfg.apiKey;
+                    window.__gmapsCentre = window.__gmapsCentre || cfg.centre;
+
+                    try {
+                        await window.__loadGmaps();
+                    } catch (e) {
+                        this.error = {
+                            'no-key': 'Google Maps API key is not configured. Add one in Settings → Map settings.',
+                            'auth': 'Google Maps authorization failed (gm_authFailure). In Google Cloud Console: ensure Maps JavaScript API is enabled, billing is active, and this domain (https://dms.parashojha.com/*) is authorized in API key restrictions.',
+                            'load-failed': 'Google Maps failed to load due to a network error or script blocker.',
+                        }[e.message] || 'Google Maps failed to load (' + e.message + ').';
+                        return;
+                    }
+
+                    if (! this.$refs.map) return;
+
+                    const defaultCentre = cfg.centre || window.__gmapsCentre || { lat: 28.3949, lng: 84.1240 };
+                    this.map = new google.maps.Map(this.$refs.map, {
+                        center: defaultCentre,
+                        zoom: 7,
+                        mapTypeControl: true,
+                        streetViewControl: false,
+                        fullscreenControl: true,
+                    });
+
+                    this.draw(cfg.points || []);
+
+                    // Listen for custom event to focus a specific retailer on the map
+                    window.addEventListener('focus-retailer', (e) => {
+                        if (! this.map || ! e.detail) return;
+                        const { lat, lng, code } = e.detail;
+                        if (lat && lng) {
+                            const target = { lat: parseFloat(lat), lng: parseFloat(lng) };
+                            this.map.panTo(target);
+                            this.map.setZoom(17);
+                            const m = this.markers.find(x => x.get('code') === code);
+                            if (m) {
+                                google.maps.event.trigger(m, 'click');
+                            }
+                            this.$refs.map.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                },
+                draw(points) {
+                    this.markers.forEach(m => m.setMap(null));
+                    this.markers = [];
+                    if (! this.map || ! points || ! points.length) return;
+
+                    const bounds = new google.maps.LatLngBounds();
+                    const info = new google.maps.InfoWindow();
+
+                    points.forEach(p => {
+                        if (! p.lat || ! p.lng) return;
+                        const pos = { lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
+                        const marker = new google.maps.Marker({
+                            position: pos,
+                            map: this.map,
+                            title: `${p.code} — ${p.name || ''}`,
+                        });
+                        marker.set('code', p.code);
+
+                        marker.addListener('click', () => {
+                            info.setContent(
+                                '<div style="font-family: inherit; padding: 6px 8px; font-size: 12px; color: #1e293b; max-width: 250px;">' +
+                                '<div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 2px;">' + (p.name || 'Retail Store') + '</div>' +
+                                '<div style="font-family: monospace; font-size: 11px; color: #4338ca; font-weight: 600; margin-bottom: 4px;">' + p.code + '</div>' +
+                                '<div style="color: #64748b; font-size: 11px;">RD: ' + (p.rd || '—') + (p.area ? ' &bull; Area: ' + p.area : '') + '</div>' +
+                                (p.phone ? '<div style="color: #64748b; font-size: 11px; margin-top: 2px;">Tel: ' + p.phone + '</div>' : '') +
+                                '<div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #e2e8f0;">' +
+                                '<a href="https://www.google.com/maps?q=' + p.lat + ',' + p.lng + '" target="_blank" style="color: #4f46e5; text-decoration: none; font-weight: 600; font-size: 11px;">Open in Google Maps &rarr;</a>' +
+                                '</div></div>'
+                            );
+                            info.open(this.map, marker);
+                        });
+
+                        this.markers.push(marker);
+                        bounds.extend(pos);
+                    });
+
+                    if (this.markers.length > 1) {
+                        this.map.fitBounds(bounds);
+                    } else if (this.markers.length === 1) {
+                        this.map.setCenter({ lat: parseFloat(points[0].lat), lng: parseFloat(points[0].lng) });
+                        this.map.setZoom(16);
+                    }
+                },
+            }));
+        };
+
+        document.addEventListener('alpine:init', window.__registerRetailerMap);
+        window.__registerRetailerMap();
+    </script>
+@endonce

@@ -26,21 +26,6 @@ class CronController extends Controller
             return response('Cache cleared: ' . Artisan::output(), 200);
         }
 
-        if (request()->has('check_map')) {
-            $key = \App\Support\MapConfig::apiKey();
-            $enabled = \App\Support\MapConfig::enabled();
-            $centre = \App\Support\MapConfig::defaultCentre();
-            $retailersTotal = \Illuminate\Support\Facades\DB::table('retailers')->count();
-            $retailersMapped = \Illuminate\Support\Facades\DB::table('retailers')->whereNotNull('latitude')->whereNotNull('longitude')->count();
-            return response()->json([
-                'key_length' => strlen($key),
-                'key_masked' => $key !== '' ? substr($key, 0, 8) . '...' . substr($key, -4) : '',
-                'enabled' => $enabled,
-                'centre' => $centre,
-                'retailers_total' => $retailersTotal,
-                'retailers_mapped' => $retailersMapped,
-            ]);
-        }
 
 
         try {
