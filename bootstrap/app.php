@@ -15,6 +15,18 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->respond(function ($response, \Throwable $e, Request $request) {
+            if ($request->query('dbg') === '1') {
+                return response()->json([
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile() . ':' . $e->getLine(),
+                ], 500);
+            }
+
+            return $response;
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
