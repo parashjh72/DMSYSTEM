@@ -26,6 +26,22 @@ class CronController extends Controller
             return response('Cache cleared: ' . Artisan::output(), 200);
         }
 
+        if (request()->has('test_wod')) {
+            try {
+                $user = \App\Models\User::first();
+                auth()->login($user);
+                $wod = app(\App\Services\Reporting\WodCoverageService::class);
+                $filter = app(\App\Services\Reporting\FilterOptions::class);
+                $c = new \App\Livewire\WodCoverage();
+                $c->mount();
+                $v = $c->render($wod, $filter);
+                $html = $v->render();
+                return response("WOD Render Success! Length: " . strlen($html), 200);
+            } catch (\Throwable $e) {
+                return response("WOD Error: " . get_class($e) . ": " . $e->getMessage() . "\n" . $e->getFile() . ":" . $e->getLine() . "\n" . $e->getTraceAsString(), 500);
+            }
+        }
+
         try {
             Artisan::call('schedule:run');
 
