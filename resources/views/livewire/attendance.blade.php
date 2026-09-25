@@ -5,6 +5,13 @@
     $userInitial = strtoupper(substr($user?->name ?? 'U', 0, 1));
 @endphp
 
+<div class="mx-auto max-w-xl space-y-6"
+     x-data="attendanceTracker($wire, {
+        elapsed: {{ $record && !$record->isCheckedOut() && $record->check_in_at ? max(0, now()->diffInSeconds($record->check_in_at)) : 0 }},
+        hasActiveRecord: {{ ($record && !$record->isCheckedOut()) ? 'true' : 'false' }}
+     })">
+
+    {{-- Must live inside the root element: Livewire binds the component to the first top-level tag. --}}
 <script>
 window.attendanceTracker = function($wireInstance, config) {
     return {
@@ -126,6 +133,7 @@ window.attendanceTracker = function($wireInstance, config) {
             const pos = this.accuracyData.rawPos;
 
             if (!pos) {
+                this.busy = false;
                 return this.capture(action);
             }
 
@@ -145,6 +153,10 @@ window.attendanceTracker = function($wireInstance, config) {
                 }
 
                 await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
+
+                if (wire.error) {
+                    this.clientError = wire.error;
+                }
 
                 this.showAccuracyModal = false;
                 this.busy = false;
@@ -199,6 +211,12 @@ window.attendanceTracker = function($wireInstance, config) {
 
                 await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
 
+                if (wire.error) {
+                    this.clientError = wire.error;
+                } else {
+                    this.showAccuracyModal = false;
+                }
+
                 this.busy = false;
                 this.statusText = '';
             } catch (err) {
@@ -227,12 +245,6 @@ window.attendanceTracker = function($wireInstance, config) {
     };
 };
 </script>
-
-<div class="mx-auto max-w-xl space-y-6"
-     x-data="attendanceTracker($wire, {
-        elapsed: {{ $record && !$record->isCheckedOut() && $record->check_in_at ? max(0, now()->diffInSeconds($record->check_in_at)) : 0 }},
-        hasActiveRecord: {{ ($record && !$record->isCheckedOut()) ? 'true' : 'false' }}
-     })">
 
     {{-- User Header & Status Card --}}
     <div class="card p-4 sm:p-5 shadow-xs border border-slate-200/80 rounded-2xl bg-white flex items-center justify-between gap-3">
