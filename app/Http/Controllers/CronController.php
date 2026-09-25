@@ -28,7 +28,7 @@ class CronController extends Controller
 
         if (request()->has('git_pull')) {
             $output = [];
-            @exec('cd ' . base_path() . ' && git pull origin main 2>&1', $output, $code);
+            @exec('cd ' . base_path() . ' && git log -1 --oneline && git pull origin main 2>&1', $output, $code);
             Artisan::call('optimize:clear');
             return response()->json([
                 'status' => $code === 0 ? 'success' : 'error',
