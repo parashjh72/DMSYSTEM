@@ -4,6 +4,7 @@
     'lat' => null,
     'lng' => null,
     'label' => 'Pin on map',
+    'title' => 'Pin Retailer Geolocation',
     'class' => 'text-xs text-indigo-600',
 ])
 
@@ -118,7 +119,7 @@
                 <div class="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 bg-gray-50/50">
                     <div class="flex items-center gap-2">
                         <span class="flex h-2 w-2 rounded-full bg-indigo-600"></span>
-                        <h2 class="text-sm font-bold text-gray-900">Pin Retailer Geolocation</h2>
+                        <h2 class="text-sm font-bold text-gray-900">{{ $title }}</h2>
                     </div>
                     <button class="text-gray-400 hover:text-gray-600 rounded-lg p-1 transition" @click="close()">&times;</button>
                 </div>

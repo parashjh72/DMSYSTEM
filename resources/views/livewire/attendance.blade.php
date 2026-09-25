@@ -386,6 +386,9 @@ window.attendanceTracker = function($wireInstance, config) {
                     <span class="inline-block h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                     <span>{{ $today->format('D, d M Y') }}</span>
                 </div>
+                @if ($bsToday)
+                    <div class="mt-0.5 pl-3 text-[11px] font-medium text-slate-400">{{ $bsToday }} BS</div>
+                @endif
             </div>
         </div>
 
@@ -851,6 +854,9 @@ window.attendanceTracker = function($wireInstance, config) {
             @endif
         </div>
     @endif
+
+    {{-- Field Sales: check-in point result and duty-hours location sharing --}}
+    @include('livewire.field-sales.partials.tracker-card', ['status' => $fieldTracking, 'day' => $fieldDay])
 
     {{-- Upcoming Visits (PJP Route) --}}
     @if ($upcoming->isNotEmpty())

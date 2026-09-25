@@ -41,6 +41,12 @@ class RolesAndPermissionsSeeder extends Seeder
         'pjp.nsm_final_approve',     // NSM: final approve / reject / request revision
         'pjp.report',                // Admin / NSM / ASM: PJP reports
 
+        'fs.map.view',               // Field Sales: live staff map and route playback
+        'fs.reports.view',           // Field Sales: monthly attendance report
+        'fs.leave.request',          // TSO: apply for leave
+        'fs.leave.approve',          // ASM / NSM / Admin: approve or reject leave
+        'fs.setup.manage',           // Regions, Areas, geofences, duty policies, holidays
+
         'masterdata.view',
         'settings.manage',
         'users.manage',
@@ -55,6 +61,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'explorer.view', 'exports.view', 'exports.create', 'returns.review',
         'promoters.manage', 'attendance.view_all', 'schemes.enrol', 'pjp.report',
         'retailer_location.review', 'contracts.manage', 'masterdata.view', 'settings.manage',
+        'fs.map.view', 'fs.reports.view', 'fs.leave.approve', 'fs.setup.manage',
     ];
 
     /**
@@ -68,9 +75,11 @@ class RolesAndPermissionsSeeder extends Seeder
         'Admin' => self::NATIONAL,                    // National Distributor level
         'NSM' => [...self::NATIONAL, 'promoter_requests.approve_nsm', 'pjp.nsm_final_approve'],
         'ASM' => [...self::RD_SCOPED, 'promoter_requests.approve_asm',
-            'attendance.view_all', 'pjp.asm_review', 'pjp.report'],
+            'attendance.view_all', 'pjp.asm_review', 'pjp.report',
+            'fs.map.view', 'fs.reports.view', 'fs.leave.approve'],
         'TSO' => [...self::RD_SCOPED, 'promoter_requests.create',
-            'attendance.check', 'pjp.create', 'pjp.submit', 'retailer_location.request'],
+            'attendance.check', 'pjp.create', 'pjp.submit', 'retailer_location.request',
+            'fs.leave.request'],
         'RD' => [...self::RD_SCOPED, 'returns.request'],                // single distributor login — can raise returns
     ];
 

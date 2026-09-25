@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Support\MailConfig;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -53,5 +55,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('pjp.access', fn ($user) => $user->canAny([
             'pjp.create', 'pjp.asm_review', 'pjp.nsm_final_approve', 'pjp.report',
         ]));
+
+        // Field Sales. Tracking, like check-in, is for field TSOs only.
+        Gate::define('field-sales.track', fn ($user) => $user->hasRole('TSO'));
+        Gate::define('field-sales.leave.access', fn ($user) => $user->canAny(['fs.leave.request', 'fs.leave.approve']));
+
+        // The field app uploads its offline queue in batches; a few per minute is plenty.
+        RateLimiter::for('field-sales-tracking', fn ($request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
     }
 }

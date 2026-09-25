@@ -4,6 +4,7 @@ use App\Http\Controllers\AttendanceSelfieController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
+use App\Http\Controllers\FieldSales\TrackingController;
 use App\Http\Controllers\ImportTemplateController;
 use App\Livewire\AnnualContracts;
 use App\Livewire\Attendance;
@@ -11,6 +12,13 @@ use App\Livewire\AttendanceReport;
 use App\Livewire\Dashboard;
 use App\Livewire\DataExplorer;
 use App\Livewire\ExportManager;
+use App\Livewire\FieldSales\AttendanceMonthly;
+use App\Livewire\FieldSales\Geofences;
+use App\Livewire\FieldSales\Hierarchy;
+use App\Livewire\FieldSales\LeaveRequests;
+use App\Livewire\FieldSales\LiveMap;
+use App\Livewire\FieldSales\Policies;
+use App\Livewire\FieldSales\RoutePlayback;
 use App\Livewire\ImeiSearch;
 use App\Livewire\ImportDetail;
 use App\Livewire\ImportManager;
@@ -64,6 +72,29 @@ Route::middleware('auth')->group(function () {
     Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
     Route::get('attendance/{attendance}/selfie/{type}', AttendanceSelfieController::class)->whereIn('type', ['check_in', 'check_out'])->name('attendance.selfie');
     Route::get('pjp', Pjp::class)->middleware('can:pjp.access')->name('pjp');
+
+    // Field Sales: manager screens, leave and setup.
+    Route::prefix('field-sales')->name('field-sales.')->group(function () {
+        Route::get('map', LiveMap::class)->middleware('can:fs.map.view')->name('map');
+        Route::get('route', RoutePlayback::class)->middleware('can:fs.map.view')->name('route');
+        Route::get('attendance', AttendanceMonthly::class)->middleware('can:fs.reports.view')->name('attendance');
+        Route::get('leave', LeaveRequests::class)->middleware('can:field-sales.leave.access')->name('leave');
+        Route::middleware('can:fs.setup.manage')->prefix('setup')->name('setup.')->group(function () {
+            Route::get('regions', Hierarchy::class)->name('hierarchy');
+            Route::get('check-in-points', Geofences::class)->name('geofences');
+            Route::get('duty-rules', Policies::class)->name('policies');
+        });
+    });
+
+    // Field Sales: duty-hours location tracking endpoints for the field app.
+    Route::prefix('api/v1/field-sales')->name('field-sales.api.')
+        ->middleware(['can:field-sales.track', 'throttle:field-sales-tracking'])
+        ->group(function () {
+            Route::get('me/status', [TrackingController::class, 'status'])->name('status');
+            Route::post('consent', [TrackingController::class, 'consent'])->name('consent');
+            Route::delete('consent', [TrackingController::class, 'revokeConsent'])->name('consent.revoke');
+            Route::post('locations', [TrackingController::class, 'store'])->name('locations');
+        });
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');
     Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.access')->name('imports.template');
