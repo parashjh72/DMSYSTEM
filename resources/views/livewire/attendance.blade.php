@@ -6,10 +6,11 @@
 @endphp
 
 <script>
-window.attendanceTracker = function(config) {
+window.attendanceTracker = function($wireInstance, config) {
     return {
         busy: false,
         statusText: '',
+        clientError: '',
         currentTime: '',
         elapsedSeconds: config.elapsed || 0,
         timerInterval: null,
@@ -33,21 +34,22 @@ window.attendanceTracker = function(config) {
             return `${h}h ${m}m ${s}s`;
         },
         async capture(action) {
+            if (this.busy) return;
             this.busy = true;
-            this.statusText = 'Verifying hardware environment…';
+            this.clientError = '';
+            this.statusText = 'Contacting GPS…';
 
-            // 1. Browser Environment & Automation / DevTools Check
-            if (navigator.webdriver) {
-                this.busy = false;
-                this.statusText = '';
-                return this.$wire.reportGpsError('Automated or developer debugging environment detected. Please open on a mobile phone.');
-            }
+            const wire = $wireInstance || this.$wire;
 
-            // 2. Geolocation Support Check
+            // 1. Geolocation Support Check
             if (! ('geolocation' in navigator)) {
                 this.busy = false;
                 this.statusText = '';
-                return this.$wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
+                this.clientError = 'This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.';
+                if (wire && typeof wire.reportGpsError === 'function') {
+                    try { await wire.reportGpsError(this.clientError); } catch (e) {}
+                }
+                return;
             }
 
             const getPosition = (opts) => {
@@ -71,7 +73,11 @@ window.attendanceTracker = function(config) {
                 if (pos.coords.accuracy <= 0.5) {
                     this.busy = false;
                     this.statusText = '';
-                    return this.$wire.reportGpsError('Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.');
+                    this.clientError = 'Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.';
+                    if (wire && typeof wire.reportGpsError === 'function') {
+                        try { await wire.reportGpsError(this.clientError); } catch (e) {}
+                    }
+                    return;
                 }
 
                 this.statusText = 'Verifying coordinates…';
@@ -86,7 +92,11 @@ window.attendanceTracker = function(config) {
                     }]
                 };
 
-                await this.$wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
+                if (!wire || typeof wire[action] !== 'function') {
+                    throw new Error('Connection initializing. Please refresh the page and try again.');
+                }
+
+                await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
 
                 this.busy = false;
                 this.statusText = '';
@@ -98,8 +108,16 @@ window.attendanceTracker = function(config) {
                     1: 'GPS permission denied. Please allow location access in your browser settings.',
                     2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
                     3: 'GPS request timed out. Please ensure Location is enabled in High Accuracy mode and try again.',
-                }[err?.code] || ('GPS error: ' + (err?.message || 'Could not acquire location. Please try again.'));
-                this.$wire.reportGpsError(msg);
+                }[err?.code] || (err?.message ? err.message : 'Could not acquire location. Please try again.');
+                
+                this.clientError = msg;
+                if (wire && typeof wire.reportGpsError === 'function') {
+                    try {
+                        await wire.reportGpsError(msg);
+                    } catch (e) {
+                        console.error('Failed to report GPS error to server:', e);
+                    }
+                }
             }
         }
     };
@@ -107,7 +125,7 @@ window.attendanceTracker = function(config) {
 </script>
 
 <div class="mx-auto max-w-xl space-y-6"
-     x-data="attendanceTracker({
+     x-data="attendanceTracker($wire, {
         elapsed: {{ $record && !$record->isCheckedOut() && $record->check_in_at ? max(0, now()->diffInSeconds($record->check_in_at)) : 0 }},
         hasActiveRecord: {{ ($record && !$record->isCheckedOut()) ? 'true' : 'false' }}
      })">
@@ -152,6 +170,11 @@ window.attendanceTracker = function(config) {
     </div>
 
     {{-- Error Alert --}}
+    <div x-show="clientError" x-cloak class="rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-800 border border-rose-200 shadow-xs flex items-start gap-3 animate-headShake">
+        <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div class="flex-1 leading-relaxed" x-text="clientError"></div>
+        <button type="button" @click="clientError = ''" class="text-rose-500 hover:text-rose-700 font-bold ml-2">×</button>
+    </div>
     @if ($error)
         <div class="rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-800 border border-rose-200 shadow-xs flex items-start gap-3 animate-headShake">
             <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
