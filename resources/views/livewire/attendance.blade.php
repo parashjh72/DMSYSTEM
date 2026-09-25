@@ -1,28 +1,143 @@
 <div class="mx-auto max-w-lg space-y-6"
      x-data="{
         busy: false,
+        statusText: '',
         capture(action) {
             this.busy = true;
+            this.statusText = 'Connecting to GPS…';
+
             if (! ('geolocation' in navigator)) {
                 this.busy = false;
                 return $wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
             }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
+
+            if (navigator.webdriver) {
+                this.busy = false;
+                return $wire.reportGpsError('Automated browser environment detected. Please open on a mobile phone.');
+            }
+
+            const samples = [];
+            let watchId = null;
+            let timeoutId = null;
+            let completed = false;
+
+            const cleanup = () => {
+                if (watchId !== null) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+            };
+
+            const finish = () => {
+                if (completed) return;
+                completed = true;
+                cleanup();
+
+                if (samples.length === 0) {
                     this.busy = false;
-                    $wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-                },
-                (err) => {
+                    return $wire.reportGpsError('Unable to acquire GPS signal. Please move outdoors or near a window and retry.');
+                }
+
+                const best = [...samples].sort((a, b) => a.accuracy - b.accuracy)[0];
+
+                if (best.accuracy <= 0.5) {
                     this.busy = false;
-                    const msg = {
-                        1: 'GPS permission denied. Please allow location access in your browser settings.',
-                        2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
-                        3: 'GPS request timed out. Please try again.',
-                    }[err.code] || 'Unable to retrieve GPS coordinates. Please try again.';
-                    $wire.reportGpsError(msg);
-                },
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
+                    return $wire.reportGpsError('Suspicious GPS reading (0m accuracy). Mock location apps typically report 0 accuracy. Please disable Developer Options mock location apps and use authentic satellite GPS.');
+                }
+
+                // Check for zero-jitter static mock provider
+                if (samples.length >= 3) {
+                    const first = samples[0];
+                    const allIdentical = samples.every(s =>
+                        Math.abs(s.latitude - first.latitude) < 0.0000001 &&
+                        Math.abs(s.longitude - first.longitude) < 0.0000001 &&
+                        Math.abs(s.accuracy - first.accuracy) < 0.0001
+                    );
+                    const timeSpan = samples[samples.length - 1].timestamp - samples[0].timestamp;
+                    if (allIdentical && timeSpan > 800) {
+                        this.busy = false;
+                        return $wire.reportGpsError('Developer Mock Location detected: Zero GPS jitter. Real satellite GPS signals show natural micro-variations. Please turn off Fake GPS / Mock Location apps in Android Developer Settings.');
+                    }
+                }
+
+                this.statusText = 'Verifying satellite coordinates…';
+
+                $wire[action](best.latitude, best.longitude, best.accuracy, {
+                    samples: samples.map(s => ({
+                        lat: s.latitude,
+                        lng: s.longitude,
+                        accuracy: s.accuracy,
+                        t: s.timestamp
+                    }))
+                }).then(() => {
+                    this.busy = false;
+                    this.statusText = '';
+                }).catch(() => {
+                    this.busy = false;
+                    this.statusText = '';
+                });
+            };
+
+            // Fallback after 3.5 seconds to dispatch with available samples
+            timeoutId = setTimeout(() => {
+                finish();
+            }, 3500);
+
+            try {
+                watchId = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        samples.push({
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: pos.coords.accuracy || 0,
+                            timestamp: pos.timestamp || Date.now()
+                        });
+
+                        this.statusText = `Acquiring satellite fixes (${samples.length}/3)…`;
+
+                        if (samples.length >= 3) {
+                            finish();
+                        }
+                    },
+                    (err) => {
+                        if (samples.length === 0) {
+                            cleanup();
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    samples.push({
+                                        latitude: pos.coords.latitude,
+                                        longitude: pos.coords.longitude,
+                                        accuracy: pos.coords.accuracy || 0,
+                                        timestamp: pos.timestamp || Date.now()
+                                    });
+                                    finish();
+                                },
+                                (fallbackErr) => {
+                                    this.busy = false;
+                                    const msg = {
+                                        1: 'GPS permission denied. Please allow location access in your browser settings.',
+                                        2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
+                                        3: 'GPS request timed out. Please try again.',
+                                    }[fallbackErr.code || err.code] || 'Unable to retrieve GPS coordinates. Please try again.';
+                                    $wire.reportGpsError(msg);
+                                },
+                                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                            );
+                        } else {
+                            finish();
+                        }
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                );
+            } catch (e) {
+                cleanup();
+                this.busy = false;
+                $wire.reportGpsError('Error accessing GPS hardware: ' + e.message);
+            }
         }
      }">
     {{-- Header --}}
@@ -63,7 +178,7 @@
                 </span>
                 <span x-show="busy" x-cloak class="flex items-center justify-center gap-2">
                     <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                    <span>Acquiring GPS Position…</span>
+                    <span x-text="statusText || 'Acquiring GPS Position…'">Acquiring GPS Position…</span>
                 </span>
             </button>
         @else
@@ -109,7 +224,7 @@
                         </span>
                         <span x-show="busy" x-cloak class="flex items-center justify-center gap-2">
                             <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                            <span>Acquiring GPS Position…</span>
+                            <span x-text="statusText || 'Acquiring GPS Position…'">Acquiring GPS Position…</span>
                         </span>
                     </button>
                 </div>

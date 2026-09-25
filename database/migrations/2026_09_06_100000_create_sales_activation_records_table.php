@@ -35,8 +35,14 @@ return new class extends Migration
             $table->string('source', 40)->nullable();
 
             // DB-native reporting helpers — kept on indexes, never computed in PHP.
-            $table->smallInteger('activation_days')->nullable()
-                ->storedAs('(to_days(`activation_date`) - to_days(`st_date`))');
+            $driver = Schema::getConnection()->getDriverName();
+            if ($driver === 'sqlite') {
+                $table->smallInteger('activation_days')->nullable()
+                    ->storedAs('(julianday(`activation_date`) - julianday(`st_date`))');
+            } else {
+                $table->smallInteger('activation_days')->nullable()
+                    ->storedAs('(to_days(`activation_date`) - to_days(`st_date`))');
+            }
             $table->boolean('is_activated')
                 ->storedAs('(`activation_date` is not null)');
 

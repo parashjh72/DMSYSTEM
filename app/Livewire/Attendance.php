@@ -22,26 +22,34 @@ class Attendance extends Component
     }
 
     /** Called from Alpine after navigator.geolocation resolves. Coords never come from a form field. */
-    public function checkIn(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null): void
+    public function checkIn(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null, ?array $telemetry = null): void
     {
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
         try {
-            $service->checkIn(auth()->user(), compact('latitude', 'longitude', 'accuracy'));
+            $gps = compact('latitude', 'longitude', 'accuracy');
+            if ($telemetry) {
+                $gps['telemetry'] = $telemetry;
+            }
+            $service->checkIn(auth()->user(), $gps);
             session()->flash('status', 'Checked in.');
         } catch (RuntimeException $e) {
             $this->error = $e->getMessage();
         }
     }
 
-    public function checkOut(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null): void
+    public function checkOut(AttendanceService $service, float $latitude, float $longitude, ?float $accuracy = null, ?array $telemetry = null): void
     {
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
         try {
-            $service->checkOut(auth()->user(), compact('latitude', 'longitude', 'accuracy'));
+            $gps = compact('latitude', 'longitude', 'accuracy');
+            if ($telemetry) {
+                $gps['telemetry'] = $telemetry;
+            }
+            $service->checkOut(auth()->user(), $gps);
             session()->flash('status', 'Checked out.');
         } catch (RuntimeException $e) {
             $this->error = $e->getMessage();

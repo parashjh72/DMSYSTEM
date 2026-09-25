@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -30,11 +31,12 @@ class AttendanceService
     }
 
     /**
-     * @param  array{latitude: float, longitude: float, accuracy: ?float}  $gps
+     * @param  array{latitude: float, longitude: float, accuracy: ?float, telemetry?: array}  $gps
      */
     public function checkIn(User $user, array $gps): TsoAttendance
     {
         $this->assertGps($gps);
+        $this->assertNotMockLocation($user, $gps, 'check_in');
 
         if ($this->todayFor($user)) {
             throw new RuntimeException('You have already checked in today.');
@@ -53,7 +55,7 @@ class AttendanceService
     }
 
     /**
-     * @param  array{latitude: float, longitude: float, accuracy: ?float}  $gps
+     * @param  array{latitude: float, longitude: float, accuracy: ?float, telemetry?: array}  $gps
      */
     public function checkOut(User $user, array $gps): TsoAttendance
     {
@@ -66,6 +68,8 @@ class AttendanceService
         if ($record->isCheckedOut()) {
             throw new RuntimeException('You have already checked out today.');
         }
+
+        $this->assertNotMockLocation($user, $gps, 'check_out', $record);
 
         $now = now();
 
@@ -89,6 +93,151 @@ class AttendanceService
             || abs((float) $gps['latitude']) > 90 || abs((float) $gps['longitude']) > 180) {
             throw new RuntimeException('Could not read your location — please try again.');
         }
+    }
+
+    /**
+     * Anti-Mock Location & GPS Spoofing Verification.
+     *
+     * Detects when a field user uses Android Developer Options ("Select mock location app")
+     * or Fake GPS tools to spoof coordinates. Real civilian smartphone GPS exhibits natural
+     * satellite drift and accuracy bounds, whereas mock apps inject identical static floats.
+     */
+    private function assertNotMockLocation(User $user, array $gps, string $action, ?TsoAttendance $todayRecord = null): void
+    {
+        if (! config('attendance.anti_mock.enabled', true)) {
+            return;
+        }
+
+        $currentLat = (float) $gps['latitude'];
+        $currentLng = (float) $gps['longitude'];
+        $accuracy = isset($gps['accuracy']) && is_numeric($gps['accuracy']) ? (float) $gps['accuracy'] : null;
+
+        // 1. Accuracy Sanity: Standard mobile GPS cannot report accuracy <= 0.5m.
+        // Mock apps frequently report 0 or exact integers like 0.0 or 1.0.
+        $minAccuracy = (float) config('attendance.anti_mock.min_accuracy_metres', 0.5);
+        if ($accuracy !== null && $accuracy < $minAccuracy) {
+            Log::warning('Mock location detected (invalid accuracy)', [
+                'user_id' => $user->id,
+                'accuracy' => $accuracy,
+                'coords' => [$currentLat, $currentLng],
+            ]);
+            throw new RuntimeException('Suspicious GPS reading (0m accuracy). Mock location apps typically report 0 accuracy. Please disable Developer Options mock location apps and use authentic satellite GPS.');
+        }
+
+        // 2. Historical Repetition Check (Targeting developer mock location pinned coordinates):
+        // Real satellite GPS drifts 2-15m across different days even at the exact same physical desk.
+        // If coordinates match a past attendance within the repetition threshold, it indicates
+        // a saved pin injected by a mock provider.
+        $historyDays = (int) config('attendance.anti_mock.history_days', 30);
+        $repetitionThreshold = (float) config('attendance.anti_mock.historical_repetition_threshold_metres', 1.5);
+        $todayDate = Carbon::now(config('attendance.timezone'))->toDateString();
+        $historyStartDate = Carbon::now(config('attendance.timezone'))->subDays($historyDays)->toDateString();
+
+        $pastAttendances = TsoAttendance::query()
+            ->where('user_id', $user->id)
+            ->whereDate('attendance_date', '<', $todayDate)
+            ->whereDate('attendance_date', '>=', $historyStartDate)
+            ->where(function ($q) {
+                $q->whereNotNull('check_in_latitude')
+                    ->orWhereNotNull('check_out_latitude');
+            })
+            ->get(['id', 'attendance_date', 'check_in_latitude', 'check_in_longitude', 'check_out_latitude', 'check_out_longitude']);
+
+        foreach ($pastAttendances as $past) {
+            $coordsToCheck = [];
+            if ($past->check_in_latitude !== null && $past->check_in_longitude !== null) {
+                $coordsToCheck[] = [(float) $past->check_in_latitude, (float) $past->check_in_longitude, 'check-in'];
+            }
+            if ($past->check_out_latitude !== null && $past->check_out_longitude !== null) {
+                $coordsToCheck[] = [(float) $past->check_out_latitude, (float) $past->check_out_longitude, 'check-out'];
+            }
+
+            foreach ($coordsToCheck as [$prevLat, $prevLng, $type]) {
+                $dist = self::distanceMetres($currentLat, $currentLng, $prevLat, $prevLng);
+
+                if ($dist < $repetitionThreshold) {
+                    Log::warning('Mock location detected (historical identical pin)', [
+                        'user_id' => $user->id,
+                        'user_name' => $user->name,
+                        'current_coords' => [$currentLat, $currentLng],
+                        'matched_past_id' => $past->id,
+                        'matched_past_date' => $past->attendance_date?->toDateString(),
+                        'matched_past_type' => $type,
+                        'distance_metres' => round($dist, 3),
+                    ]);
+
+                    throw new RuntimeException(
+                        'Developer Mock Location detected: Exact GPS coordinates match your previous attendance on '
+                        . ($past->attendance_date?->format('d M Y') ?? 'an earlier day')
+                        . ' (difference: ' . round($dist, 2) . 'm). Please turn off Mock Location apps in Android Developer Settings and use authentic device GPS.'
+                    );
+                }
+            }
+        }
+
+        // 3. Same-Day Cross-User Collision Check:
+        // Detects when multiple employees share the same spoofed coordinates on the same date.
+        $crossUserThreshold = (float) config('attendance.anti_mock.cross_user_collision_metres', 1.0);
+        $collidingRecord = TsoAttendance::query()
+            ->whereDate('attendance_date', $todayDate)
+            ->where('user_id', '!=', $user->id)
+            ->whereNotNull('check_in_latitude')
+            ->whereNotNull('check_in_longitude')
+            ->get(['id', 'user_id', 'check_in_latitude', 'check_in_longitude'])
+            ->first(function ($rec) use ($currentLat, $currentLng, $crossUserThreshold) {
+                return self::distanceMetres($currentLat, $currentLng, (float) $rec->check_in_latitude, (float) $rec->check_in_longitude) < $crossUserThreshold;
+            });
+
+        if ($collidingRecord) {
+            Log::warning('Mock location detected (cross-user collision)', [
+                'user_id' => $user->id,
+                'colliding_user_id' => $collidingRecord->user_id,
+                'coords' => [$currentLat, $currentLng],
+            ]);
+
+            throw new RuntimeException('Suspicious location: Identical GPS coordinates match another employee today. Shared mock location pins are not permitted.');
+        }
+
+        // 4. Same-Day Check-In vs Check-Out Repetition Check:
+        // If a user checked in with a mock location and checks out with the same mock location,
+        // the coordinates will be identical after an entire work shift.
+        if ($action === 'check_out' && $todayRecord && $todayRecord->check_in_latitude && $todayRecord->check_in_longitude) {
+            $inLat = (float) $todayRecord->check_in_latitude;
+            $inLng = (float) $todayRecord->check_in_longitude;
+            $checkoutThreshold = (float) config('attendance.anti_mock.checkout_repetition_threshold_metres', 1.0);
+            $distFromCheckIn = self::distanceMetres($currentLat, $currentLng, $inLat, $inLng);
+
+            $minutesSinceCheckIn = $todayRecord->check_in_at ? max(0, $todayRecord->check_in_at->diffInMinutes(now())) : 0;
+
+            if ($minutesSinceCheckIn >= 15 && $distFromCheckIn < $checkoutThreshold) {
+                Log::warning('Mock location detected (identical check-in and check-out)', [
+                    'user_id' => $user->id,
+                    'distance_metres' => round($distFromCheckIn, 3),
+                    'minutes_since_check_in' => $minutesSinceCheckIn,
+                ]);
+
+                throw new RuntimeException('Developer Mock Location detected: Check-out coordinates are identical to check-in coordinates. Please disable mock location apps in Developer Options.');
+            }
+        }
+    }
+
+    /**
+     * Calculates the great-circle distance between two points on the Earth's surface in metres (Haversine formula).
+     */
+    public static function distanceMetres(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadius = 6371000.0;
+        $lat1Rad = deg2rad($lat1);
+        $lat2Rad = deg2rad($lat2);
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+            cos($lat1Rad) * cos($lat2Rad) *
+            sin($dLng / 2) * sin($dLng / 2);
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadius * $c;
     }
 
     /** Best-effort reverse geocode; returns null on any failure. */
