@@ -21,7 +21,9 @@ class AttendanceAntiMockTest extends TestCase
     {
         parent::setUp();
         $this->service = app(AttendanceService::class);
+        \Spatie\Permission\Models\Role::findOrCreate('TSO');
         $this->user = User::factory()->create();
+        $this->user->assignRole('TSO');
     }
 
     public function test_valid_gps_check_in_succeeds(): void
@@ -201,8 +203,22 @@ class AttendanceAntiMockTest extends TestCase
 
         \Livewire\Livewire::actingAs($this->user)
             ->test(\App\Livewire\Attendance::class)
-            ->call('checkIn', 27.7172450, 85.3240450, 10.0)
+            ->call('checkIn', 27.7172450, 85.3240450, 10.0, [
+                'samples' => [
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 10.0],
+                    ['lat' => 27.7172460, 'lng' => 85.3240460, 'accuracy' => 10.0],
+                    ['lat' => 27.7172470, 'lng' => 85.3240470, 'accuracy' => 10.0],
+                ]
+            ])
             ->assertSee('Developer Mock Location detected: Exact GPS coordinates match your previous attendance');
+    }
+
+    public function test_livewire_rejects_check_in_without_telemetry(): void
+    {
+        \Livewire\Livewire::actingAs($this->user)
+            ->test(\App\Livewire\Attendance::class)
+            ->call('checkIn', 27.7172450, 85.3240450, 10.0, null)
+            ->assertSee('Live GPS satellite verification required');
     }
 
     public function test_rejects_zero_telemetry_jitter_across_samples(): void

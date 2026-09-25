@@ -5,6 +5,135 @@
     $userInitial = strtoupper(substr($user?->name ?? 'U', 0, 1));
 @endphp
 
+<script>
+window.attendanceTracker = function(config) {
+    return {
+        busy: false,
+        statusText: '',
+        currentTime: '',
+        elapsedSeconds: config.elapsed || 0,
+        timerInterval: null,
+        init() {
+            this.updateClock();
+            setInterval(() => this.updateClock(), 1000);
+            if (config.hasActiveRecord) {
+                this.timerInterval = setInterval(() => {
+                    this.elapsedSeconds++;
+                }, 1000);
+            }
+        },
+        updateClock() {
+            const now = new Date();
+            this.currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        },
+        get formattedElapsed() {
+            const h = String(Math.floor(this.elapsedSeconds / 3600)).padStart(2, '0');
+            const m = String(Math.floor((this.elapsedSeconds % 3600) / 60)).padStart(2, '0');
+            const s = String(this.elapsedSeconds % 60).padStart(2, '0');
+            return `${h}h ${m}m ${s}s`;
+        },
+        async capture(action) {
+            this.busy = true;
+            this.statusText = 'Verifying hardware environment…';
+
+            // 1. Browser Environment & Automation / DevTools Check
+            if (navigator.webdriver) {
+                this.busy = false;
+                this.statusText = '';
+                return this.$wire.reportGpsError('Automated or developer debugging environment detected. Please open on a mobile phone.');
+            }
+
+            // 2. Geolocation Support Check
+            if (! ('geolocation' in navigator)) {
+                this.busy = false;
+                this.statusText = '';
+                return this.$wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
+            }
+
+            const getFix = () => {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        resolve,
+                        reject,
+                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                    );
+                });
+            };
+
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+            try {
+                // Sample 1: Initial satellite lock
+                this.statusText = 'Acquiring satellite fix (1/3)…';
+                const fix1 = await getFix();
+
+                // Check 1: 0m or <= 0.5m accuracy (synthetic GPS)
+                if (fix1.coords.accuracy <= 0.5) {
+                    this.busy = false;
+                    this.statusText = '';
+                    return this.$wire.reportGpsError('Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.');
+                }
+
+                // Allow 1000ms for physical satellite orbit and ionospheric drift
+                await sleep(1000);
+
+                // Sample 2: Second satellite fix
+                this.statusText = 'Verifying satellite signals (2/3)…';
+                const fix2 = await getFix();
+
+                await sleep(1000);
+
+                // Sample 3: Third satellite fix
+                this.statusText = 'Analyzing GPS jitter (3/3)…';
+                const fix3 = await getFix();
+
+                const samples = [fix1, fix2, fix3];
+
+                // Calculate micro-variance between consecutive fixes
+                const dLat1 = Math.abs(fix1.coords.latitude - fix2.coords.latitude);
+                const dLng1 = Math.abs(fix1.coords.longitude - fix2.coords.longitude);
+                const dLat2 = Math.abs(fix2.coords.latitude - fix3.coords.latitude);
+                const dLng2 = Math.abs(fix2.coords.longitude - fix3.coords.longitude);
+
+                // In Android Developer Options Fake GPS apps, coordinates across consecutive fixes have ZERO jitter down to 8 decimal places
+                if (dLat1 < 0.00000001 && dLng1 < 0.00000001 && dLat2 < 0.00000001 && dLng2 < 0.00000001) {
+                    this.busy = false;
+                    this.statusText = '';
+                    return this.$wire.reportGpsError('Developer Mock Location detected: Static GPS coordinates with zero satellite jitter. Mock location apps inject identical coordinates. Please disable "Select mock location app" in Android Developer Options and use authentic device GPS.');
+                }
+
+                // Pick the sample with the highest precision (lowest accuracy radius)
+                const best = [...samples].sort((a, b) => a.coords.accuracy - b.coords.accuracy)[0];
+
+                this.statusText = 'Verifying coordinates…';
+
+                await this.$wire[action](best.coords.latitude, best.coords.longitude, best.coords.accuracy, {
+                    samples: samples.map(s => ({
+                        lat: s.coords.latitude,
+                        lng: s.coords.longitude,
+                        accuracy: s.coords.accuracy,
+                        alt: s.coords.altitude,
+                        t: s.timestamp
+                    }))
+                });
+
+                this.busy = false;
+                this.statusText = '';
+            } catch (err) {
+                this.busy = false;
+                this.statusText = '';
+                const msg = {
+                    1: 'GPS permission denied. Please allow location access in your browser settings.',
+                    2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
+                    3: 'GPS request timed out. Please ensure GPS is enabled and try again.',
+                }[err?.code] || ('GPS acquisition error: ' + (err?.message || 'Please try again.'));
+                this.$wire.reportGpsError(msg);
+            }
+        }
+    };
+};
+</script>
+
 <div class="mx-auto max-w-xl space-y-6"
      x-data="attendanceTracker({
         elapsed: {{ $record && !$record->isCheckedOut() && $record->check_in_at ? max(0, now()->diffInSeconds($record->check_in_at)) : 0 }},
@@ -325,126 +454,3 @@
     @endif
 </div>
 
-<script>
-window.attendanceTracker = function(config) {
-    return {
-        busy: false,
-        statusText: '',
-        currentTime: '',
-        elapsedSeconds: config.elapsed || 0,
-        timerInterval: null,
-        init() {
-            this.updateClock();
-            setInterval(() => this.updateClock(), 1000);
-            if (config.hasActiveRecord) {
-                this.timerInterval = setInterval(() => {
-                    this.elapsedSeconds++;
-                }, 1000);
-            }
-        },
-        updateClock() {
-            const now = new Date();
-            this.currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        },
-        get formattedElapsed() {
-            const h = String(Math.floor(this.elapsedSeconds / 3600)).padStart(2, '0');
-            const m = String(Math.floor((this.elapsedSeconds % 3600) / 60)).padStart(2, '0');
-            const s = String(this.elapsedSeconds % 60).padStart(2, '0');
-            return `${h}h ${m}m ${s}s`;
-        },
-        async capture(action) {
-            this.busy = true;
-            this.statusText = 'Contacting GPS satellites…';
-
-            if (! ('geolocation' in navigator)) {
-                this.busy = false;
-                return this.$wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
-            }
-
-            if (navigator.webdriver) {
-                this.busy = false;
-                return this.$wire.reportGpsError('Automated browser environment detected. Please open on a mobile phone.');
-            }
-
-            const getFix = () => {
-                return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(
-                        resolve,
-                        reject,
-                        { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
-                    );
-                });
-            };
-
-            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-            try {
-                // Sample 1: Initial satellite lock
-                this.statusText = 'Acquiring satellite fix (1/3)…';
-                const fix1 = await getFix();
-
-                if (fix1.coords.accuracy <= 0.5) {
-                    this.busy = false;
-                    this.statusText = '';
-                    return this.$wire.reportGpsError('Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.');
-                }
-
-                // Allow 900ms for physical satellite orbit and ionospheric drift
-                await sleep(900);
-
-                // Sample 2: Second satellite fix
-                this.statusText = 'Verifying satellite signals (2/3)…';
-                const fix2 = await getFix();
-
-                await sleep(900);
-
-                // Sample 3: Third satellite fix
-                this.statusText = 'Analyzing GPS jitter (3/3)…';
-                const fix3 = await getFix();
-
-                const samples = [fix1, fix2, fix3];
-
-                // Calculate micro-variance between consecutive fixes
-                const dLat1 = Math.abs(fix1.coords.latitude - fix2.coords.latitude);
-                const dLng1 = Math.abs(fix1.coords.longitude - fix2.coords.longitude);
-                const dLat2 = Math.abs(fix2.coords.latitude - fix3.coords.latitude);
-                const dLng2 = Math.abs(fix2.coords.longitude - fix3.coords.longitude);
-
-                // In Android Developer Options Fake GPS apps, coordinates across consecutive fixes have ZERO jitter down to 8 decimal places
-                if (dLat1 < 0.00000001 && dLng1 < 0.00000001 && dLat2 < 0.00000001 && dLng2 < 0.00000001) {
-                    this.busy = false;
-                    this.statusText = '';
-                    return this.$wire.reportGpsError('Developer Mock Location detected: Static GPS coordinates with zero satellite jitter. Mock location apps inject identical coordinates. Please disable "Select mock location app" in Android Developer Options and use authentic device GPS.');
-                }
-
-                // Pick the sample with the highest precision (lowest accuracy radius)
-                const best = [...samples].sort((a, b) => a.coords.accuracy - b.coords.accuracy)[0];
-
-                this.statusText = 'Verifying coordinates…';
-
-                await this.$wire[action](best.coords.latitude, best.coords.longitude, best.coords.accuracy, {
-                    samples: samples.map(s => ({
-                        lat: s.coords.latitude,
-                        lng: s.coords.longitude,
-                        accuracy: s.coords.accuracy,
-                        alt: s.coords.altitude,
-                        t: s.timestamp
-                    }))
-                });
-
-                this.busy = false;
-                this.statusText = '';
-            } catch (err) {
-                this.busy = false;
-                this.statusText = '';
-                const msg = {
-                    1: 'GPS permission denied. Please allow location access in your browser settings.',
-                    2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
-                    3: 'GPS request timed out. Please ensure GPS is enabled and try again.',
-                }[err?.code] || ('GPS acquisition error: ' + (err?.message || 'Please try again.'));
-                this.$wire.reportGpsError(msg);
-            }
-        }
-    };
-};
-</script>

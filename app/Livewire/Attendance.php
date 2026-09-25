@@ -28,11 +28,14 @@ class Attendance extends Component
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
+        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 2) {
+            $this->error = 'Live GPS satellite verification required. Please tap punch and wait for satellite signal acquisition.';
+            return;
+        }
+
         try {
             $gps = compact('latitude', 'longitude', 'accuracy');
-            if ($telemetry) {
-                $gps['telemetry'] = $telemetry;
-            }
+            $gps['telemetry'] = $telemetry;
             $service->checkIn(auth()->user(), $gps);
             session()->flash('status', 'Checked in.');
         } catch (RuntimeException $e) {
@@ -45,11 +48,14 @@ class Attendance extends Component
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
+        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 2) {
+            $this->error = 'Live GPS satellite verification required. Please tap punch and wait for satellite signal acquisition.';
+            return;
+        }
+
         try {
             $gps = compact('latitude', 'longitude', 'accuracy');
-            if ($telemetry) {
-                $gps['telemetry'] = $telemetry;
-            }
+            $gps['telemetry'] = $telemetry;
             $service->checkOut(auth()->user(), $gps);
             session()->flash('status', 'Checked out.');
         } catch (RuntimeException $e) {
