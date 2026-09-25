@@ -65,6 +65,10 @@ class Attendance extends Component
 
     public function reportGpsError(string $message): void
     {
+        \Illuminate\Support\Facades\Log::warning('Attendance GPS Error: ' . $message, [
+            'user_id' => auth()->id(),
+            'user_name' => auth()->user()?->name,
+        ]);
         $this->error = $message;
     }
 
