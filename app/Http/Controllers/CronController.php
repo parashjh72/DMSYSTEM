@@ -78,6 +78,15 @@ class CronController extends Controller
             ]);
         }
 
+        if (request()->has('view_log')) {
+            $logFile = storage_path('logs/laravel.log');
+            if (! file_exists($logFile)) {
+                return response('No log file found', 200, ['Content-Type' => 'text/plain']);
+            }
+            $lines = file($logFile);
+            return response(implode('', array_slice($lines, -150)), 200, ['Content-Type' => 'text/plain']);
+        }
+
 
 
         try {
