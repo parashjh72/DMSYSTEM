@@ -124,7 +124,36 @@ class AttendanceService
             throw new RuntimeException('Suspicious GPS reading (0m accuracy). Mock location apps typically report 0 accuracy. Please disable Developer Options mock location apps and use authentic satellite GPS.');
         }
 
-        // 2. Historical Repetition Check (Targeting developer mock location pinned coordinates):
+        // 2. Telemetry Multi-Sample Jitter Check:
+        // When client sends sequential GPS fixes, verify that physical satellite jitter occurred.
+        // Fake GPS injects 100% bit-identical coordinates across fixes.
+        if (! empty($gps['telemetry']['samples']) && is_array($gps['telemetry']['samples']) && count($gps['telemetry']['samples']) >= 2) {
+            $samples = $gps['telemetry']['samples'];
+            $firstLat = (float) ($samples[0]['lat'] ?? 0);
+            $firstLng = (float) ($samples[0]['lng'] ?? 0);
+            $hasJitter = false;
+
+            for ($i = 1; $i < count($samples); $i++) {
+                $latDiff = abs((float) ($samples[$i]['lat'] ?? 0) - $firstLat);
+                $lngDiff = abs((float) ($samples[$i]['lng'] ?? 0) - $firstLng);
+                if ($latDiff > 0.00000001 || $lngDiff > 0.00000001) {
+                    $hasJitter = true;
+                    break;
+                }
+            }
+
+            if (! $hasJitter) {
+                Log::warning('Mock location detected (zero telemetry jitter)', [
+                    'user_id' => $user->id,
+                    'coords' => [$currentLat, $currentLng],
+                    'samples_count' => count($samples),
+                ]);
+
+                throw new RuntimeException('Developer Mock Location detected: Zero GPS satellite jitter across consecutive fixes. Mock location apps inject static coordinates. Please disable "Select mock location app" in Android Developer Options.');
+            }
+        }
+
+        // 3. Historical Repetition Check (Targeting developer mock location pinned coordinates):
         // Real satellite GPS drifts 2-15m across different days even at the exact same physical desk.
         // If coordinates match a past attendance within the repetition threshold, it indicates
         // a saved pin injected by a mock provider.
@@ -175,7 +204,7 @@ class AttendanceService
             }
         }
 
-        // 3. Same-Day Cross-User Collision Check:
+        // 4. Same-Day Cross-User Collision Check:
         // Detects when multiple employees share the same spoofed coordinates on the same date.
         $crossUserThreshold = (float) config('attendance.anti_mock.cross_user_collision_metres', 1.0);
         $collidingRecord = TsoAttendance::query()
@@ -198,22 +227,19 @@ class AttendanceService
             throw new RuntimeException('Suspicious location: Identical GPS coordinates match another employee today. Shared mock location pins are not permitted.');
         }
 
-        // 4. Same-Day Check-In vs Check-Out Repetition Check:
+        // 5. Same-Day Check-In vs Check-Out Repetition Check:
         // If a user checked in with a mock location and checks out with the same mock location,
-        // the coordinates will be identical after an entire work shift.
+        // the coordinates will be identical down to sub-meters.
         if ($action === 'check_out' && $todayRecord && $todayRecord->check_in_latitude && $todayRecord->check_in_longitude) {
             $inLat = (float) $todayRecord->check_in_latitude;
             $inLng = (float) $todayRecord->check_in_longitude;
             $checkoutThreshold = (float) config('attendance.anti_mock.checkout_repetition_threshold_metres', 1.0);
             $distFromCheckIn = self::distanceMetres($currentLat, $currentLng, $inLat, $inLng);
 
-            $minutesSinceCheckIn = $todayRecord->check_in_at ? max(0, $todayRecord->check_in_at->diffInMinutes(now())) : 0;
-
-            if ($minutesSinceCheckIn >= 15 && $distFromCheckIn < $checkoutThreshold) {
+            if ($distFromCheckIn < $checkoutThreshold) {
                 Log::warning('Mock location detected (identical check-in and check-out)', [
                     'user_id' => $user->id,
                     'distance_metres' => round($distFromCheckIn, 3),
-                    'minutes_since_check_in' => $minutesSinceCheckIn,
                 ]);
 
                 throw new RuntimeException('Developer Mock Location detected: Check-out coordinates are identical to check-in coordinates. Please disable mock location apps in Developer Options.');

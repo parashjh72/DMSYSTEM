@@ -204,4 +204,23 @@ class AttendanceAntiMockTest extends TestCase
             ->call('checkIn', 27.7172450, 85.3240450, 10.0)
             ->assertSee('Developer Mock Location detected: Exact GPS coordinates match your previous attendance');
     }
+
+    public function test_rejects_zero_telemetry_jitter_across_samples(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Developer Mock Location detected: Zero GPS satellite jitter across consecutive fixes');
+
+        $this->service->checkIn($this->user, [
+            'latitude' => 27.7172450,
+            'longitude' => 85.3240450,
+            'accuracy' => 8.0,
+            'telemetry' => [
+                'samples' => [
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
+                ]
+            ]
+        ]);
+    }
 }
