@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\TsoAttendance;
 use App\Models\User;
+use App\Services\FieldSales\GeofenceService;
+use App\Services\FieldSales\PunchRecorder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -17,6 +19,8 @@ use RuntimeException;
  */
 class AttendanceService
 {
+    public function __construct(private GeofenceService $geofences, private PunchRecorder $punches) {}
+
     public function today(): Carbon
     {
         return Carbon::now(config('attendance.timezone'))->startOfDay();
@@ -42,7 +46,9 @@ class AttendanceService
             throw new RuntimeException('You have already checked in today.');
         }
 
-        return TsoAttendance::create([
+        $geofence = $this->geofences->assessPunch($user, (float) $gps['latitude'], (float) $gps['longitude']);
+
+        $record = TsoAttendance::create([
             'user_id' => $user->id,
             'attendance_date' => Carbon::now(config('attendance.timezone'))->toDateString(),
             'check_in_at' => now(),
@@ -52,6 +58,10 @@ class AttendanceService
             'check_in_address' => $this->address($gps['latitude'], $gps['longitude']),
             'status' => 'checked_in',
         ]);
+
+        $this->punches->record($record, 'check_in', $geofence);
+
+        return $record;
     }
 
     /**
@@ -71,6 +81,8 @@ class AttendanceService
 
         $this->assertNotMockLocation($user, $gps, 'check_out', $record);
 
+        $geofence = $this->geofences->assessPunch($user, (float) $gps['latitude'], (float) $gps['longitude']);
+
         $now = now();
 
         $record->update([
@@ -83,7 +95,10 @@ class AttendanceService
             'status' => 'checked_out',
         ]);
 
-        return $record->refresh();
+        $record->refresh();
+        $this->punches->record($record, 'check_out', $geofence);
+
+        return $record;
     }
 
     /** @param array{latitude: float, longitude: float, accuracy: ?float} $gps */

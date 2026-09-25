@@ -36,3 +36,10 @@ Schedule::command('import:reap-stale')->everyFiveMinutes()->withoutOverlapping()
 
 // Drop export files past their retention window.
 Schedule::command('exports:prune')->dailyAt('02:00');
+
+// Field Sales. Times are evaluated in config('field_sales.timezone').
+Schedule::command('fs:build-attendance-days')->hourlyAt(5)->withoutOverlapping(30);
+Schedule::command('fs:summarise-routes')->everyFifteenMinutes()->withoutOverlapping(15);
+Schedule::command('fs:summarise-routes --date=yesterday')->dailyAt('00:20')->timezone(config('field_sales.timezone'))->withoutOverlapping(30);
+Schedule::command('fs:prune-locations')->dailyAt('02:10')->timezone(config('field_sales.timezone'))->withoutOverlapping(60);
+Schedule::command('fs:send-daily-summary')->everyFiveMinutes()->withoutOverlapping(10);

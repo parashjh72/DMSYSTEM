@@ -2,9 +2,12 @@
 
 namespace App\Livewire;
 
+use App\Models\FieldSales\AttendanceDay;
 use App\Models\PjpDay;
 use App\Models\TsoAttendance;
 use App\Services\AttendanceService;
+use App\Services\FieldSales\TrackingService;
+use App\Support\NepaliDate;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -125,6 +128,19 @@ class Attendance extends Component
         $this->selfie = null;
     }
 
+    /** Field Sales: the officer agrees to duty-hours location sharing. */
+    public function acceptTrackingConsent(TrackingService $tracking): void
+    {
+        abort_unless(auth()->user()?->can('field-sales.track'), 403);
+        $tracking->giveConsent(auth()->user(), request()->ip(), request()->userAgent());
+    }
+
+    public function revokeTrackingConsent(TrackingService $tracking): void
+    {
+        abort_unless(auth()->user()?->can('field-sales.track'), 403);
+        $tracking->revokeConsent(auth()->user());
+    }
+
     public function reportGpsError(string $message): void
     {
         Log::warning('Attendance GPS Error: '.$message, [
@@ -161,11 +177,17 @@ class Attendance extends Component
             });
     }
 
-    public function render(AttendanceService $service)
+    public function render(AttendanceService $service, TrackingService $tracking)
     {
         $user = auth()->user();
 
         return view('livewire.attendance', [
+            'bsToday' => NepaliDate::formatLong($service->today()),
+            'fieldTracking' => $tracking->status($user),
+            'fieldDay' => AttendanceDay::query()->with('checkInGeofence')
+                ->where('user_id', $user->id)
+                ->whereDate('attendance_date', $service->today()->toDateString())
+                ->first(),
             'record' => $service->todayFor($user),
             'today' => $service->today(),
             'poorAccuracy' => (int) config('attendance.poor_accuracy_metres'),
