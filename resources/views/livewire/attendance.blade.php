@@ -70,7 +70,46 @@ window.attendanceTracker = function($wireInstance, config) {
                 });
             });
         },
-        evaluateAccuracy(pos) {
+        // Watches GPS briefly and returns up to `wanted` distinct fixes. Real satellites drift
+        // slightly between fixes; Fake GPS apps repeat identical coordinates (checked server-side).
+        async collectSamples(wanted = 3, windowMs = 7000) {
+            const first = await this.acquireGps();
+            const fixes = [first];
+
+            if (! navigator.geolocation.watchPosition) {
+                return fixes;
+            }
+
+            await new Promise((resolve) => {
+                let watchId = null;
+                const finish = () => {
+                    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+                    clearTimeout(timer);
+                    resolve();
+                };
+                const timer = setTimeout(finish, windowMs);
+                watchId = navigator.geolocation.watchPosition((pos) => {
+                    if (fixes.some((f) => f.timestamp === pos.timestamp)) return;
+                    fixes.push(pos);
+                    this.statusText = `Verifying GPS signal (${Math.min(fixes.length, wanted)}/${wanted})…`;
+                    if (fixes.length >= wanted) finish();
+                }, finish, { enableHighAccuracy: true, timeout: windowMs, maximumAge: 0 });
+            });
+
+            return fixes;
+        },
+        telemetryFrom(fixes) {
+            return {
+                samples: fixes.map((p) => ({
+                    lat: p.coords.latitude,
+                    lng: p.coords.longitude,
+                    accuracy: p.coords.accuracy,
+                    alt: p.coords.altitude,
+                    t: p.timestamp
+                }))
+            };
+        },
+        evaluateAccuracy(pos, fixes = [pos]) {
             const acc = pos.coords.accuracy;
             const isMock = acc <= 0.5;
             let quality = 'Good';
@@ -95,6 +134,7 @@ window.attendanceTracker = function($wireInstance, config) {
 
             this.accuracyData = {
                 rawPos: pos,
+                rawFixes: fixes,
                 accuracy: acc ? Math.round(acc * 10) / 10 : 0,
                 latitude: pos.coords.latitude ? pos.coords.latitude.toFixed(6) : '0.000000',
                 longitude: pos.coords.longitude ? pos.coords.longitude.toFixed(6) : '0.000000',
@@ -113,8 +153,8 @@ window.attendanceTracker = function($wireInstance, config) {
             const wire = $wireInstance || this.$wire;
 
             try {
-                const pos = await this.acquireGps();
-                this.evaluateAccuracy(pos);
+                const fixes = await this.collectSamples();
+                this.evaluateAccuracy(fixes[fixes.length - 1], fixes);
                 this.showAccuracyModal = true;
             } catch (err) {
                 this.handleError(err, wire);
@@ -138,15 +178,7 @@ window.attendanceTracker = function($wireInstance, config) {
             }
 
             try {
-                const telemetry = {
-                    samples: [{
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy,
-                        alt: pos.coords.altitude,
-                        t: pos.timestamp
-                    }]
-                };
+                const telemetry = this.telemetryFrom(this.accuracyData.rawFixes || [pos]);
 
                 if (!wire || typeof wire[action] !== 'function') {
                     throw new Error('Connection initializing. Please refresh the page and try again.');
@@ -177,9 +209,10 @@ window.attendanceTracker = function($wireInstance, config) {
 
             try {
                 this.statusText = 'Acquiring GPS fix…';
-                const pos = await this.acquireGps();
+                const fixes = await this.collectSamples();
+                const pos = fixes[fixes.length - 1];
 
-                this.evaluateAccuracy(pos);
+                this.evaluateAccuracy(pos, fixes);
                 this.showAccuracyModal = true;
 
                 // Check 1: Synthetic 0m or <= 0.5m accuracy (typical mock location marker)
@@ -195,15 +228,7 @@ window.attendanceTracker = function($wireInstance, config) {
 
                 this.statusText = 'Verifying coordinates…';
 
-                const telemetry = {
-                    samples: [{
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy,
-                        alt: pos.coords.altitude,
-                        t: pos.timestamp
-                    }]
-                };
+                const telemetry = this.telemetryFrom(fixes);
 
                 if (!wire || typeof wire[action] !== 'function') {
                     throw new Error('Connection initializing. Please refresh the page and try again.');

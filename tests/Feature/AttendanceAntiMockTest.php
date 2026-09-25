@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Attendance;
 use App\Models\TsoAttendance;
 use App\Models\User;
 use App\Services\AttendanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Livewire\Livewire;
 use RuntimeException;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AttendanceAntiMockTest extends TestCase
@@ -15,13 +18,15 @@ class AttendanceAntiMockTest extends TestCase
     use RefreshDatabase;
 
     protected AttendanceService $service;
+
     protected User $user;
 
     protected function setUp(): void
     {
         parent::setUp();
+        config(['attendance.reverse_geocode' => false]);
         $this->service = app(AttendanceService::class);
-        \Spatie\Permission\Models\Role::findOrCreate('TSO');
+        Role::findOrCreate('TSO');
         $this->user = User::factory()->create();
         $this->user->assignRole('TSO');
     }
@@ -187,7 +192,7 @@ class AttendanceAntiMockTest extends TestCase
 
     public function test_livewire_component_displays_error_when_mock_location_detected(): void
     {
-        \Spatie\Permission\Models\Role::findOrCreate('TSO');
+        Role::findOrCreate('TSO');
         $this->user->assignRole('TSO');
 
         // Yesterday's attendance
@@ -201,22 +206,22 @@ class AttendanceAntiMockTest extends TestCase
             'status' => 'checked_out',
         ]);
 
-        \Livewire\Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Attendance::class)
+        Livewire::actingAs($this->user)
+            ->test(Attendance::class)
             ->call('checkIn', 27.7172450, 85.3240450, 10.0, [
                 'samples' => [
                     ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 10.0],
                     ['lat' => 27.7172460, 'lng' => 85.3240460, 'accuracy' => 10.0],
                     ['lat' => 27.7172470, 'lng' => 85.3240470, 'accuracy' => 10.0],
-                ]
+                ],
             ])
             ->assertSee('Developer Mock Location detected: Exact GPS coordinates match your previous attendance');
     }
 
     public function test_livewire_rejects_check_in_without_telemetry(): void
     {
-        \Livewire\Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Attendance::class)
+        Livewire::actingAs($this->user)
+            ->test(Attendance::class)
             ->call('checkIn', 27.7172450, 85.3240450, 10.0, null)
             ->assertSee('Live GPS verification required');
     }
@@ -235,8 +240,122 @@ class AttendanceAntiMockTest extends TestCase
                     ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
                     ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
                     ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0],
-                ]
-            ]
+                ],
+            ],
         ]);
+    }
+
+    public function test_allows_identical_network_fixes_with_coarse_accuracy(): void
+    {
+        $attendance = $this->service->checkIn($this->user, [
+            'latitude' => 27.7172450,
+            'longitude' => 85.3240450,
+            'accuracy' => 40.0,
+            'telemetry' => [
+                'samples' => [
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 40.0, 't' => 1000],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 40.0, 't' => 2000],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 40.0, 't' => 3000],
+                ],
+            ],
+        ]);
+
+        $this->assertEquals('checked_in', $attendance->status);
+    }
+
+    public function test_ignores_repeated_delivery_of_the_same_cached_fix(): void
+    {
+        $attendance = $this->service->checkIn($this->user, [
+            'latitude' => 27.7172450,
+            'longitude' => 85.3240450,
+            'accuracy' => 8.0,
+            'telemetry' => [
+                'samples' => [
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0, 't' => 1000],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0, 't' => 1000],
+                    ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 8.0, 't' => 1000],
+                ],
+            ],
+        ]);
+
+        $this->assertEquals('checked_in', $attendance->status);
+    }
+
+    public function test_rejects_hand_typed_rounded_coordinates(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('GPS coordinates look hand-entered');
+
+        $this->service->checkIn($this->user, [
+            'latitude' => 27.7172,
+            'longitude' => 85.324,
+            'accuracy' => 10.0,
+        ]);
+    }
+
+    public function test_allows_near_repeat_of_past_location_beyond_threshold(): void
+    {
+        TsoAttendance::create([
+            'user_id' => $this->user->id,
+            'attendance_date' => Carbon::now(config('attendance.timezone'))->subDay()->toDateString(),
+            'check_in_at' => now()->subDay(),
+            'check_in_latitude' => 27.7172450,
+            'check_in_longitude' => 85.3240450,
+            'check_in_accuracy' => 10.0,
+            'status' => 'checked_out',
+        ]);
+
+        // ~0.9 m away: same desk, normal GPS drift
+        $attendance = $this->service->checkIn($this->user, [
+            'latitude' => 27.7172531,
+            'longitude' => 85.3240450,
+            'accuracy' => 10.0,
+        ]);
+
+        $this->assertEquals('checked_in', $attendance->status);
+    }
+
+    public function test_rejects_impossible_travel_between_check_in_and_check_out(): void
+    {
+        TsoAttendance::create([
+            'user_id' => $this->user->id,
+            'attendance_date' => Carbon::now(config('attendance.timezone'))->toDateString(),
+            'check_in_at' => now()->subMinutes(30),
+            'check_in_latitude' => 27.7172450,
+            'check_in_longitude' => 85.3240450,
+            'check_in_accuracy' => 10.0,
+            'status' => 'checked_in',
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('That distance cannot be travelled so quickly');
+
+        // Pokhara, ~140 km from Kathmandu, 30 minutes later
+        $this->service->checkOut($this->user, [
+            'latitude' => 28.2096123,
+            'longitude' => 83.9855789,
+            'accuracy' => 10.0,
+        ]);
+    }
+
+    public function test_allows_long_distance_after_realistic_travel_time(): void
+    {
+        TsoAttendance::create([
+            'user_id' => $this->user->id,
+            'attendance_date' => Carbon::now(config('attendance.timezone'))->subDay()->toDateString(),
+            'check_in_at' => now()->subDay(),
+            'check_in_latitude' => 27.7172450,
+            'check_in_longitude' => 85.3240450,
+            'check_in_accuracy' => 10.0,
+            'status' => 'checked_in',
+        ]);
+
+        $attendance = $this->service->checkIn($this->user, [
+            'latitude' => 28.2096123,
+            'longitude' => 83.9855789,
+            'accuracy' => 10.0,
+        ]);
+
+        $this->assertEquals('checked_in', $attendance->status);
     }
 }

@@ -124,11 +124,27 @@ class AttendanceService
             throw new RuntimeException('Suspicious GPS reading (0m accuracy). Mock location apps typically report 0 accuracy. Please disable Developer Options mock location apps and use authentic satellite GPS.');
         }
 
+        // 1b. Hand-typed pins: real GPS reports 6+ decimals; Fake GPS apps where a user
+        // types coordinates usually submit short, rounded values on both axes.
+        $roundDecimals = (int) config('attendance.anti_mock.round_coordinate_decimals', 4);
+        if ($roundDecimals > 0 && self::isRounded($currentLat, $roundDecimals) && self::isRounded($currentLng, $roundDecimals)) {
+            Log::warning('Mock location detected (rounded coordinates)', [
+                'user_id' => $user->id,
+                'coords' => [$currentLat, $currentLng],
+            ]);
+            throw new RuntimeException('Suspicious location: GPS coordinates look hand-entered. Please disable Fake GPS / mock location apps and use your device location.');
+        }
+
         // 2. Telemetry Multi-Sample Jitter Check:
         // When client sends sequential GPS fixes, verify that physical satellite jitter occurred.
         // Fake GPS injects 100% bit-identical coordinates across fixes.
-        if (! empty($gps['telemetry']['samples']) && is_array($gps['telemetry']['samples']) && count($gps['telemetry']['samples']) >= 2) {
-            $samples = $gps['telemetry']['samples'];
+        // Only applied to fixes claiming satellite-grade accuracy: Wi-Fi/cell fixes can repeat exactly.
+        $samples = self::distinctSamples($gps['telemetry']['samples'] ?? []);
+        $jitterMaxAccuracy = (float) config('attendance.anti_mock.jitter_max_accuracy_metres', 25);
+        $claimsSatelliteAccuracy = collect($samples)->every(
+            fn (array $sample): bool => is_numeric($sample['accuracy'] ?? null) && (float) $sample['accuracy'] <= $jitterMaxAccuracy
+        );
+        if (count($samples) >= 3 && $claimsSatelliteAccuracy) {
             $firstLat = (float) ($samples[0]['lat'] ?? 0);
             $firstLng = (float) ($samples[0]['lng'] ?? 0);
             $hasJitter = false;
@@ -197,8 +213,8 @@ class AttendanceService
 
                     throw new RuntimeException(
                         'Developer Mock Location detected: Exact GPS coordinates match your previous attendance on '
-                        . ($past->attendance_date?->format('d M Y') ?? 'an earlier day')
-                        . ' (difference: ' . round($dist, 2) . 'm). Please turn off Mock Location apps in Android Developer Settings and use authentic device GPS.'
+                        .($past->attendance_date?->format('d M Y') ?? 'an earlier day')
+                        .' (difference: '.round($dist, 2).'m). Please turn off Mock Location apps in Android Developer Settings and use authentic device GPS.'
                     );
                 }
             }
@@ -245,6 +261,104 @@ class AttendanceService
                 throw new RuntimeException('Developer Mock Location detected: Check-out coordinates are identical to check-in coordinates. Please disable mock location apps in Developer Options.');
             }
         }
+
+        // 6. Impossible Travel Check:
+        // Fake GPS users teleport between pins; flag a jump faster than any road trip allows.
+        $this->assertPlausibleTravel($user, $currentLat, $currentLng, $todayRecord);
+    }
+
+    /**
+     * Rejects a punch whose distance from the user's previous punch implies an impossible speed.
+     */
+    private function assertPlausibleTravel(User $user, float $currentLat, float $currentLng, ?TsoAttendance $todayRecord): void
+    {
+        $maxSpeedKmh = (float) config('attendance.anti_mock.max_travel_speed_kmh', 250);
+        $minDistance = (float) config('attendance.anti_mock.travel_min_distance_metres', 5000);
+        if ($maxSpeedKmh <= 0) {
+            return;
+        }
+
+        $previous = $todayRecord
+            ? [$todayRecord->check_in_latitude, $todayRecord->check_in_longitude, $todayRecord->check_in_at]
+            : $this->lastPunchBefore($user, $this->today());
+
+        [$prevLat, $prevLng, $prevAt] = $previous ?? [null, null, null];
+        if ($prevLat === null || $prevLng === null || $prevAt === null) {
+            return;
+        }
+
+        $distance = self::distanceMetres($currentLat, $currentLng, (float) $prevLat, (float) $prevLng);
+        if ($distance < $minDistance) {
+            return;
+        }
+
+        $hours = max(1, $prevAt->diffInSeconds(now(), true)) / 3600;
+        $speedKmh = ($distance / 1000) / $hours;
+
+        if ($speedKmh > $maxSpeedKmh) {
+            Log::warning('Mock location detected (impossible travel)', [
+                'user_id' => $user->id,
+                'coords' => [$currentLat, $currentLng],
+                'previous_coords' => [(float) $prevLat, (float) $prevLng],
+                'distance_km' => round($distance / 1000, 1),
+                'speed_kmh' => round($speedKmh),
+            ]);
+
+            throw new RuntimeException(
+                'Suspicious location: you are '.round($distance / 1000, 1).' km from your last punch '
+                .$prevAt->diffForHumans().'. That distance cannot be travelled so quickly. Please disable Fake GPS / mock location apps.'
+            );
+        }
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string, 2: ?Carbon}|null
+     */
+    private function lastPunchBefore(User $user, Carbon $day): ?array
+    {
+        $last = TsoAttendance::query()
+            ->where('user_id', $user->id)
+            ->whereDate('attendance_date', '<', $day)
+            ->whereNotNull('check_in_latitude')
+            ->orderByDesc('attendance_date')
+            ->first();
+
+        if (! $last) {
+            return null;
+        }
+
+        return $last->check_out_at && $last->check_out_latitude !== null
+            ? [$last->check_out_latitude, $last->check_out_longitude, $last->check_out_at]
+            : [$last->check_in_latitude, $last->check_in_longitude, $last->check_in_at];
+    }
+
+    /**
+     * Drops repeated deliveries of the same cached fix (same timestamp) so they are not mistaken for zero jitter.
+     *
+     * @param  array<int, mixed>  $samples
+     * @return array<int, array{lat?: mixed, lng?: mixed, accuracy?: mixed, t?: mixed}>
+     */
+    private static function distinctSamples(mixed $samples): array
+    {
+        if (! is_array($samples)) {
+            return [];
+        }
+
+        $distinct = [];
+        foreach ($samples as $sample) {
+            if (! is_array($sample)) {
+                continue;
+            }
+            $key = isset($sample['t']) ? (string) $sample['t'] : 'i'.count($distinct);
+            $distinct[$key] ??= $sample;
+        }
+
+        return array_values($distinct);
+    }
+
+    private static function isRounded(float $value, int $decimals): bool
+    {
+        return abs($value - round($value, $decimals)) < 1e-9;
     }
 
     /**
