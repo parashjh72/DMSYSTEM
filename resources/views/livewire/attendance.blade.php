@@ -55,7 +55,7 @@ window.attendanceTracker = function(config) {
                     navigator.geolocation.getCurrentPosition(
                         resolve,
                         reject,
-                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                     );
                 });
             };
@@ -63,8 +63,7 @@ window.attendanceTracker = function(config) {
             const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
             try {
-                // Sample 1: Initial satellite lock
-                this.statusText = 'Acquiring satellite fix (1/3)…';
+                this.statusText = 'Acquiring satellite fix (1/2)…';
                 const fix1 = await getFix();
 
                 // Check 1: 0m or <= 0.5m accuracy (synthetic GPS)
@@ -74,37 +73,29 @@ window.attendanceTracker = function(config) {
                     return this.$wire.reportGpsError('Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.');
                 }
 
-                // Allow 1000ms for physical satellite orbit and ionospheric drift
-                await sleep(1000);
+                this.statusText = 'Verifying satellite signals (2/2)…';
+                await sleep(800);
 
-                // Sample 2: Second satellite fix
-                this.statusText = 'Verifying satellite signals (2/3)…';
-                const fix2 = await getFix();
-
-                await sleep(1000);
-
-                // Sample 3: Third satellite fix
-                this.statusText = 'Analyzing GPS jitter (3/3)…';
-                const fix3 = await getFix();
-
-                const samples = [fix1, fix2, fix3];
-
-                // Calculate micro-variance between consecutive fixes
-                const dLat1 = Math.abs(fix1.coords.latitude - fix2.coords.latitude);
-                const dLng1 = Math.abs(fix1.coords.longitude - fix2.coords.longitude);
-                const dLat2 = Math.abs(fix2.coords.latitude - fix3.coords.latitude);
-                const dLng2 = Math.abs(fix2.coords.longitude - fix3.coords.longitude);
-
-                // In Android Developer Options Fake GPS apps, coordinates across consecutive fixes have ZERO jitter down to 8 decimal places
-                if (dLat1 < 0.00000001 && dLng1 < 0.00000001 && dLat2 < 0.00000001 && dLng2 < 0.00000001) {
-                    this.busy = false;
-                    this.statusText = '';
-                    return this.$wire.reportGpsError('Developer Mock Location detected: Static GPS coordinates with zero satellite jitter. Mock location apps inject identical coordinates. Please disable "Select mock location app" in Android Developer Options and use authentic device GPS.');
+                let fix2 = null;
+                try {
+                    fix2 = await getFix();
+                } catch (e) {
+                    fix2 = fix1;
                 }
 
-                // Pick the sample with the highest precision (lowest accuracy radius)
-                const best = [...samples].sort((a, b) => a.coords.accuracy - b.coords.accuracy)[0];
+                const samples = [fix1, fix2];
 
+                // Check 2: Synthetic sub-meter precision with zero jitter
+                const dLat = Math.abs(fix1.coords.latitude - fix2.coords.latitude);
+                const dLng = Math.abs(fix1.coords.longitude - fix2.coords.longitude);
+
+                if (fix1.coords.accuracy <= 1.5 && dLat < 0.00000001 && dLng < 0.00000001) {
+                    this.busy = false;
+                    this.statusText = '';
+                    return this.$wire.reportGpsError('Developer Mock Location detected: Static coordinates with synthetic precision. Please disable "Select mock location app" in Android Developer Options and use authentic device GPS.');
+                }
+
+                const best = fix1.coords.accuracy <= (fix2?.coords?.accuracy ?? 999) ? fix1 : fix2;
                 this.statusText = 'Verifying coordinates…';
 
                 await this.$wire[action](best.coords.latitude, best.coords.longitude, best.coords.accuracy, {
@@ -125,9 +116,8 @@ window.attendanceTracker = function(config) {
                 const msg = {
                     1: 'GPS permission denied. Please allow location access in your browser settings.',
                     2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
-                    3: 'GPS request timed out. Please ensure GPS is enabled and try again.',
+                    3: 'GPS request timed out. Please ensure GPS / Location is enabled on high accuracy and try again.',
                 }[err?.code] || ('GPS acquisition error: ' + (err?.message || 'Please try again.'));
-                this.$wire.reportGpsError(msg);
             }
         }
     };
