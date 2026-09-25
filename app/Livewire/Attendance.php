@@ -28,8 +28,8 @@ class Attendance extends Component
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
-        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 2) {
-            $this->error = 'Live GPS satellite verification required. Please tap punch and wait for satellite signal acquisition.';
+        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 1) {
+            $this->error = 'Live GPS verification required. Please tap punch and wait for location acquisition.';
             return;
         }
 
@@ -48,8 +48,8 @@ class Attendance extends Component
         abort_unless(auth()->user()?->can('attendance.self'), 403);
         $this->error = null;
 
-        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 2) {
-            $this->error = 'Live GPS satellite verification required. Please tap punch and wait for satellite signal acquisition.';
+        if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 1) {
+            $this->error = 'Live GPS verification required. Please tap punch and wait for location acquisition.';
             return;
         }
 

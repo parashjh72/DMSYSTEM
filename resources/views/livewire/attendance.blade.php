@@ -50,74 +50,56 @@ window.attendanceTracker = function(config) {
                 return this.$wire.reportGpsError('This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.');
             }
 
-            const getFix = () => {
+            const getPosition = (opts) => {
                 return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(
-                        resolve,
-                        reject,
-                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-                    );
+                    navigator.geolocation.getCurrentPosition(resolve, reject, opts);
                 });
             };
 
-            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
             try {
-                this.statusText = 'Acquiring satellite fix (1/2)…';
-                const fix1 = await getFix();
+                this.statusText = 'Acquiring GPS fix…';
+                let pos;
+                try {
+                    pos = await getPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+                } catch (gpsErr) {
+                    // If satellite GPS times out indoors, gracefully fall back to network/wifi location
+                    this.statusText = 'Acquiring location…';
+                    pos = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 5000 });
+                }
 
-                // Check 1: 0m or <= 0.5m accuracy (synthetic GPS)
-                if (fix1.coords.accuracy <= 0.5) {
+                // Check 1: Synthetic 0m or <= 0.5m accuracy (typical mock location marker)
+                if (pos.coords.accuracy <= 0.5) {
                     this.busy = false;
                     this.statusText = '';
                     return this.$wire.reportGpsError('Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.');
                 }
 
-                this.statusText = 'Verifying satellite signals (2/2)…';
-                await sleep(800);
-
-                let fix2 = null;
-                try {
-                    fix2 = await getFix();
-                } catch (e) {
-                    fix2 = fix1;
-                }
-
-                const samples = [fix1, fix2];
-
-                // Check 2: Synthetic sub-meter precision with zero jitter
-                const dLat = Math.abs(fix1.coords.latitude - fix2.coords.latitude);
-                const dLng = Math.abs(fix1.coords.longitude - fix2.coords.longitude);
-
-                if (fix1.coords.accuracy <= 1.5 && dLat < 0.00000001 && dLng < 0.00000001) {
-                    this.busy = false;
-                    this.statusText = '';
-                    return this.$wire.reportGpsError('Developer Mock Location detected: Static coordinates with synthetic precision. Please disable "Select mock location app" in Android Developer Options and use authentic device GPS.');
-                }
-
-                const best = fix1.coords.accuracy <= (fix2?.coords?.accuracy ?? 999) ? fix1 : fix2;
                 this.statusText = 'Verifying coordinates…';
 
-                await this.$wire[action](best.coords.latitude, best.coords.longitude, best.coords.accuracy, {
-                    samples: samples.map(s => ({
-                        lat: s.coords.latitude,
-                        lng: s.coords.longitude,
-                        accuracy: s.coords.accuracy,
-                        alt: s.coords.altitude,
-                        t: s.timestamp
-                    }))
-                });
+                const telemetry = {
+                    samples: [{
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        alt: pos.coords.altitude,
+                        t: pos.timestamp
+                    }]
+                };
+
+                await this.$wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
 
                 this.busy = false;
                 this.statusText = '';
             } catch (err) {
                 this.busy = false;
                 this.statusText = '';
+                console.error('Attendance GPS error:', err);
                 const msg = {
                     1: 'GPS permission denied. Please allow location access in your browser settings.',
                     2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
-                    3: 'GPS request timed out. Please ensure GPS / Location is enabled on high accuracy and try again.',
-                }[err?.code] || ('GPS acquisition error: ' + (err?.message || 'Please try again.'));
+                    3: 'GPS request timed out. Please ensure Location is enabled in High Accuracy mode and try again.',
+                }[err?.code] || ('GPS error: ' + (err?.message || 'Could not acquire location. Please try again.'));
+                this.$wire.reportGpsError(msg);
             }
         }
     };

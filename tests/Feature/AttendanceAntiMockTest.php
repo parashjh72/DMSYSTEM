@@ -218,7 +218,7 @@ class AttendanceAntiMockTest extends TestCase
         \Livewire\Livewire::actingAs($this->user)
             ->test(\App\Livewire\Attendance::class)
             ->call('checkIn', 27.7172450, 85.3240450, 10.0, null)
-            ->assertSee('Live GPS satellite verification required');
+            ->assertSee('Live GPS verification required');
     }
 
     public function test_rejects_zero_telemetry_jitter_across_samples(): void
