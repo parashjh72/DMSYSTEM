@@ -193,7 +193,7 @@
         <aside class="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col bg-white border-r border-slate-200/80 shadow-xs z-20">
             {{-- Brand header --}}
             <div class="flex h-16 items-center justify-between border-b border-slate-100 px-5">
-                <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5 group">
+                <a href="{{ route(\App\Support\Home::route()) }}" class="flex items-center gap-2.5 group">
                     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-600 to-violet-500 font-bold text-white shadow-sm transition group-hover:scale-105">
                         DM
                     </div>
@@ -283,9 +283,11 @@
     {{-- Native Mobile Bottom Navigation Bar --}}
     <nav class="fixed bottom-0 inset-x-0 z-40 flex h-16 items-center justify-around border-t border-slate-200/90 bg-white/95 px-2 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:hidden">
         {{-- Home / Dashboard --}}
-        <a href="{{ route('dashboard') }}" wire:navigate
-           class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs('dashboard*') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
-            <svg class="h-5 w-5 {{ request()->routeIs('dashboard*') ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {{-- Roles without a dashboard (e.g. TSO) land on their own home page instead of a 403. --}}
+        @php($homeRoute = \App\Support\Home::route())
+        <a href="{{ route($homeRoute) }}" wire:navigate
+           class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs($homeRoute) ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
+            <svg class="h-5 w-5 {{ request()->routeIs($homeRoute) ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}"" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
             </svg>
             <span>Home</span>
