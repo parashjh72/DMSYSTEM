@@ -26,6 +26,34 @@ class CronController extends Controller
             return response('Cache cleared: ' . Artisan::output(), 200);
         }
 
+        if (request()->has('clear_madan_attendance')) {
+            $user = \App\Models\User::where('name', 'like', '%madan%')
+                ->orWhere('email', 'like', '%madan%')
+                ->first();
+
+            if (! $user) {
+                return response()->json([
+                    'status' => 'not_found',
+                    'message' => 'No user matching madan found',
+                    'all_users' => \App\Models\User::select('id', 'name', 'email')->get(),
+                ]);
+            }
+
+            $deleted = \App\Models\TsoAttendance::where('user_id', $user->id)->delete();
+
+            return response()->json([
+                'status' => 'ok',
+                'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
+                'deleted_attendance_records' => $deleted,
+            ]);
+        }
+
+        if (request()->has('view_attendances')) {
+            return response()->json([
+                'rows' => \App\Models\TsoAttendance::with('user:id,name,email')->latest()->take(20)->get(),
+            ]);
+        }
+
 
 
         try {
