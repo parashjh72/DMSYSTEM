@@ -95,61 +95,61 @@
     @endif
 
     {{-- Primary KPI Cards --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {{-- Total Records --}}
-        <div class="card card-hover relative overflow-hidden">
+        <div class="card card-hover relative overflow-hidden !p-4 sm:!p-5">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Devices</span>
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500">Total Devices</span>
+                <span class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <svg class="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                 </span>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
-                <span class="text-3xl font-extrabold tracking-tight text-slate-900">{{ number_format($kpis['total_records']) }}</span>
+            <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">{{ number_format($kpis['total_records']) }}</span>
             </div>
-            <p class="mt-1 text-xs text-slate-400">Total tracked device IMEIs</p>
+            <p class="mt-1 text-[11px] sm:text-xs text-slate-400 truncate">Total tracked IMEIs</p>
         </div>
 
         {{-- Activated --}}
-        <div class="card card-hover relative overflow-hidden">
+        <div class="card card-hover relative overflow-hidden !p-4 sm:!p-5">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Activated Devices</span>
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500">Activated</span>
+                <span class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <svg class="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </span>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
-                <span class="text-3xl font-extrabold tracking-tight text-emerald-700">{{ number_format($kpis['total_activated']) }}</span>
-                <span class="badge-emerald text-[11px] font-bold">Active</span>
+            <div class="mt-2 sm:mt-3 flex items-baseline gap-1.5 sm:gap-2">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-700">{{ number_format($kpis['total_activated']) }}</span>
+                <span class="badge-emerald text-[10px] sm:text-[11px] font-bold">Active</span>
             </div>
-            <p class="mt-1 text-xs text-slate-400">Customer activated &amp; online</p>
+            <p class="mt-1 text-[11px] sm:text-xs text-slate-400 truncate">Activated &amp; online</p>
         </div>
 
         {{-- In Channel (Not Activated) --}}
-        <div class="card card-hover relative overflow-hidden">
+        <div class="card card-hover relative overflow-hidden !p-4 sm:!p-5">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">In Channel Stock</span>
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500">In Channel</span>
+                <span class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                    <svg class="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                 </span>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
-                <span class="text-3xl font-extrabold tracking-tight text-amber-700">{{ number_format($kpis['total_not_activated']) }}</span>
-                <span class="badge-amber text-[11px] font-bold">Pending</span>
+            <div class="mt-2 sm:mt-3 flex items-baseline gap-1.5 sm:gap-2">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-700">{{ number_format($kpis['total_not_activated']) }}</span>
+                <span class="badge-amber text-[10px] sm:text-[11px] font-bold">Stock</span>
             </div>
-            <p class="mt-1 text-xs text-slate-400">Sold through to retailers</p>
+            <p class="mt-1 text-[11px] sm:text-xs text-slate-400 truncate">Sold to retailers</p>
         </div>
 
         {{-- Activation Rate --}}
-        <div class="card card-hover relative overflow-hidden">
+        <div class="card card-hover relative overflow-hidden !p-4 sm:!p-5">
             <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Activation Rate</span>
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <span class="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-500">Activation Rate</span>
+                <span class="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                    <svg class="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
                 </span>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
-                <span class="text-3xl font-extrabold tracking-tight text-indigo-700">{{ $kpis['activation_rate'] }}%</span>
+            <div class="mt-2 sm:mt-3 flex items-baseline gap-2">
+                <span class="text-2xl sm:text-3xl font-extrabold tracking-tight text-indigo-700">{{ $kpis['activation_rate'] }}%</span>
             </div>
             <div class="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div class="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full" style="width: {{ min(100, (float)$kpis['activation_rate']) }}%"></div>
@@ -158,20 +158,20 @@
     </div>
 
     {{-- Secondary Network Scope Counters --}}
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         @foreach ([
-            ['Regional Distributors (RD)', $kpis['distinct_rd'], 'bg-blue-50 text-blue-600'],
-            ['Active Retailers (RT)', $kpis['distinct_rt'], 'bg-emerald-50 text-emerald-600'],
-            ['Active Phone Models', $kpis['distinct_model'], 'bg-purple-50 text-purple-600'],
+            ['Distributors (RD)', $kpis['distinct_rd'], 'bg-blue-50 text-blue-600'],
+            ['Retailers (RT)', $kpis['distinct_rt'], 'bg-emerald-50 text-emerald-600'],
+            ['Phone Models', $kpis['distinct_model'], 'bg-purple-50 text-purple-600'],
             ['Field Officers (TSO)', $kpis['distinct_tso'], 'bg-orange-50 text-orange-600'],
         ] as [$label, $value, $color])
-            <div class="card flex items-center justify-between">
-                <div>
-                    <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $label }}</div>
-                    <div class="mt-1 text-2xl font-bold text-slate-800">{{ number_format($value) }}</div>
+            <div class="card !p-3.5 sm:!p-5 flex items-center justify-between">
+                <div class="min-w-0 pr-2">
+                    <div class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">{{ $label }}</div>
+                    <div class="mt-1 text-xl sm:text-2xl font-bold text-slate-800">{{ number_format($value) }}</div>
                 </div>
-                <div class="h-9 w-9 rounded-xl flex items-center justify-center {{ $color }}">
-                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <div class="h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center shrink-0 {{ $color }}">
+                    <svg class="h-4 w-4 sm:h-4.5 sm:w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 </div>
             </div>
         @endforeach

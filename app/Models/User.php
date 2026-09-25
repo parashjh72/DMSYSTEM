@@ -30,6 +30,16 @@ class User extends Authenticatable
         return $this->hasMany(self::class, 'reports_to_id');
     }
 
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(TsoAttendance::class);
+    }
+
+    public function todayAttendance(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(TsoAttendance::class)->whereDate('attendance_date', now(config('attendance.timezone'))->toDateString());
+    }
+
     /** The ASM this user (a TSO) reports to — explicit link, else RD-code overlap. */
     public function resolveAsm(): ?self
     {

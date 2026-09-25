@@ -260,7 +260,7 @@
             </header>
 
             {{-- Main Content Canvas --}}
-            <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto">
+            <main class="flex-1 px-4 py-5 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto pb-24 md:pb-8">
                 @if (session('status'))
                     <div class="mb-6 flex items-center gap-3 rounded-2xl bg-emerald-50/90 p-4 text-sm text-emerald-800 border border-emerald-200/80 shadow-xs" role="alert">
                         <svg class="h-5 w-5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -279,6 +279,65 @@
             </main>
         </div>
     </div>
+
+    {{-- Native Mobile Bottom Navigation Bar --}}
+    <nav class="fixed bottom-0 inset-x-0 z-40 flex h-16 items-center justify-around border-t border-slate-200/90 bg-white/95 px-2 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:hidden">
+        {{-- Home / Dashboard --}}
+        <a href="{{ route('dashboard') }}" wire:navigate
+           class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs('dashboard*') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
+            <svg class="h-5 w-5 {{ request()->routeIs('dashboard*') ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+            </svg>
+            <span>Home</span>
+        </a>
+
+        @can('attendance.self')
+            {{-- Attendance / Punch --}}
+            <a href="{{ route('attendance') }}" wire:navigate
+               class="relative flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs('attendance') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
+                <div class="relative">
+                    <svg class="h-5 w-5 {{ request()->routeIs('attendance') ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    @if (auth()->user()?->todayAttendance && !auth()->user()->todayAttendance->isCheckedOut())
+                        <span class="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse"></span>
+                    @endif
+                </div>
+                <span>Punch</span>
+            </a>
+        @endcan
+
+        @can('pjp.access')
+            {{-- PJP Route --}}
+            <a href="{{ route('pjp') }}" wire:navigate
+               class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs('pjp*') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
+                <svg class="h-5 w-5 {{ request()->routeIs('pjp*') ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.284a2.25 2.25 0 00-2.012 0L2.616 5.722c-.381.19-.622.58-.622 1.006v11.314c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/>
+                </svg>
+                <span>Route</span>
+            </a>
+        @endcan
+
+        @can('reports.view')
+            {{-- Map / Retailers --}}
+            <a href="{{ route('retailer-map') }}" wire:navigate
+               class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold transition active:scale-95 {{ request()->routeIs('retailer-map*') ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-800' }}">
+                <svg class="h-5 w-5 {{ request()->routeIs('retailer-map*') ? 'text-indigo-600 stroke-[2.2]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0zM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+                </svg>
+                <span>Map</span>
+            </a>
+        @endcan
+
+        {{-- More / Menu Drawer --}}
+        <button type="button" @click="mobileNav = true"
+                class="flex flex-col items-center justify-center gap-1 py-1 px-2.5 text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition active:scale-95">
+            <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+            </svg>
+            <span>Menu</span>
+        </button>
+    </nav>
 </div>
 @livewireScripts
 </body>

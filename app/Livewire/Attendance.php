@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\PjpDay;
+use App\Models\TsoAttendance;
 use App\Services\AttendanceService;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -90,11 +91,19 @@ class Attendance extends Component
 
     public function render(AttendanceService $service)
     {
+        $user = auth()->user();
+
         return view('livewire.attendance', [
-            'record' => $service->todayFor(auth()->user()),
+            'record' => $service->todayFor($user),
             'today' => $service->today(),
             'poorAccuracy' => (int) config('attendance.poor_accuracy_metres'),
             'upcoming' => $this->upcoming(),
+            'recentHistory' => TsoAttendance::query()
+                ->where('user_id', $user->id)
+                ->whereDate('attendance_date', '<', $service->today())
+                ->orderByDesc('attendance_date')
+                ->take(7)
+                ->get(),
         ]);
     }
 }
