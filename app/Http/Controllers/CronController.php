@@ -26,24 +26,47 @@ class CronController extends Controller
             return response('Cache cleared: ' . Artisan::output(), 200);
         }
 
-        if (request()->has('clear_madan_attendance')) {
-            $user = \App\Models\User::where('name', 'like', '%madan%')
-                ->orWhere('email', 'like', '%madan%')
-                ->first();
+        if (request()->has('git_pull')) {
+            $output = [];
+            @exec('cd ' . base_path() . ' && git pull origin main 2>&1', $output, $code);
+            Artisan::call('optimize:clear');
+            return response()->json([
+                'status' => $code === 0 ? 'success' : 'error',
+                'exit_code' => $code,
+                'output' => $output,
+                'artisan' => Artisan::output(),
+            ]);
+        }
 
-            if (! $user) {
+        if (request()->has('clear_attendance') || request()->has('clear_madan_attendance')) {
+            $target = request()->query('user', request()->has('clear_madan_attendance') ? 'madan' : 'all');
+
+            if ($target === 'all') {
+                $deleted = \App\Models\TsoAttendance::query()->delete();
+                return response()->json([
+                    'status' => 'ok',
+                    'deleted_all' => $deleted,
+                ]);
+            }
+
+            $users = \App\Models\User::where('name', 'like', "%{$target}%")
+                ->orWhere('email', 'like', "%{$target}%")
+                ->get();
+
+            if ($users->isEmpty()) {
                 return response()->json([
                     'status' => 'not_found',
-                    'message' => 'No user matching madan found',
+                    'message' => "No user matching '{$target}' found",
                     'all_users' => \App\Models\User::select('id', 'name', 'email')->get(),
                 ]);
             }
 
-            $deleted = \App\Models\TsoAttendance::where('user_id', $user->id)->delete();
+            $userIds = $users->pluck('id')->all();
+            $deleted = \App\Models\TsoAttendance::whereIn('user_id', $userIds)->delete();
 
             return response()->json([
                 'status' => 'ok',
-                'user' => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email],
+                'matched_users' => $users->map(fn ($u) => ['id' => $u->id, 'name' => $u->name, 'email' => $u->email]),
                 'deleted_attendance_records' => $deleted,
             ]);
         }
@@ -51,6 +74,7 @@ class CronController extends Controller
         if (request()->has('view_attendances')) {
             return response()->json([
                 'rows' => \App\Models\TsoAttendance::with('user:id,name,email')->latest()->take(20)->get(),
+                'users' => \App\Models\User::select('id', 'name', 'email')->get(),
             ]);
         }
 
