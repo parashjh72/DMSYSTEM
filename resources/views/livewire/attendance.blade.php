@@ -98,6 +98,16 @@ window.attendanceTracker = function($wireInstance, config) {
 
             return fixes;
         },
+        // Largest distance (metres) of any fix from the first one; real GPS is rarely exactly 0.
+        spreadMetres(fixes) {
+            const [first, ...rest] = fixes;
+            const toRad = (d) => d * Math.PI / 180;
+            return rest.reduce((max, f) => {
+                const dLat = toRad(f.coords.latitude - first.coords.latitude);
+                const dLng = toRad(f.coords.longitude - first.coords.longitude) * Math.cos(toRad(first.coords.latitude));
+                return Math.max(max, Math.sqrt(dLat * dLat + dLng * dLng) * 6371000);
+            }, 0).toFixed(2);
+        },
         telemetryFrom(fixes) {
             return {
                 samples: fixes.map((p) => ({
@@ -135,6 +145,8 @@ window.attendanceTracker = function($wireInstance, config) {
             this.accuracyData = {
                 rawPos: pos,
                 rawFixes: fixes,
+                samples: fixes.map((f) => `${f.coords.latitude.toFixed(7)}, ${f.coords.longitude.toFixed(7)} ±${Math.round(f.coords.accuracy * 10) / 10}m`),
+                spread: this.spreadMetres(fixes),
                 accuracy: acc ? Math.round(acc * 10) / 10 : 0,
                 latitude: pos.coords.latitude ? pos.coords.latitude.toFixed(6) : '0.000000',
                 longitude: pos.coords.longitude ? pos.coords.longitude.toFixed(6) : '0.000000',
@@ -453,6 +465,14 @@ window.attendanceTracker = function($wireInstance, config) {
                     <span class="text-[10px] uppercase font-bold text-slate-400 block">Fix Time</span>
                     <span class="font-mono font-bold text-slate-800" x-text="accuracyData.timestamp"></span>
                 </div>
+                <div class="col-span-2 mt-1 border-t border-slate-200 pt-2">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">
+                        Readings: <span x-text="(accuracyData.samples || []).length"></span> &middot; Movement: <span x-text="(accuracyData.spread ?? '0.00') + 'm'"></span>
+                    </span>
+                    <template x-for="(sample, index) in (accuracyData.samples || [])" :key="index">
+                        <span class="font-mono text-[10px] text-slate-600 block" x-text="sample"></span>
+                    </template>
+                </div>
             </div>
 
             {{-- Footer Actions --}}
@@ -507,7 +527,7 @@ window.attendanceTracker = function($wireInstance, config) {
     {{-- Main Tactile Punch Card --}}
     @if (! $record)
         {{-- Ready to Check-In --}}
-        <div class="card p-6 sm:p-8 shadow-sm border border-slate-200/80 rounded-3xl bg-white text-center relative overflow-hidden">
+        <div wire:key="punch-card-check-in" class="card p-6 sm:p-8 shadow-sm border border-slate-200/80 rounded-3xl bg-white text-center relative overflow-hidden">
             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Current Local Time</div>
             <div class="mt-1 font-mono text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight" x-text="currentTime">
                 {{ now()->timezone(config('attendance.timezone'))->format('h:i:s A') }}
@@ -566,7 +586,7 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     @elseif (! $record->isCheckedOut())
         {{-- On Duty (Ready to Check-Out) --}}
-        <div class="card p-6 sm:p-8 shadow-sm border border-emerald-200/80 rounded-3xl bg-gradient-to-b from-emerald-50/40 via-white to-white text-center relative overflow-hidden">
+        <div wire:key="punch-card-check-out" class="card p-6 sm:p-8 shadow-sm border border-emerald-200/80 rounded-3xl bg-gradient-to-b from-emerald-50/40 via-white to-white text-center relative overflow-hidden">
             <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Shift Elapsed</div>
             <div class="mt-1 font-mono text-3xl sm:text-4xl font-extrabold text-indigo-700 tracking-tight" x-text="formattedElapsed">
                 {{ $record->workingLabel() ?? 'Active' }}
@@ -656,7 +676,7 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     @else
         {{-- Completed Day Card --}}
-        <div class="card p-6 sm:p-8 shadow-sm border border-emerald-200/80 rounded-3xl bg-white text-center space-y-6">
+        <div wire:key="punch-card-completed" class="card p-6 sm:p-8 shadow-sm border border-emerald-200/80 rounded-3xl bg-white text-center space-y-6">
             <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/50">
                 <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
