@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendanceSelfieController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
@@ -42,7 +43,6 @@ Route::get('/', fn () => redirect()->route(Home::route()));
 
 Route::get('cron/{token}', CronController::class)->name('cron');
 
-
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'show'])->name('login');
     Route::post('login', [LoginController::class, 'login']);
@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('attendance', Attendance::class)->middleware('can:attendance.self')->name('attendance');
     Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
+    Route::get('attendance/{attendance}/selfie/{type}', AttendanceSelfieController::class)->whereIn('type', ['check_in', 'check_out'])->name('attendance.selfie');
     Route::get('pjp', Pjp::class)->middleware('can:pjp.access')->name('pjp');
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');

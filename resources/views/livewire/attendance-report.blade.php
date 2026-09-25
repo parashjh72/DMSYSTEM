@@ -74,6 +74,7 @@
                         <th class="th">In GPS</th>
                         <th class="th">Check-Out</th>
                         <th class="th">Out GPS</th>
+                        <th class="th">Selfies</th>
                         <th class="th">Shift Duration</th>
                         <th class="th text-right">Status</th>
                     </tr>
@@ -116,6 +117,21 @@
                                     <span class="text-slate-300">—</span>
                                 @endif
                             </td>
+                            <td class="td">
+                                <div class="flex items-center gap-1.5">
+                                    @foreach (['check_in' => 'In', 'check_out' => 'Out'] as $type => $label)
+                                        @if ($r->hasSelfie($type))
+                                            <a href="{{ route('attendance.selfie', [$r, $type]) }}" target="_blank" title="{{ $label }} selfie" class="block">
+                                                <img src="{{ route('attendance.selfie', [$r, $type]) }}" alt="{{ $label }} selfie" loading="lazy"
+                                                     class="h-10 w-8 rounded-md object-cover ring-1 ring-slate-200 hover:ring-indigo-400">
+                                            </a>
+                                        @endif
+                                    @endforeach
+                                    @if (! $r->hasSelfie('check_in') && ! $r->hasSelfie('check_out'))
+                                        <span class="text-slate-300">—</span>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="td font-medium text-slate-700">{{ $r->workingLabel() ?: 'In Progress' }}</td>
                             <td class="td text-right">
                                 @if ($r->isCheckedOut())
@@ -127,7 +143,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="py-12 text-center text-slate-400 text-xs">
+                            <td colspan="10" class="py-12 text-center text-slate-400 text-xs">
                                 No attendance records found for the selected period.
                             </td>
                         </tr>

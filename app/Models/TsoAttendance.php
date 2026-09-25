@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'user_id', 'attendance_date',
@@ -14,6 +15,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class TsoAttendance extends Model
 {
+    /** Private disk: selfies are only served through the authorised attendance.selfie route. */
+    public const SELFIE_DISK = 'local';
+
     protected function casts(): array
     {
         return [
@@ -36,6 +40,18 @@ class TsoAttendance extends Model
     public function isCheckedOut(): bool
     {
         return $this->status === 'checked_out';
+    }
+
+    /** @param  'check_in'|'check_out'  $type */
+    public function selfiePath(string $type): string
+    {
+        return "attendance-selfies/{$this->id}/{$type}.jpg";
+    }
+
+    /** @param  'check_in'|'check_out'  $type */
+    public function hasSelfie(string $type): bool
+    {
+        return Storage::disk(self::SELFIE_DISK)->exists($this->selfiePath($type));
     }
 
     public function workingLabel(): ?string

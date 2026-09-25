@@ -20,6 +20,16 @@ return [
     'timezone' => env('ATTENDANCE_TIMEZONE', env('REPORTS_TIMEZONE', 'Asia/Kathmandu')),
 
     /*
+    | Live selfie taken with the front camera at every check-in / check-out.
+    | Fake GPS cannot fake the photo's surroundings, so managers can verify
+    | where the punch really happened. Stored on the private disk.
+    */
+    'selfie' => [
+        'required' => (bool) env('ATTENDANCE_SELFIE_REQUIRED', true),
+        'max_kb' => (int) env('ATTENDANCE_SELFIE_MAX_KB', 4096),
+    ],
+
+    /*
     | Anti-Mock Location & GPS Spoofing Detection Settings
     |
     | Field staff may attempt to enable "Select mock location app" in Android

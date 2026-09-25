@@ -8,14 +8,22 @@
 <div class="mx-auto max-w-xl space-y-6"
      x-data="attendanceTracker($wire, {
         elapsed: {{ $record && !$record->isCheckedOut() && $record->check_in_at ? max(0, now()->diffInSeconds($record->check_in_at)) : 0 }},
-        hasActiveRecord: {{ ($record && !$record->isCheckedOut()) ? 'true' : 'false' }}
+        hasActiveRecord: {{ ($record && !$record->isCheckedOut()) ? 'true' : 'false' }},
+        selfieRequired: {{ $selfieRequired ? 'true' : 'false' }}
      })">
 
     {{-- Must live inside the root element: Livewire binds the component to the first top-level tag. --}}
 <script>
 window.attendanceTracker = function($wireInstance, config) {
+    // Kept outside Alpine's reactive state: a proxied MediaStream cannot be assigned to <video>.srcObject.
+    let cameraStream = null;
+
     return {
         busy: false,
+        showCamera: false,
+        cameraReady: false,
+        cameraError: '',
+        pendingPunch: null,
         statusText: '',
         clientError: '',
         showAccuracyModal: false,
@@ -175,41 +183,19 @@ window.attendanceTracker = function($wireInstance, config) {
                 this.statusText = '';
             }
         },
+        // Punch from the accuracy pop-up, reusing the fixes it already collected.
         async submitPosition(action) {
             if (this.busy) return;
-            this.busy = true;
-            this.clientError = '';
-            this.statusText = 'Recording attendance…';
 
-            const wire = $wireInstance || this.$wire;
-            const pos = this.accuracyData.rawPos;
-
-            if (!pos) {
-                this.busy = false;
+            const fixes = this.accuracyData.rawFixes;
+            if (!fixes || !fixes.length) {
                 return this.capture(action);
             }
 
-            try {
-                const telemetry = this.telemetryFrom(this.accuracyData.rawFixes || [pos]);
-
-                if (!wire || typeof wire[action] !== 'function') {
-                    throw new Error('Connection initializing. Please refresh the page and try again.');
-                }
-
-                await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
-
-                if (wire.error) {
-                    this.clientError = wire.error;
-                }
-
-                this.showAccuracyModal = false;
-                this.busy = false;
-                this.statusText = '';
-            } catch (err) {
-                this.busy = false;
-                this.statusText = '';
-                this.handleError(err, wire);
-            }
+            this.busy = true;
+            this.clientError = '';
+            this.showAccuracyModal = false;
+            await this.proceedToPunch(action, fixes);
         },
         async capture(action) {
             if (this.busy) return;
@@ -222,13 +208,12 @@ window.attendanceTracker = function($wireInstance, config) {
             try {
                 this.statusText = 'Acquiring GPS fix…';
                 const fixes = await this.collectSamples();
-                const pos = fixes[fixes.length - 1];
 
-                this.evaluateAccuracy(pos, fixes);
-                this.showAccuracyModal = true;
+                this.evaluateAccuracy(fixes[fixes.length - 1], fixes);
 
-                // Check 1: Synthetic 0m or <= 0.5m accuracy (typical mock location marker)
+                // Synthetic 0m or <= 0.5m accuracy (typical mock location marker)
                 if (this.accuracyData.isMock) {
+                    this.showAccuracyModal = true;
                     this.busy = false;
                     this.statusText = '';
                     this.clientError = 'Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins. Please disable "Select mock location app" in Developer Options.';
@@ -238,28 +223,128 @@ window.attendanceTracker = function($wireInstance, config) {
                     return;
                 }
 
-                this.statusText = 'Verifying coordinates…';
+                await this.proceedToPunch(action, fixes);
+            } catch (err) {
+                this.busy = false;
+                this.statusText = '';
+                this.handleError(err, wire);
+            }
+        },
+        async proceedToPunch(action, fixes) {
+            if (config.selfieRequired) {
+                return this.openCamera(action, fixes);
+            }
 
-                const telemetry = this.telemetryFrom(fixes);
+            return this.submitFixes(action, fixes);
+        },
+        async openCamera(action, fixes) {
+            this.pendingPunch = { action, fixes };
+            this.cameraError = '';
+            this.cameraReady = false;
+            this.showCamera = true;
+            this.statusText = 'Waiting for selfie…';
+
+            try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('This browser cannot open the camera. Please use Google Chrome or Safari.');
+                }
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } },
+                    audio: false,
+                });
+                const video = this.$refs.selfieVideo;
+                video.srcObject = cameraStream;
+                await video.play();
+                this.cameraReady = true;
+            } catch (err) {
+                this.stopCamera();
+                this.cameraError = err?.name === 'NotAllowedError'
+                    ? 'Camera permission denied. Please allow camera access for this site in your browser settings, then try again.'
+                    : (err?.message || 'Could not open the camera. Please try again.');
+            }
+        },
+        stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach((track) => track.stop());
+                cameraStream = null;
+            }
+            this.cameraReady = false;
+        },
+        cancelCamera() {
+            this.stopCamera();
+            this.showCamera = false;
+            this.pendingPunch = null;
+            this.busy = false;
+            this.statusText = '';
+        },
+        // Snapshot the live video (never a gallery file), stamped with time and GPS for the manager.
+        async takeSelfie() {
+            const video = this.$refs.selfieVideo;
+            if (!this.cameraReady || !video.videoWidth || !this.pendingPunch) return;
+
+            const { action, fixes } = this.pendingPunch;
+            const pos = fixes[fixes.length - 1];
+            const scale = Math.min(1, 720 / video.videoWidth);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const barHeight = Math.max(44, Math.round(canvas.height * 0.08));
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+            ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${Math.round(barHeight * 0.32)}px sans-serif`;
+            ctx.fillText(new Date().toLocaleString(), 12, canvas.height - barHeight * 0.55);
+            ctx.fillText(`${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)} ±${Math.round(pos.coords.accuracy)}m`, 12, canvas.height - barHeight * 0.15);
+
+            this.stopCamera();
+            this.showCamera = false;
+            this.pendingPunch = null;
+
+            const wire = $wireInstance || this.$wire;
+            try {
+                this.statusText = 'Uploading selfie…';
+                const blob = await new Promise((resolve, reject) => canvas.toBlob(
+                    (b) => b ? resolve(b) : reject(new Error('Could not capture the photo. Please try again.')),
+                    'image/jpeg',
+                    0.8
+                ));
+                const uploaded = await wire.$upload('selfie', new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
+                if (!uploaded) {
+                    throw new Error('Selfie upload was cancelled. Please try again.');
+                }
+                await this.submitFixes(action, fixes);
+            } catch (err) {
+                this.busy = false;
+                this.statusText = '';
+                this.handleError(err, wire);
+            }
+        },
+        async submitFixes(action, fixes) {
+            const wire = $wireInstance || this.$wire;
+            const pos = fixes[fixes.length - 1];
+
+            try {
+                this.statusText = 'Recording attendance…';
 
                 if (!wire || typeof wire[action] !== 'function') {
                     throw new Error('Connection initializing. Please refresh the page and try again.');
                 }
 
-                await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
+                await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, this.telemetryFrom(fixes));
 
                 if (wire.error) {
                     this.clientError = wire.error;
                 } else {
                     this.showAccuracyModal = false;
                 }
-
-                this.busy = false;
-                this.statusText = '';
             } catch (err) {
+                this.handleError(err, wire);
+            } finally {
                 this.busy = false;
                 this.statusText = '';
-                this.handleError(err, wire);
             }
         },
         handleError(err, wire) {
@@ -373,6 +458,43 @@ window.attendanceTracker = function($wireInstance, config) {
                 <svg class="h-3.5 w-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
                 <span>Test GPS Accuracy Popup &rarr;</span>
             </button>
+        </div>
+    </div>
+
+    {{-- Live Selfie Camera Modal --}}
+    <div x-show="showCamera"
+         x-cloak
+         x-transition.opacity
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
+        <div class="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl text-center space-y-4">
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900"
+                    x-text="pendingPunch?.action === 'checkOut' ? 'Selfie to Check Out' : 'Selfie to Check In'">Selfie to Punch</h3>
+                <p class="text-xs text-slate-500 mt-1">Hold the phone so your face and surroundings are visible.</p>
+            </div>
+
+            <div class="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-slate-900">
+                <video x-ref="selfieVideo" autoplay playsinline muted class="h-full w-full object-cover -scale-x-100"></video>
+                <div x-show="!cameraReady && !cameraError" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white/80">
+                    Opening camera…
+                </div>
+                <div x-show="cameraError" class="absolute inset-0 flex items-center justify-center p-5 text-xs font-bold text-rose-100 bg-rose-900/80" x-text="cameraError"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button"
+                        @click="cancelCamera()"
+                        class="rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 py-3 text-xs font-bold text-slate-700 transition cursor-pointer">
+                    Cancel
+                </button>
+                <button type="button"
+                        @click="cameraError ? openCamera(pendingPunch.action, pendingPunch.fixes) : takeSelfie()"
+                        :disabled="!cameraReady && !cameraError"
+                        class="rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 py-3 text-xs font-extrabold text-white transition shadow-md cursor-pointer disabled:opacity-60"
+                        x-text="cameraError ? 'Try Again' : 'Take Photo & Punch'">
+                    Take Photo &amp; Punch
+                </button>
+            </div>
         </div>
     </div>
 

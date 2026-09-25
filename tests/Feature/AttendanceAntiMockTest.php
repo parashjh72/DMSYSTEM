@@ -7,7 +7,9 @@ use App\Models\TsoAttendance;
 use App\Models\User;
 use App\Services\AttendanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use RuntimeException;
 use Spatie\Permission\Models\Role;
@@ -25,6 +27,7 @@ class AttendanceAntiMockTest extends TestCase
     {
         parent::setUp();
         config(['attendance.reverse_geocode' => false]);
+        Storage::fake(TsoAttendance::SELFIE_DISK);
         $this->service = app(AttendanceService::class);
         Role::findOrCreate('TSO');
         $this->user = User::factory()->create();
@@ -208,6 +211,7 @@ class AttendanceAntiMockTest extends TestCase
 
         Livewire::actingAs($this->user)
             ->test(Attendance::class)
+            ->set('selfie', UploadedFile::fake()->image('selfie.jpg'))
             ->call('checkIn', 27.7172450, 85.3240450, 10.0, [
                 'samples' => [
                     ['lat' => 27.7172450, 'lng' => 85.3240450, 'accuracy' => 10.0],

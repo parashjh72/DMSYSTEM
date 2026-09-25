@@ -6,16 +6,25 @@ use App\Models\PjpDay;
 use App\Models\TsoAttendance;
 use App\Services\AttendanceService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use RuntimeException;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 #[Layout('components.layouts.app')]
 #[Title('Attendance')]
 class Attendance extends Component
 {
+    use WithFileUploads;
+
     public ?string $error = null;
+
+    /** Live front-camera photo taken in the browser just before the punch. */
+    public ?TemporaryUploadedFile $selfie = null;
 
     public function mount(): void
     {
@@ -30,16 +39,21 @@ class Attendance extends Component
 
         if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 1) {
             $this->error = 'Live GPS verification required. Please tap punch and wait for location acquisition.';
+
+            return;
+        }
+
+        if (! $this->selfieIsValid()) {
             return;
         }
 
         try {
             $gps = compact('latitude', 'longitude', 'accuracy');
             $gps['telemetry'] = $telemetry;
-            $service->checkIn(auth()->user(), $gps);
+            DB::transaction(fn () => $this->storeSelfie($service->checkIn(auth()->user(), $gps), 'check_in'));
             session()->flash('status', 'Checked in successfully.');
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Attendance checkIn error: ' . $e->getMessage(), [
+            Log::warning('Attendance checkIn error: '.$e->getMessage(), [
                 'user_id' => auth()->id(),
                 'exception' => get_class($e),
             ]);
@@ -54,16 +68,21 @@ class Attendance extends Component
 
         if (empty($telemetry['samples']) || ! is_array($telemetry['samples']) || count($telemetry['samples']) < 1) {
             $this->error = 'Live GPS verification required. Please tap punch and wait for location acquisition.';
+
+            return;
+        }
+
+        if (! $this->selfieIsValid()) {
             return;
         }
 
         try {
             $gps = compact('latitude', 'longitude', 'accuracy');
             $gps['telemetry'] = $telemetry;
-            $service->checkOut(auth()->user(), $gps);
+            DB::transaction(fn () => $this->storeSelfie($service->checkOut(auth()->user(), $gps), 'check_out'));
             session()->flash('status', 'Checked out successfully.');
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Attendance checkOut error: ' . $e->getMessage(), [
+            Log::warning('Attendance checkOut error: '.$e->getMessage(), [
                 'user_id' => auth()->id(),
                 'exception' => get_class($e),
             ]);
@@ -71,9 +90,44 @@ class Attendance extends Component
         }
     }
 
+    /** Validates the punch selfie, putting the first problem into the error banner. */
+    private function selfieIsValid(): bool
+    {
+        if (! config('attendance.selfie.required') && $this->selfie === null) {
+            return true;
+        }
+
+        $validator = Validator::make(['selfie' => $this->selfie], [
+            'selfie' => ['required', 'image', 'max:'.config('attendance.selfie.max_kb')],
+        ], [
+            'selfie.required' => 'A live selfie is required to punch attendance. Please allow camera access and take a photo.',
+            'selfie.image' => 'The selfie must be a photo.',
+            'selfie.max' => 'The selfie is too large. Please try again.',
+        ]);
+
+        if ($validator->fails()) {
+            $this->error = $validator->errors()->first('selfie');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /** @param  'check_in'|'check_out'  $type */
+    private function storeSelfie(TsoAttendance $record, string $type): void
+    {
+        if ($this->selfie === null) {
+            return;
+        }
+
+        $this->selfie->storeAs(dirname($record->selfiePath($type)), basename($record->selfiePath($type)), TsoAttendance::SELFIE_DISK);
+        $this->selfie = null;
+    }
+
     public function reportGpsError(string $message): void
     {
-        \Illuminate\Support\Facades\Log::warning('Attendance GPS Error: ' . $message, [
+        Log::warning('Attendance GPS Error: '.$message, [
             'user_id' => auth()->id(),
             'user_name' => auth()->user()?->name,
         ]);
@@ -115,6 +169,7 @@ class Attendance extends Component
             'record' => $service->todayFor($user),
             'today' => $service->today(),
             'poorAccuracy' => (int) config('attendance.poor_accuracy_metres'),
+            'selfieRequired' => (bool) config('attendance.selfie.required'),
             'upcoming' => $this->upcoming(),
             'recentHistory' => TsoAttendance::query()
                 ->where('user_id', $user->id)
