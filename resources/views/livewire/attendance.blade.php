@@ -87,6 +87,7 @@ window.attendanceTracker = function($wireInstance, config) {
             }
 
             this.accuracyData = {
+                rawPos: pos,
                 accuracy: acc ? Math.round(acc * 10) / 10 : 0,
                 latitude: pos.coords.latitude ? pos.coords.latitude.toFixed(6) : '0.000000',
                 longitude: pos.coords.longitude ? pos.coords.longitude.toFixed(6) : '0.000000',
@@ -113,6 +114,45 @@ window.attendanceTracker = function($wireInstance, config) {
             } finally {
                 this.busy = false;
                 this.statusText = '';
+            }
+        },
+        async submitPosition(action) {
+            if (this.busy) return;
+            this.busy = true;
+            this.clientError = '';
+            this.statusText = 'Recording attendance…';
+
+            const wire = $wireInstance || this.$wire;
+            const pos = this.accuracyData.rawPos;
+
+            if (!pos) {
+                return this.capture(action);
+            }
+
+            try {
+                const telemetry = {
+                    samples: [{
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        alt: pos.coords.altitude,
+                        t: pos.timestamp
+                    }]
+                };
+
+                if (!wire || typeof wire[action] !== 'function') {
+                    throw new Error('Connection initializing. Please refresh the page and try again.');
+                }
+
+                await wire[action](pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, telemetry);
+
+                this.showAccuracyModal = false;
+                this.busy = false;
+                this.statusText = '';
+            } catch (err) {
+                this.busy = false;
+                this.statusText = '';
+                this.handleError(err, wire);
             }
         },
         async capture(action) {
@@ -305,31 +345,31 @@ window.attendanceTracker = function($wireInstance, config) {
              x-transition:leave="transition ease-in duration-150"
              x-transition:leave-start="opacity-100 scale-100"
              x-transition:leave-end="opacity-0 scale-95"
-             class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 text-center relative overflow-hidden space-y-4">
+             class="w-full max-w-sm rounded-3xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-100 text-center relative flex flex-col gap-3.5">
 
-            {{-- Close Button --}}
-            <button type="button"
-                    @click="showAccuracyModal = false"
-                    class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-
-            {{-- Icon & Heading --}}
-            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
-                 :class="accuracyData.isMock ? 'bg-rose-50 text-rose-600 ring-8 ring-rose-50/50' : 'bg-indigo-50 text-indigo-600 ring-8 ring-indigo-50/50'">
-                <template x-if="accuracyData.isMock">
-                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                </template>
-                <template x-if="!accuracyData.isMock">
-                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="9" stroke-width="2"/>
-                        <circle cx="12" cy="12" r="3" stroke-width="2"/>
-                        <line x1="12" y1="2" x2="12" y2="5" stroke-width="2"/>
-                        <line x1="12" y1="19" x2="12" y2="22" stroke-width="2"/>
-                        <line x1="2" y1="12" x2="5" y2="12" stroke-width="2"/>
-                        <line x1="19" y1="12" x2="22" y2="12" stroke-width="2"/>
-                    </svg>
-                </template>
+            {{-- Header Row with Center Icon and Right Close Button --}}
+            <div class="relative flex items-center justify-center pt-1">
+                <div class="flex h-14 w-14 items-center justify-center rounded-2xl shadow-xs"
+                     :class="accuracyData.isMock ? 'bg-rose-50 text-rose-600 ring-8 ring-rose-50/50' : 'bg-indigo-50 text-indigo-600 ring-8 ring-indigo-50/50'">
+                    <template x-if="accuracyData.isMock">
+                        <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </template>
+                    <template x-if="!accuracyData.isMock">
+                        <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="3" stroke-width="2"/>
+                            <line x1="12" y1="2" x2="12" y2="5" stroke-width="2"/>
+                            <line x1="12" y1="19" x2="12" y2="22" stroke-width="2"/>
+                            <line x1="2" y1="12" x2="5" y2="12" stroke-width="2"/>
+                            <line x1="19" y1="12" x2="22" y2="12" stroke-width="2"/>
+                        </svg>
+                    </template>
+                </div>
+                <button type="button"
+                        @click="showAccuracyModal = false"
+                        class="absolute right-0 top-0 text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition cursor-pointer">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
             <div>
@@ -378,8 +418,8 @@ window.attendanceTracker = function($wireInstance, config) {
                 </div>
             </div>
 
-            {{-- Footer button --}}
-            <div class="pt-2">
+            {{-- Footer Actions --}}
+            <div class="pt-1 space-y-2">
                 <template x-if="accuracyData.isMock">
                     <button type="button"
                             @click="showAccuracyModal = false"
@@ -388,11 +428,40 @@ window.attendanceTracker = function($wireInstance, config) {
                     </button>
                 </template>
                 <template x-if="!accuracyData.isMock">
-                    <button type="button"
-                            @click="showAccuracyModal = false"
-                            class="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 py-3 text-xs font-extrabold text-white transition shadow-sm cursor-pointer">
-                        OK, Looks Good
-                    </button>
+                    <div class="space-y-2">
+                        @if (! $record)
+                            <button type="button"
+                                    :disabled="busy"
+                                    @click="submitPosition('checkIn')"
+                                    class="w-full rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 py-3 px-4 text-xs font-extrabold text-white transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75">
+                                <template x-if="busy">
+                                    <svg class="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                </template>
+                                <template x-if="!busy">
+                                    <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                </template>
+                                <span x-text="busy ? (statusText || 'Submitting…') : 'Punch In with this Location'">Punch In with this Location</span>
+                            </button>
+                        @elseif (! $record->isCheckedOut())
+                            <button type="button"
+                                    :disabled="busy"
+                                    @click="submitPosition('checkOut')"
+                                    class="w-full rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 active:scale-95 py-3 px-4 text-xs font-extrabold text-white transition shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75">
+                                <template x-if="busy">
+                                    <svg class="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                </template>
+                                <template x-if="!busy">
+                                    <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                </template>
+                                <span x-text="busy ? (statusText || 'Submitting…') : 'Punch Out with this Location'">Punch Out with this Location</span>
+                            </button>
+                        @endif
+                        <button type="button"
+                                @click="showAccuracyModal = false"
+                                class="w-full rounded-2xl bg-slate-100 hover:bg-slate-200 active:scale-95 py-2.5 text-xs font-bold text-slate-700 transition cursor-pointer">
+                            Close
+                        </button>
+                    </div>
                 </template>
             </div>
         </div>
