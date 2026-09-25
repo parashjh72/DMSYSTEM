@@ -11,6 +11,17 @@ window.attendanceTracker = function($wireInstance, config) {
         busy: false,
         statusText: '',
         clientError: '',
+        showAccuracyModal: false,
+        accuracyData: {
+            accuracy: 0,
+            latitude: '0.000000',
+            longitude: '0.000000',
+            altitude: 'N/A',
+            timestamp: '',
+            quality: 'Checking…',
+            isMock: false,
+            message: '',
+        },
         currentTime: '',
         elapsedSeconds: config.elapsed || 0,
         timerInterval: null,
@@ -33,6 +44,77 @@ window.attendanceTracker = function($wireInstance, config) {
             const s = String(this.elapsedSeconds % 60).padStart(2, '0');
             return `${h}h ${m}m ${s}s`;
         },
+        acquireGps() {
+            if (! ('geolocation' in navigator)) {
+                throw new Error('This browser does not support GPS location. Please open in Google Chrome or Safari.');
+            }
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, (err) => {
+                    // Fallback to network/wifi location if pure satellite GNSS times out indoors
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: false,
+                        timeout: 8000,
+                        maximumAge: 5000
+                    });
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 12000,
+                    maximumAge: 0
+                });
+            });
+        },
+        evaluateAccuracy(pos) {
+            const acc = pos.coords.accuracy;
+            const isMock = acc <= 0.5;
+            let quality = 'Good';
+            let message = 'Authentic satellite GPS fix.';
+
+            if (isMock) {
+                quality = 'Mock Location Detected (0m)';
+                message = 'Suspicious 0m accuracy detected. Real satellite signals always have natural accuracy margins (5m–25m). Turn off Fake GPS in Android Developer Options.';
+            } else if (acc <= 10) {
+                quality = 'Excellent (Satellite GNSS)';
+                message = 'High-precision satellite lock. Verified authentic.';
+            } else if (acc <= 30) {
+                quality = 'Good (Standard GPS)';
+                message = 'Reliable physical position. Natural satellite variance verified.';
+            } else if (acc <= 75) {
+                quality = 'Moderate (Assisted Fix)';
+                message = 'Indoor or cellular network position fix.';
+            } else {
+                quality = 'Low Precision (>75m)';
+                message = 'Wide margin of error. For best results, move closer to an open window or outdoors.';
+            }
+
+            this.accuracyData = {
+                accuracy: acc ? Math.round(acc * 10) / 10 : 0,
+                latitude: pos.coords.latitude ? pos.coords.latitude.toFixed(6) : '0.000000',
+                longitude: pos.coords.longitude ? pos.coords.longitude.toFixed(6) : '0.000000',
+                altitude: (pos.coords.altitude !== null && pos.coords.altitude !== undefined) ? Math.round(pos.coords.altitude) + 'm' : 'N/A',
+                timestamp: new Date(pos.timestamp).toLocaleTimeString(),
+                quality: quality,
+                isMock: isMock,
+                message: message,
+            };
+        },
+        async testGpsAccuracy() {
+            if (this.busy) return;
+            this.busy = true;
+            this.clientError = '';
+            this.statusText = 'Querying GPS…';
+            const wire = $wireInstance || this.$wire;
+
+            try {
+                const pos = await this.acquireGps();
+                this.evaluateAccuracy(pos);
+                this.showAccuracyModal = true;
+            } catch (err) {
+                this.handleError(err, wire);
+            } finally {
+                this.busy = false;
+                this.statusText = '';
+            }
+        },
         async capture(action) {
             if (this.busy) return;
             this.busy = true;
@@ -41,39 +123,18 @@ window.attendanceTracker = function($wireInstance, config) {
 
             const wire = $wireInstance || this.$wire;
 
-            // 1. Geolocation Support Check
-            if (! ('geolocation' in navigator)) {
-                this.busy = false;
-                this.statusText = '';
-                this.clientError = 'This device browser does not support GPS location. Please open in Chrome or Safari with location allowed.';
-                if (wire && typeof wire.reportGpsError === 'function') {
-                    try { await wire.reportGpsError(this.clientError); } catch (e) {}
-                }
-                return;
-            }
-
-            const getPosition = (opts) => {
-                return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, opts);
-                });
-            };
-
             try {
                 this.statusText = 'Acquiring GPS fix…';
-                let pos;
-                try {
-                    pos = await getPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
-                } catch (gpsErr) {
-                    // If satellite GPS times out indoors, gracefully fall back to network/wifi location
-                    this.statusText = 'Acquiring location…';
-                    pos = await getPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 5000 });
-                }
+                const pos = await this.acquireGps();
+
+                this.evaluateAccuracy(pos);
+                this.showAccuracyModal = true;
 
                 // Check 1: Synthetic 0m or <= 0.5m accuracy (typical mock location marker)
-                if (pos.coords.accuracy <= 0.5) {
+                if (this.accuracyData.isMock) {
                     this.busy = false;
                     this.statusText = '';
-                    this.clientError = 'Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins.';
+                    this.clientError = 'Developer Mock Location detected: Suspicious 0m accuracy. Real satellite GPS signals have natural accuracy margins. Please disable "Select mock location app" in Developer Options.';
                     if (wire && typeof wire.reportGpsError === 'function') {
                         try { await wire.reportGpsError(this.clientError); } catch (e) {}
                     }
@@ -103,20 +164,23 @@ window.attendanceTracker = function($wireInstance, config) {
             } catch (err) {
                 this.busy = false;
                 this.statusText = '';
-                console.error('Attendance GPS error:', err);
-                const msg = {
-                    1: 'GPS permission denied. Please allow location access in your browser settings.',
-                    2: 'Location is unavailable right now. Move near a window or outdoors and retry.',
-                    3: 'GPS request timed out. Please ensure Location is enabled in High Accuracy mode and try again.',
-                }[err?.code] || (err?.message ? err.message : 'Could not acquire location. Please try again.');
-                
-                this.clientError = msg;
-                if (wire && typeof wire.reportGpsError === 'function') {
-                    try {
-                        await wire.reportGpsError(msg);
-                    } catch (e) {
-                        console.error('Failed to report GPS error to server:', e);
-                    }
+                this.handleError(err, wire);
+            }
+        },
+        handleError(err, wire) {
+            console.error('Attendance GPS error:', err);
+            const msg = {
+                1: 'GPS permission denied. Please allow location access in your browser settings (Chrome/Safari).',
+                2: 'Location is unavailable right now. Please turn ON location/GPS in phone quick settings.',
+                3: 'GPS request timed out. Please ensure Location is enabled in High Accuracy mode and try again.',
+            }[err?.code] || (err?.message ? err.message : 'Could not acquire location. Please try again.');
+            
+            this.clientError = msg;
+            if (wire && typeof wire.reportGpsError === 'function') {
+                try {
+                    wire.reportGpsError(msg);
+                } catch (e) {
+                    console.error('Failed to report GPS error to server:', e);
                 }
             }
         }
@@ -169,18 +233,170 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     </div>
 
-    {{-- Error Alert --}}
-    <div x-show="clientError" x-cloak class="rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-800 border border-rose-200 shadow-xs flex items-start gap-3 animate-headShake">
-        <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        <div class="flex-1 leading-relaxed" x-text="clientError"></div>
-        <button type="button" @click="clientError = ''" class="text-rose-500 hover:text-rose-700 font-bold ml-2">×</button>
-    </div>
-    @if ($error)
-        <div class="rounded-2xl bg-rose-50 p-4 text-xs font-semibold text-rose-800 border border-rose-200 shadow-xs flex items-start gap-3 animate-headShake">
-            <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-            <div class="flex-1 leading-relaxed">{{ $error }}</div>
+    {{-- Success Alert --}}
+    @if (session()->has('status'))
+        <div class="rounded-2xl bg-emerald-50 p-4 text-xs font-bold text-emerald-800 border border-emerald-200 shadow-xs flex items-center justify-between gap-3 animate-headShake">
+            <div class="flex items-center gap-2.5">
+                <svg class="h-5 w-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                <span>{{ session('status') }}</span>
+            </div>
         </div>
     @endif
+
+    {{-- Comprehensive Error Alert (Client & Server) --}}
+    <div x-show="clientError || {{ $error ? 'true' : 'false' }}"
+         x-cloak
+         class="rounded-2xl bg-rose-50 p-4 sm:p-5 text-xs text-rose-900 border border-rose-200 shadow-xs space-y-3 animate-headShake">
+        <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-2.5">
+                <svg class="h-5 w-5 shrink-0 text-rose-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div class="flex-1">
+                    <div class="font-extrabold text-sm text-rose-800">Attendance Error</div>
+                    <div class="font-medium text-rose-700 mt-1 leading-relaxed" x-text="clientError || '{{ addslashes($error ?? '') }}'">
+                        {{ $error }}
+                    </div>
+                </div>
+            </div>
+            <button type="button" @click="clientError = ''" class="text-rose-400 hover:text-rose-700 font-bold text-base p-1 leading-none">&times;</button>
+        </div>
+
+        {{-- Troubleshooting Guidance Checklist --}}
+        <div class="border-t border-rose-200/60 pt-3 text-[11px] text-rose-800 space-y-1.5 bg-rose-100/40 p-3 rounded-xl">
+            <div class="font-bold uppercase tracking-wider text-[10px] text-rose-600">Quick Resolution Checklist:</div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                <span>Ensure device <strong>Location (GPS)</strong> is turned ON in phone settings.</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                <span>Allow browser location permission in Chrome/Safari address bar.</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                <span>Disable <strong>Fake GPS</strong> or <em>"Select mock location app"</em> in Developer Options.</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-1">
+            <button type="button"
+                    @click="testGpsAccuracy()"
+                    class="rounded-xl bg-white border border-rose-200 px-3.5 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs cursor-pointer flex items-center gap-1.5">
+                <svg class="h-3.5 w-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+                <span>Test GPS Accuracy Popup &rarr;</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- Accuracy Diagnostics Pop-Up Modal --}}
+    <div x-show="showAccuracyModal"
+         x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+
+        <div @click.away="showAccuracyModal = false"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             class="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 text-center relative overflow-hidden space-y-4">
+
+            {{-- Close Button --}}
+            <button type="button"
+                    @click="showAccuracyModal = false"
+                    class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+
+            {{-- Icon & Heading --}}
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
+                 :class="accuracyData.isMock ? 'bg-rose-50 text-rose-600 ring-8 ring-rose-50/50' : 'bg-indigo-50 text-indigo-600 ring-8 ring-indigo-50/50'">
+                <template x-if="accuracyData.isMock">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                </template>
+                <template x-if="!accuracyData.isMock">
+                    <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="3" stroke-width="2"/>
+                        <line x1="12" y1="2" x2="12" y2="5" stroke-width="2"/>
+                        <line x1="12" y1="19" x2="12" y2="22" stroke-width="2"/>
+                        <line x1="2" y1="12" x2="5" y2="12" stroke-width="2"/>
+                        <line x1="19" y1="12" x2="22" y2="12" stroke-width="2"/>
+                    </svg>
+                </template>
+            </div>
+
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">GPS Accuracy Report</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Live reading from your device hardware</p>
+            </div>
+
+            {{-- Main Accuracy Display --}}
+            <div class="rounded-2xl p-4 border"
+                 :class="accuracyData.isMock ? 'bg-rose-50/80 border-rose-200' : (accuracyData.accuracy <= 20 ? 'bg-emerald-50/80 border-emerald-200' : 'bg-blue-50/80 border-blue-200')">
+                <div class="text-[10px] font-bold uppercase tracking-wider"
+                     :class="accuracyData.isMock ? 'text-rose-600' : (accuracyData.accuracy <= 20 ? 'text-emerald-700' : 'text-blue-700')">
+                    Reported Accuracy Margin
+                </div>
+                <div class="mt-1 font-mono text-3xl font-extrabold tracking-tight"
+                     :class="accuracyData.isMock ? 'text-rose-700' : (accuracyData.accuracy <= 20 ? 'text-emerald-800' : 'text-blue-800')"
+                     x-text="'± ' + accuracyData.accuracy + 'm'">
+                    ± 0m
+                </div>
+                <div class="mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                     :class="accuracyData.isMock ? 'bg-rose-100 text-rose-800' : (accuracyData.accuracy <= 20 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800')"
+                     x-text="accuracyData.quality">
+                </div>
+                <p class="text-[11px] mt-2 leading-relaxed"
+                   :class="accuracyData.isMock ? 'text-rose-800 font-semibold' : 'text-slate-600'"
+                   x-text="accuracyData.message"></p>
+            </div>
+
+            {{-- Readings breakdown --}}
+            <div class="grid grid-cols-2 gap-2 text-left text-xs bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Latitude</span>
+                    <span class="font-mono font-bold text-slate-800" x-text="accuracyData.latitude"></span>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Longitude</span>
+                    <span class="font-mono font-bold text-slate-800" x-text="accuracyData.longitude"></span>
+                </div>
+                <div class="mt-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Altitude</span>
+                    <span class="font-mono font-bold text-slate-800" x-text="accuracyData.altitude"></span>
+                </div>
+                <div class="mt-1">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Fix Time</span>
+                    <span class="font-mono font-bold text-slate-800" x-text="accuracyData.timestamp"></span>
+                </div>
+            </div>
+
+            {{-- Footer button --}}
+            <div class="pt-2">
+                <template x-if="accuracyData.isMock">
+                    <button type="button"
+                            @click="showAccuracyModal = false"
+                            class="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 py-3 text-xs font-extrabold text-white transition shadow-sm cursor-pointer">
+                        Dismiss & Disable Fake GPS
+                    </button>
+                </template>
+                <template x-if="!accuracyData.isMock">
+                    <button type="button"
+                            @click="showAccuracyModal = false"
+                            class="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 py-3 text-xs font-extrabold text-white transition shadow-sm cursor-pointer">
+                        OK, Looks Good
+                    </button>
+                </template>
+            </div>
+        </div>
+    </div>
 
     {{-- Main Tactile Punch Card --}}
     @if (! $record)
@@ -228,9 +444,18 @@ window.attendanceTracker = function($wireInstance, config) {
                 </button>
             </div>
 
-            <div class="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3.5 py-1.5 text-[11px] font-medium text-slate-600 border border-slate-200/60">
-                <svg class="h-3.5 w-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                <span>Hardware GPS satellite jitter verification active</span>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <div class="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3.5 py-1.5 text-[11px] font-medium text-slate-600 border border-slate-200/60">
+                    <svg class="h-3.5 w-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span>Hardware GPS satellite verification active</span>
+                </div>
+                <button type="button"
+                        :disabled="busy"
+                        @click="testGpsAccuracy()"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-3 py-1.5 text-[11px] font-bold text-indigo-700 transition cursor-pointer border border-indigo-200/60 shadow-2xs">
+                    <svg class="h-3.5 w-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+                    <span>View GPS Accuracy Pop-up</span>
+                </button>
             </div>
         </div>
     @elseif (! $record->isCheckedOut())
@@ -274,6 +499,16 @@ window.attendanceTracker = function($wireInstance, config) {
                             </div>
                         </template>
                     </div>
+                </button>
+            </div>
+
+            <div class="mb-4 flex items-center justify-center">
+                <button type="button"
+                        :disabled="busy"
+                        @click="testGpsAccuracy()"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 active:scale-95 px-3 py-1.5 text-[11px] font-bold text-indigo-700 transition cursor-pointer border border-indigo-200/60 shadow-2xs">
+                    <svg class="h-3.5 w-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke-width="2"/></svg>
+                    <span>View Live GPS Accuracy Pop-up</span>
                 </button>
             </div>
 

@@ -37,8 +37,12 @@ class Attendance extends Component
             $gps = compact('latitude', 'longitude', 'accuracy');
             $gps['telemetry'] = $telemetry;
             $service->checkIn(auth()->user(), $gps);
-            session()->flash('status', 'Checked in.');
-        } catch (RuntimeException $e) {
+            session()->flash('status', 'Checked in successfully.');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Attendance checkIn error: ' . $e->getMessage(), [
+                'user_id' => auth()->id(),
+                'exception' => get_class($e),
+            ]);
             $this->error = $e->getMessage();
         }
     }
@@ -57,8 +61,12 @@ class Attendance extends Component
             $gps = compact('latitude', 'longitude', 'accuracy');
             $gps['telemetry'] = $telemetry;
             $service->checkOut(auth()->user(), $gps);
-            session()->flash('status', 'Checked out.');
-        } catch (RuntimeException $e) {
+            session()->flash('status', 'Checked out successfully.');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Attendance checkOut error: ' . $e->getMessage(), [
+                'user_id' => auth()->id(),
+                'exception' => get_class($e),
+            ]);
             $this->error = $e->getMessage();
         }
     }
