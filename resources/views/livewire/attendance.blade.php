@@ -311,10 +311,15 @@ window.attendanceTracker = function($wireInstance, config) {
                     'image/jpeg',
                     0.8
                 ));
-                const uploaded = await wire.$upload('selfie', new File([blob], 'selfie.jpg', { type: 'image/jpeg' }));
-                if (!uploaded) {
-                    throw new Error('Selfie upload was cancelled. Please try again.');
-                }
+                // The installed Livewire's $upload is callback-based (it returns nothing), so wrap it.
+                await new Promise((resolve, reject) => wire.$upload(
+                    'selfie',
+                    new File([blob], 'selfie.jpg', { type: 'image/jpeg' }),
+                    () => resolve(),
+                    () => reject(new Error('Selfie upload failed. Please check your internet connection and try again.')),
+                    (event) => { this.statusText = `Uploading selfie… ${event?.detail?.progress ?? 0}%`; },
+                    () => reject(new Error('Selfie upload was cancelled. Please try again.'))
+                ));
                 await this.submitFixes(action, fixes);
             } catch (err) {
                 this.busy = false;
