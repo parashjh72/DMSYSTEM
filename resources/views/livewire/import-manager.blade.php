@@ -171,6 +171,18 @@
                     </select>
                 </div>
                 @endif
+                @if (in_array($review['kind'] ?? 'records', ['sell_through', 'activation'], true) && ! $sellThroughOnly)
+                <div class="sm:col-span-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5">
+                    <label class="flex items-start gap-2.5 text-xs text-amber-900 cursor-pointer">
+                        <input type="checkbox" wire:model="overwriteExisting" class="mt-0.5 rounded border-amber-300 text-amber-600">
+                        <span>
+                            <strong>Overwrite existing {{ ($review['kind'] ?? '') === 'activation' ? 'activation dates' : 'RT / ST date / RD' }}</strong>
+                            &mdash; also correct devices that already have {{ ($review['kind'] ?? '') === 'activation' ? 'an activation date' : 'a retailer' }} when the file differs.
+                            Every replaced value is saved to the audit log (old &rarr; new, batch, user). Empty cells never clear stored values.
+                        </span>
+                    </label>
+                </div>
+                @endif
                 <div>
                     <label class="label text-xs font-medium text-gray-700">Batch Chunk Size</label>
                     <select wire:model="chunkSize" class="input text-xs">

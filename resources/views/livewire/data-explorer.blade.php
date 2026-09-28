@@ -165,6 +165,9 @@
                             <td class="td text-slate-500">{{ $r->source }}</td>
                             <td class="td text-right">
                                 <span class="font-mono text-[11px] text-slate-400">#{{ $r->last_import_batch_id }}</span>
+                                @can('devices.edit')
+                                    <a href="{{ route('devices.edit', $r->imei) }}" wire:navigate class="ml-2 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800">Edit</a>
+                                @endcan
                             </td>
                         </tr>
                     @empty

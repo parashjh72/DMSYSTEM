@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Database\Factories\SalesActivationRecordFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
@@ -23,17 +25,21 @@ use Illuminate\Support\Carbon;
  */
 #[Fillable([
     'imei', 'model', 'tso', 'rd_code', 'rd_name', 'rt_code', 'rt_name',
-    'st_date', 'activation_date', 'sell_in_date', 'source',
+    'st_date', 'activation_date', 'sell_in_date', 'last_transfer_date', 'source',
     'first_import_batch_id', 'last_import_batch_id',
 ])]
 class SalesActivationRecord extends Model
 {
+    /** @use HasFactory<SalesActivationRecordFactory> */
+    use HasFactory;
+
     protected function casts(): array
     {
         return [
             'st_date' => 'date',
             'activation_date' => 'date',
             'sell_in_date' => 'date',
+            'last_transfer_date' => 'date',
             'activation_days' => 'integer',
             'is_activated' => 'boolean',
         ];

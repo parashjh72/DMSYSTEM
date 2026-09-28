@@ -29,6 +29,9 @@ class ImportManager extends Component
 
     public int $chunkSize = 5000;
 
+    /** Sell-through / activation: also correct devices that already carry an RT / activation date. */
+    public bool $overwriteExisting = false;
+
     /** records | sell_through | activation */
     public string $kind = 'records';
 
@@ -102,9 +105,10 @@ class ImportManager extends Component
             columnMap: array_map('intval', $this->review['map']),
             mode: ImportMode::from($this->mode),
             chunkSize: $this->chunkSize,
+            overwrite: $this->overwriteExisting && ! $this->sellThroughOnly(),
         );
 
-        $this->reset('file', 'review');
+        $this->reset('file', 'review', 'overwriteExisting');
         session()->flash('status', "Import queued for {$batch->original_filename}.");
         $this->redirectRoute('imports.show', ['batch' => $batch->uuid], navigate: true);
     }
@@ -114,7 +118,7 @@ class ImportManager extends Component
         if ($this->review) {
             ImportBatch::where('uuid', $this->review['uuid'])->delete();
         }
-        $this->reset('file', 'review');
+        $this->reset('file', 'review', 'overwriteExisting');
     }
 
     private function authorizePermission(): void

@@ -78,7 +78,11 @@
             <h2 class="text-xs font-bold uppercase tracking-wider text-gray-500 pb-2 border-b border-gray-100">Batch Configuration</h2>
             <dl class="mt-3 space-y-2 text-xs">
                 <div class="flex justify-between py-0.5"><dt class="text-gray-500">Pipeline Type</dt><dd class="font-medium text-gray-900">{{ $batch->kindLabel() }}</dd></div>
-                <div class="flex justify-between py-0.5"><dt class="text-gray-500">Import Mode</dt><dd class="font-medium text-gray-900">{{ $batch->import_mode->label() }}</dd></div>
+                @if ($batch->isRecords())
+                    <div class="flex justify-between py-0.5"><dt class="text-gray-500">Import Mode</dt><dd class="font-medium text-gray-900">{{ $batch->import_mode->label() }}</dd></div>
+                @else
+                    <div class="flex justify-between py-0.5"><dt class="text-gray-500">Overwrite Existing</dt><dd class="font-medium {{ $batch->overwrite_existing ? 'text-amber-700' : 'text-gray-900' }}">{{ $batch->overwrite_existing ? 'Yes — changes audited' : 'No — existing kept' }}</dd></div>
+                @endif
                 <div class="flex justify-between py-0.5"><dt class="text-gray-500">Chunk Size</dt><dd class="font-mono text-gray-900">{{ number_format($batch->chunk_size) }} rows</dd></div>
                 <div class="flex justify-between py-0.5"><dt class="text-gray-500">Submitted By</dt><dd class="font-medium text-gray-900">{{ $batch->creator?->name ?? '—' }}</dd></div>
                 <div class="flex justify-between py-0.5"><dt class="text-gray-500">Started</dt><dd class="text-gray-600">{{ $batch->started_at?->format('Y-m-d H:i') ?? '—' }}</dd></div>

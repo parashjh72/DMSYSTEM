@@ -10,6 +10,8 @@ use App\Livewire\Attendance;
 use App\Livewire\AttendanceReport;
 use App\Livewire\Dashboard;
 use App\Livewire\DataExplorer;
+use App\Livewire\DateConflicts;
+use App\Livewire\DeviceEdit;
 use App\Livewire\ExportManager;
 use App\Livewire\ImeiSearch;
 use App\Livewire\ImportDetail;
@@ -70,6 +72,8 @@ Route::middleware('auth')->group(function () {
     Route::get('imports/{batch}', ImportDetail::class)->middleware('can:imports.access')->name('imports.show');
 
     Route::get('explorer', DataExplorer::class)->middleware('can:explorer.view')->name('explorer');
+    Route::get('devices/{imei}/edit', DeviceEdit::class)->middleware('can:devices.edit')->name('devices.edit');
+    Route::get('data-integrity/date-conflicts', DateConflicts::class)->middleware('can:devices.edit')->name('date-conflicts');
     Route::get('reports', Reports::class)->middleware('can:reports.view')->name('reports');
     Route::get('stock-report', StockReport::class)->middleware('can:reports.view')->name('stock');
     Route::get('sellout-report', SelloutReport::class)->middleware('can:reports.view')->name('sellout');

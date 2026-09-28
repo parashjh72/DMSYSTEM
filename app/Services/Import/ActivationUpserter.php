@@ -2,6 +2,7 @@
 
 namespace App\Services\Import;
 
+use App\Models\DeviceAudit;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,13 +13,17 @@ use Illuminate\Support\Facades\DB;
  * re-running the same file cannot move an activation that is already recorded.
  * IMEIs not in the system are reported by the caller as not-found.
  * is_activated / activation_days are generated columns and update themselves.
+ *
+ * Overwrite mode (per-batch switch): a device whose stored activation date differs
+ * from the file is corrected too, and the replaced date is written to
+ * device_audits first. An empty incoming cell never clears a stored date.
  */
 class ActivationUpserter
 {
     /**
      * @return array{staged:int, matched:int, applied:int, skipped:int, not_found:int}
      */
-    public function apply(int $batchId, int $startRow, int $endRow): array
+    public function apply(int $batchId, int $startRow, int $endRow, bool $overwrite = false, ?int $userId = null): array
     {
         $bindings = ['batch' => $batchId, 'start' => $startRow, 'end' => $endRow];
 
@@ -39,16 +44,33 @@ class ActivationUpserter
             $bindings,
         )->c;
 
-        // Of the matched IMEIs, how many have no activation date yet.
+        // Eligible rows: no activation date yet, or (overwrite mode) a different one.
+        $eligible = $overwrite
+            ? 'NOT (r.activation_date <=> s.activation_date)'
+            : 'r.activation_date IS NULL';
+        $where = 'WHERE s.import_batch_id = :batch AND s.row_number BETWEEN :start AND :end
+                AND s.activation_date IS NOT NULL AND '.$eligible;
+        $now = now()->toDateTimeString();
+
         $applied = (int) DB::selectOne(
             'SELECT COUNT(*) c
                FROM import_staging_rows s
                JOIN sales_activation_records r ON r.imei = s.imei
-              WHERE s.import_batch_id = :batch AND s.row_number BETWEEN :start AND :end
-                AND r.activation_date IS NULL
-                AND s.activation_date IS NOT NULL',
+              '.$where,
             $bindings,
         )->c;
+
+        if ($overwrite) {
+            DB::statement(
+                "INSERT INTO device_audits (imei, field, old_value, new_value, source, import_batch_id, user_id, created_at)
+                 SELECT r.imei, 'activation_date', r.activation_date, s.activation_date, :source, :auditBatch, :user, :now
+                   FROM import_staging_rows s
+                   JOIN sales_activation_records r ON r.imei = s.imei
+                  {$where}
+                    AND r.activation_date IS NOT NULL",
+                $bindings + ['source' => DeviceAudit::SOURCE_ACTIVATION, 'auditBatch' => $batchId, 'user' => $userId, 'now' => $now],
+            );
+        }
 
         DB::statement(
             'UPDATE sales_activation_records r
@@ -56,11 +78,8 @@ class ActivationUpserter
                 SET r.activation_date = s.activation_date,
                     r.last_import_batch_id = :batchLast,
                     r.updated_at = :now
-              WHERE s.import_batch_id = :batch
-                AND s.row_number BETWEEN :start AND :end
-                AND r.activation_date IS NULL
-                AND s.activation_date IS NOT NULL',
-            $bindings + ['batchLast' => $batchId, 'now' => now()->toDateTimeString()],
+              '.$where,
+            $bindings + ['batchLast' => $batchId, 'now' => $now],
         );
 
         return [

@@ -112,8 +112,9 @@ class ImportService
      * Confirm mapping / options and queue the import.
      *
      * @param  array<string,int>|null  $columnMap  overrides the auto-resolved map
+     * @param  bool  $overwrite  sell-through / activation only: also correct devices that already carry the data
      */
-    public function start(ImportBatch $batch, ?array $columnMap = null, ?ImportMode $mode = null, ?int $chunkSize = null): void
+    public function start(ImportBatch $batch, ?array $columnMap = null, ?ImportMode $mode = null, ?int $chunkSize = null, bool $overwrite = false): void
     {
         $map = $columnMap ?? $batch->column_map ?? [];
 
@@ -128,6 +129,7 @@ class ImportService
             'column_map' => $map,
             'import_mode' => $mode ?? $batch->import_mode,
             'chunk_size' => $chunkSize ?: $batch->chunk_size,
+            'overwrite_existing' => $overwrite && ! $batch->isRecords() && empty($batch->scope_rd_codes),
             'status' => ImportStatus::Queued,
         ]);
 

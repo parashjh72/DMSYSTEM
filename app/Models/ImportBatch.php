@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 #[Fillable([
     'uuid', 'original_filename', 'stored_path', 'disk', 'file_type', 'file_size', 'file_hash', 'kind',
     'scope_rd_codes',
-    'column_map', 'import_mode', 'duplicate_strategy', 'status', 'chunk_size',
+    'column_map', 'import_mode', 'duplicate_strategy', 'overwrite_existing', 'status', 'chunk_size',
     'total_chunks', 'completed_chunks', 'total_rows', 'processed_rows', 'valid_rows',
     'invalid_rows', 'inserted_rows', 'updated_rows', 'skipped_rows', 'duplicate_rows',
     'failed_rows', 'error_message', 'started_at', 'completed_at', 'duration_seconds', 'created_by',
@@ -37,6 +37,7 @@ class ImportBatch extends Model
         return [
             'column_map' => 'array',
             'scope_rd_codes' => 'array',
+            'overwrite_existing' => 'boolean',
             'import_mode' => ImportMode::class,
             'status' => ImportStatus::class,
             'started_at' => 'datetime',
@@ -62,6 +63,11 @@ class ImportBatch extends Model
     public function cancelled(): bool
     {
         return $this->status === ImportStatus::Cancelled;
+    }
+
+    public function isRecords(): bool
+    {
+        return ! $this->isSellThrough() && ! $this->isActivation();
     }
 
     public function isSellThrough(): bool

@@ -68,6 +68,13 @@
                 <input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" wire:model="moveDistributor">
                 Also synchronize distributor (RD) assignment to match target retailer's primary RD
             </label>
+
+            <div class="max-w-xs">
+                <label class="label text-xs font-semibold text-gray-700">Transfer Date</label>
+                <input type="date" class="input text-xs" wire:model="transferDate" max="{{ now()->toDateString() }}">
+                <p class="mt-1 text-[11px] text-gray-500">Saved as its own dated event. Each device keeps its original ST date.</p>
+                @error('transferDate') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+            </div>
         </div>
 
         <div class="my-6 border-t border-gray-100"></div>
@@ -83,6 +90,12 @@
                 <textarea rows="6" wire:model="imeis" class="input font-mono text-xs leading-relaxed"
                           placeholder="Paste serials or IMEI numbers — one per line, space-delimited, or comma-separated"></textarea>
                 @error('imeis') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                <div>
+                    <label class="label text-xs font-semibold text-gray-700">…or upload an xlsx / csv</label>
+                    <input type="file" wire:model="imeiFile" accept=".csv,.txt,.xlsx" class="block w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-indigo-700">
+                    <p class="mt-1 text-[11px] text-gray-500">Uses the column headed "IMEI", or the first column if there is none.</p>
+                    @error('imeiFile') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                </div>
                 <div class="flex justify-end pt-2">
                     <button class="btn-primary text-xs flex items-center gap-1.5"
                             wire:click="transferImeis"
@@ -133,7 +146,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-left text-xs">
                     <thead class="bg-gray-50/75">
                         <tr>
-                            <th class="th">Timestamp</th>
+                            <th class="th">Transfer Date</th>
                             <th class="th">Transfer Mode</th>
                             <th class="th">Source Entity</th>
                             <th class="th">Destination Entity</th>
@@ -144,7 +157,10 @@
                     <tbody class="divide-y divide-gray-100 bg-white">
                     @forelse ($recent as $t)
                         <tr class="hover:bg-gray-50/75 transition">
-                            <td class="td text-gray-400 font-mono text-[11px]">{{ $t->created_at?->diffForHumans() }}</td>
+                            <td class="td text-gray-400 font-mono text-[11px]">
+                                {{ $t->transfer_date?->format('d M Y') ?? $t->created_at?->format('d M Y') }}
+                                <div class="text-gray-300">{{ $t->created_at?->diffForHumans() }}</div>
+                            </td>
                             <td class="td">
                                 <span class="badge {{ $t->mode === 'retailer' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700' }}">
                                     {{ $t->mode === 'retailer' ? 'Retailer Bulk'.($t->only_in_stock ? ' (Stock only)' : '') : 'IMEI List' }}

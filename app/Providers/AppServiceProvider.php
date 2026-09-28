@@ -28,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
         // who may only run the Sell-through import.
         Gate::define('imports.access', fn ($user) => $user->can('imports.view') || $user->can('imports.sell_through'));
 
+        // Hand-correcting a single device (and the date-conflict review list) is Admin-only.
+        Gate::define('devices.edit', fn ($user) => $user->hasAnyRole(['Super Admin', 'Admin']));
+
         // Scheduled Reports is a Super Admin-only feature.
         Gate::define('scheduled-reports.manage', fn ($user) => $user->hasRole('Super Admin'));
 

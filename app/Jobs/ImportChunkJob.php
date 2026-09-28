@@ -9,6 +9,7 @@ use App\Imports\SellThroughRowMapper;
 use App\Models\ImportBatch;
 use App\Models\ImportBatchChunk;
 use App\Services\Import\ActivationUpserter;
+use App\Services\Import\ImportDateGuard;
 use App\Services\Import\RecordUpserter;
 use App\Services\Import\SellThroughUpserter;
 use App\Services\Import\SpreadsheetReader;
@@ -46,7 +47,7 @@ class ImportChunkJob implements ShouldQueue
         public int $chunkNumber,
     ) {}
 
-    public function handle(RecordUpserter $upserter, SellThroughUpserter $sellThrough, ActivationUpserter $activation): void
+    public function handle(RecordUpserter $upserter, SellThroughUpserter $sellThrough, ActivationUpserter $activation, ImportDateGuard $dateGuard): void
     {
         $batch = ImportBatch::where('uuid', $this->batchUuid)->first();
         if (! $batch || $batch->cancelled()) {
@@ -110,8 +111,9 @@ class ImportChunkJob implements ShouldQueue
 
         $applied = ['inserted' => 0, 'updated' => 0, 'skipped' => 0];
         $notFound = 0;
+        $conflicts = 0;
 
-        DB::transaction(function () use ($batch, $chunk, $valid, $upserter, $sellThrough, $activation, $sell, $updateOnly, &$applied, &$notFound, &$errors) {
+        DB::transaction(function () use ($batch, $chunk, $valid, $upserter, $sellThrough, $activation, $dateGuard, $sell, $updateOnly, &$applied, &$notFound, &$conflicts, &$errors) {
             DB::table('import_staging_rows')
                 ->where('import_batch_id', $batch->id)
                 ->whereBetween('row_number', [$chunk->start_row, $chunk->end_row])
@@ -120,6 +122,15 @@ class ImportChunkJob implements ShouldQueue
             if ($valid !== []) {
                 foreach (array_chunk(array_values($valid), config('import.insert_batch', 2000)) as $slice) {
                     DB::table('import_staging_rows')->insert($slice);
+                }
+
+                // Impossible date orders (activation < ST, ST < sell-in) are held back for review.
+                $quarantined = $dateGuard->quarantine(
+                    $batch, $chunk->start_row, $chunk->end_row, $sell ? ($batch->scope_rd_codes ?: null) : null,
+                );
+                $conflicts = count($quarantined);
+                foreach ($quarantined as $row) {
+                    $errors[] = $this->errorRow($batch->id, $row['row_number'], 'date_conflict', $row['message'], [$row['imei']]);
                 }
 
                 if ($updateOnly) {
@@ -142,9 +153,11 @@ class ImportChunkJob implements ShouldQueue
                         $errors[] = $this->errorRow($batch->id, (int) $row->row_number, 'imei_not_found', $message, [$row->imei]);
                     }
 
+                    // Overwrite is only honoured on unscoped (full-access) imports.
+                    $overwrite = (bool) $batch->overwrite_existing && ! $scope;
                     $r = $sell
-                        ? $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row, $scope)
-                        : $activation->apply($batch->id, $chunk->start_row, $chunk->end_row);
+                        ? $sellThrough->apply($batch->id, $chunk->start_row, $chunk->end_row, $scope, $overwrite, $batch->created_by)
+                        : $activation->apply($batch->id, $chunk->start_row, $chunk->end_row, $overwrite, $batch->created_by);
                     // Existing IMEIs that already carry the info are skipped, not updated.
                     $applied = ['inserted' => 0, 'updated' => $r['applied'], 'skipped' => $r['skipped']];
                     $notFound = $r['not_found'];
@@ -176,7 +189,7 @@ class ImportChunkJob implements ShouldQueue
             'updated' => $applied['updated'],
             'skipped' => $applied['skipped'],
             'duplicates' => $duplicates,
-            'invalid' => $invalid,
+            'invalid' => $invalid + $conflicts,
             'failed' => $failedRows,
             'processed_at' => now(),
             'error_message' => null,
