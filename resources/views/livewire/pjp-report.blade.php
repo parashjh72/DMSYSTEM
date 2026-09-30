@@ -99,7 +99,7 @@
                     @empty
                         <tr>
                             <td colspan="9" class="py-12 text-center text-slate-400 text-xs">
-                                No PJP reports found for the selected criteria.
+                                No beat plan reports found for the selected criteria.
                             </td>
                         </tr>
                     @endforelse

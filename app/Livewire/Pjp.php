@@ -14,7 +14,7 @@ use Livewire\Component;
 use RuntimeException;
 
 #[Layout('components.layouts.app')]
-#[Title('PJP')]
+#[Title('Beat Plan')]
 class Pjp extends Component
 {
     #[Url]
@@ -52,7 +52,7 @@ class Pjp extends Component
         $this->month ??= (int) Carbon::now($tz)->month;
 
         $this->tab = $this->tab ?: match (true) {
-            $this->canPlan() => 'plan',
+            $this->canPlan() => 'today',
             $this->canAsm() => 'asm',
             $this->canNsm() => 'nsm',
             default => 'report',
@@ -159,7 +159,7 @@ class Pjp extends Component
             return;
         }
 
-        session()->flash('status', 'PJP submitted for ASM review.');
+        session()->flash('status', 'Beat plan submitted for ASM review.');
     }
 
     // ---- review actions -------------------------------------------

@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\HeartbeatJob;
+use App\Models\LocationPing;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -36,3 +37,6 @@ Schedule::command('import:reap-stale')->everyFiveMinutes()->withoutOverlapping()
 
 // Drop export files past their retention window.
 Schedule::command('exports:prune')->dailyAt('02:00');
+
+// Drop field GPS breadcrumbs past config('tracking.retention_days').
+Schedule::command('model:prune', ['--model' => [LocationPing::class]])->dailyAt('02:30');

@@ -13,7 +13,7 @@
             </div>
             <div>
                 <h1 class="text-xl font-bold tracking-tight text-gray-900">Mail Configuration (SMTP)</h1>
-                <p class="text-xs text-gray-500">Outbound email settings for password resets, daily PJP route notifications, and scheduled reports.</p>
+                <p class="text-xs text-gray-500">Outbound email settings for password resets, beat plan notifications, and scheduled reports.</p>
             </div>
         </div>
     </div>

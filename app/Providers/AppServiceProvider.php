@@ -53,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
             'retailer_location.request', 'retailer_location.review',
         ]));
         Gate::define('attendance.access', fn ($user) => $user->hasRole('TSO') || $user->can('attendance.view_all'));
+        Gate::define('tracking.view', fn ($user) => $user->can('attendance.view_all'));
         Gate::define('pjp.access', fn ($user) => $user->canAny([
             'pjp.create', 'pjp.asm_review', 'pjp.nsm_final_approve', 'pjp.report',
         ]));

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\ImportTemplateController;
+use App\Http\Controllers\LocationPingController;
 use App\Livewire\AnnualContracts;
 use App\Livewire\Attendance;
 use App\Livewire\AttendanceReport;
@@ -16,6 +17,7 @@ use App\Livewire\ExportManager;
 use App\Livewire\ImeiSearch;
 use App\Livewire\ImportDetail;
 use App\Livewire\ImportManager;
+use App\Livewire\LiveTracking;
 use App\Livewire\MailSettings;
 use App\Livewire\MapSettings;
 use App\Livewire\MasterData;
@@ -65,7 +67,10 @@ Route::middleware('auth')->group(function () {
     Route::get('attendance', Attendance::class)->middleware('can:attendance.self')->name('attendance');
     Route::get('attendance/report', AttendanceReport::class)->middleware('can:attendance.view_all')->name('attendance.report');
     Route::get('attendance/{attendance}/selfie/{type}', AttendanceSelfieController::class)->whereIn('type', ['check_in', 'check_out'])->name('attendance.selfie');
-    Route::get('pjp', Pjp::class)->middleware('can:pjp.access')->name('pjp');
+    Route::post('tracking/pings', LocationPingController::class)->middleware(['can:attendance.self', 'throttle:30,1'])->name('tracking.pings');
+    Route::get('tracking', LiveTracking::class)->middleware('can:tracking.view')->name('tracking');
+    Route::get('beat-plan', Pjp::class)->middleware('can:pjp.access')->name('pjp');
+    Route::redirect('pjp', 'beat-plan');
 
     Route::get('imports', ImportManager::class)->middleware('can:imports.access')->name('imports.index');
     Route::get('imports/template', ImportTemplateController::class)->middleware('can:imports.access')->name('imports.template');

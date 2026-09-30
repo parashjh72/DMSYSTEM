@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <div class="flex items-center gap-2">
-                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Planned Journey Plan (PJP)</h1>
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Beat Plan</h1>
                 <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-600/20">
                     Route Scheduling
                 </span>
@@ -17,10 +17,11 @@
     {{-- Tabs --}}
     @php
         $tabs = array_filter([
-            'plan' => $this->canPlan() ? 'My Monthly Plan' : null,
+            'today' => $this->canPlan() ? "Today's Beat" : null,
+            'plan' => $this->canPlan() ? 'My Monthly Beat Plan' : null,
             'asm' => $this->canAsm() ? 'ASM Review Queue' : null,
             'nsm' => $this->canNsm() ? 'NSM Approval Queue' : null,
-            'report' => $this->canReport() ? 'PJP Adherence Reports' : null,
+            'report' => $this->canReport() ? 'Beat Reports' : null,
         ]);
     @endphp
 
@@ -79,7 +80,7 @@
 
                 @if ($pjp->isEditableByTso())
                     <button class="btn-primary text-xs" wire:click="submit"
-                            wire:confirm="Submit this PJP for management approval? You will not be able to edit while it is under review.">
+                            wire:confirm="Submit this beat plan for management approval? You will not be able to edit while it is under review.">
                         Submit for Approval
                     </button>
                 @endif
@@ -228,14 +229,12 @@
                                         <span class="badge-emerald text-[10px] font-bold">
                                             Visited at {{ $v->visited_at->timezone(config('pjp.timezone'))->format('d M H:i') }}
                                         </span>
-                                    @elseif ($pjp->status === 'final_approved')
-                                        <button class="btn-primary !py-1 !px-2 text-[11px] font-bold"
-                                                x-data
-                                                @click="navigator.geolocation.getCurrentPosition(
-                                                    p => $wire.logVisit({{ $openDay->id }}, '{{ $r->rt_code }}', {latitude:p.coords.latitude, longitude:p.coords.longitude, accuracy:p.coords.accuracy}),
-                                                    () => $wire.logVisit({{ $openDay->id }}, '{{ $r->rt_code }}', {}))">
-                                            Mark Visited (GPS)
+                                    @elseif ($pjp->status === 'final_approved' && $openDay->plan_date->isSameDay(now(config('pjp.timezone'))))
+                                        <button class="btn-primary !py-1 !px-2 text-[11px] font-bold" wire:click="$set('tab', 'today')">
+                                            Record visit
                                         </button>
+                                    @elseif ($pjp->status === 'final_approved')
+                                        <span class="badge-slate text-[10px]">Not visited</span>
                                     @else
                                         <span class="badge-slate text-[10px]">Pending Approval</span>
                                     @endif
@@ -246,6 +245,13 @@
                 @endif
             </div>
         @endif
+    @endif
+
+    {{-- ============ TODAY'S BEAT (TSO) ============ --}}
+    @if ($tab === 'today' && $this->canPlan())
+        <div class="max-w-xl">
+            @livewire('today-beat', key('today-beat'))
+        </div>
     @endif
 
     {{-- ============ ASM REVIEW ============ --}}
@@ -260,7 +266,14 @@
 
     {{-- ============ REPORTS ============ --}}
     @if ($tab === 'report' && $this->canReport())
-        @livewire('pjp-report', key('pjp-report'))
+        <div x-data="{ section: @js(request()->query('bv') ? 'visits' : 'plans') }" class="space-y-4">
+            <div class="flex gap-4 border-b border-slate-200 text-xs font-semibold">
+                <button type="button" @click="section = 'plans'" :class="section === 'plans' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500'" class="border-b-2 pb-2">Plan adherence</button>
+                <button type="button" @click="section = 'visits'" :class="section === 'visits' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500'" class="border-b-2 pb-2">Party visits &amp; orders</button>
+            </div>
+            <div x-show="section === 'plans'">@livewire('pjp-report', key('pjp-report'))</div>
+            <div x-show="section === 'visits'" x-cloak>@livewire('beat-visit-report', key('beat-visit-report'))</div>
+        </div>
     @endif
 
     {{-- ============ REVIEW PANEL (Modal) ============ --}}
@@ -270,7 +283,7 @@
                 <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
                     <div class="flex items-center gap-2.5">
                         <h2 class="text-sm font-bold text-slate-900">
-                            PJP Plan Review &bull; {{ $reviewPjp->tso?->name }} ({{ $reviewPjp->monthLabel() }})
+                            Beat Plan Review &bull; {{ $reviewPjp->tso?->name }} ({{ $reviewPjp->monthLabel() }})
                         </h2>
                         <span class="badge-indigo text-[10px] font-bold">{{ $reviewPjp->statusLabel() }}</span>
                     </div>
@@ -354,7 +367,7 @@
                         <button class="btn-primary text-xs" wire:click="act('asm_approve')">Approve &amp; Forward to NSM</button>
                         <button class="btn-ghost text-xs text-amber-700 hover:bg-amber-50" wire:click="act('asm_revision')">Request Revision</button>
                     @elseif (in_array($reviewPjp->status, ['forwarded_to_nsm', 'nsm_review']) && $this->canNsm())
-                        <button class="btn-primary text-xs" wire:click="act('nsm_final')">Final Approve PJP</button>
+                        <button class="btn-primary text-xs" wire:click="act('nsm_final')">Final Approve Beat Plan</button>
                         <button class="btn-ghost text-xs text-amber-700 hover:bg-amber-50" wire:click="act('nsm_revision')">Request Revision</button>
                         <button class="btn-ghost text-xs text-rose-600 hover:bg-rose-50" wire:click="act('nsm_reject')">Reject</button>
                     @endif

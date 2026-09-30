@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\PjpDay;
 use App\Models\TsoAttendance;
 use App\Services\AttendanceService;
+use App\Services\LocationTrackingService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -52,6 +53,7 @@ class Attendance extends Component
             $gps['telemetry'] = $telemetry;
             DB::transaction(fn () => $this->storeSelfie($service->checkIn(auth()->user(), $gps), 'check_in'));
             session()->flash('status', 'Checked in successfully.');
+            $this->dispatch('field-tracking', active: true);
         } catch (\Throwable $e) {
             Log::warning('Attendance checkIn error: '.$e->getMessage(), [
                 'user_id' => auth()->id(),
@@ -79,8 +81,16 @@ class Attendance extends Component
         try {
             $gps = compact('latitude', 'longitude', 'accuracy');
             $gps['telemetry'] = $telemetry;
-            DB::transaction(fn () => $this->storeSelfie($service->checkOut(auth()->user(), $gps), 'check_out'));
+            DB::transaction(function () use ($service, $gps, $latitude, $longitude, $accuracy) {
+                $record = $service->checkOut(auth()->user(), $gps);
+                $this->storeSelfie($record, 'check_out');
+                // Closes the day's route at the check-out point so its last leg counts toward distance.
+                app(LocationTrackingService::class)->record($record, [
+                    ['lat' => $latitude, 'lng' => $longitude, 'accuracy' => $accuracy, 't' => $record->check_out_at->getTimestampMs()],
+                ]);
+            });
             session()->flash('status', 'Checked out successfully.');
+            $this->dispatch('field-tracking', active: false);
         } catch (\Throwable $e) {
             Log::warning('Attendance checkOut error: '.$e->getMessage(), [
                 'user_id' => auth()->id(),
@@ -134,7 +144,7 @@ class Attendance extends Component
         $this->error = $message;
     }
 
-    /** This TSO's planned days from today onward, next 14 days, with retailers + visit progress. */
+    /** This TSO's upcoming beat days (tomorrow onward, next 14 days) — today is shown by the TodayBeat component. */
     private function upcoming()
     {
         $user = auth()->user();
@@ -143,8 +153,8 @@ class Attendance extends Component
         }
 
         $tz = config('pjp.timezone');
-        $from = Carbon::now($tz)->startOfDay();
-        $to = $from->copy()->addDays(14);
+        $from = Carbon::now($tz)->startOfDay()->addDay();
+        $to = $from->copy()->addDays(13);
 
         return PjpDay::query()
             ->with(['retailers', 'visits'])

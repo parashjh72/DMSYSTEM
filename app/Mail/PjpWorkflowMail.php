@@ -17,7 +17,7 @@ class PjpWorkflowMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "PJP {$this->pjp->monthLabel()} — ".$this->pjp->statusLabel());
+        return new Envelope(subject: "Beat Plan {$this->pjp->monthLabel()} — ".$this->pjp->statusLabel());
     }
 
     public function content(): Content

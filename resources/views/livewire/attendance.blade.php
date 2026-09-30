@@ -422,6 +422,30 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     @endif
 
+    {{-- Live route tracking status (driven by the global field tracker) --}}
+    @if ($record && ! $record->isCheckedOut() && config('tracking.enabled'))
+        <div wire:key="tracking-status-{{ $record->id }}"
+             x-data="{ state: window.__fieldTracker?.state ?? 'off', message: null, lastSentAt: window.__fieldTracker?.lastSentAt ?? null, queued: 0 }"
+             @field-tracker-status.window="state = $event.detail.state; message = $event.detail.message; lastSentAt = $event.detail.lastSentAt; queued = $event.detail.queued"
+             class="rounded-2xl border px-4 py-3 text-xs flex items-center justify-between gap-3"
+             :class="state === 'error' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="relative flex h-2.5 w-2.5 shrink-0">
+                    <span x-show="state === 'on'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="state === 'on' ? 'bg-sky-500' : 'bg-amber-500'"></span>
+                </span>
+                <div class="min-w-0">
+                    <div class="font-bold" x-text="state === 'error' ? (message || 'Live tracking paused') : 'Live route tracking is on'">Live route tracking is on</div>
+                    <div class="text-[11px] opacity-80">Keep this app open while you work so your route and distance are recorded.</div>
+                </div>
+            </div>
+            <div class="shrink-0 text-right text-[11px] font-semibold opacity-80">
+                <template x-if="lastSentAt"><span x-text="'Synced ' + new Date(lastSentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })"></span></template>
+                <template x-if="queued > 0"><div x-text="queued + ' pending'"></div></template>
+            </div>
+        </div>
+    @endif
+
     {{-- Comprehensive Error Alert (Client & Server) --}}
     <div x-show="clientError || {{ $error ? 'true' : 'false' }}"
          x-cloak
@@ -852,13 +876,17 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     @endif
 
-    {{-- Upcoming Visits (PJP Route) --}}
+    {{-- Today's beat: parties, call status, effective / non-effective visits --}}
+    @can('pjp.create')
+        @livewire('today-beat', key('today-beat'))
+    @endcan
+
+    {{-- Upcoming beat days --}}
     @if ($upcoming->isNotEmpty())
         <div class="space-y-3">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <h2 class="text-sm font-bold text-slate-900">Planned Retailer Route (PJP)</h2>
-                    <span class="badge-indigo text-[10px] font-bold">Today</span>
+                    <h2 class="text-sm font-bold text-slate-900">Upcoming Beats</h2>
                 </div>
                 <a href="{{ route('pjp') }}" wire:navigate class="text-xs font-semibold text-indigo-600 hover:text-indigo-500">
                     Full Schedule &rarr;

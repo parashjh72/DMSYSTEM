@@ -1,7 +1,7 @@
 <div class="space-y-3">
     <div class="flex items-center justify-between">
         <h2 class="text-sm font-bold text-slate-900">
-            {{ $stage === 'asm' ? 'PJPs Awaiting Area Manager (ASM) Review' : 'PJPs Awaiting National Sales Manager (NSM) Final Approval' }}
+            {{ $stage === 'asm' ? 'Beat Plans Awaiting Area Manager (ASM) Review' : 'Beat Plans Awaiting National Sales Manager (NSM) Final Approval' }}
             <span class="badge-indigo ml-1 text-xs">{{ $queue->count() }}</span>
         </h2>
     </div>
@@ -49,7 +49,7 @@
                     @empty
                         <tr>
                             <td colspan="{{ $stage === 'nsm' ? 8 : 7 }}" class="py-12 text-center text-slate-400 text-xs">
-                                No PJP plans are currently waiting in your approval queue.
+                                No beat plans are currently waiting in your approval queue.
                             </td>
                         </tr>
                     @endforelse

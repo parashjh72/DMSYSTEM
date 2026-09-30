@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Mail\PjpWorkflowMail;
+use App\Models\DeviceModel;
+use App\Models\ModelPrice;
 use App\Models\Pjp;
 use App\Models\PjpDay;
 use App\Models\PjpEvent;
@@ -22,7 +24,7 @@ use Throwable;
  */
 class PjpService
 {
-    /** Create (or return) the TSO's PJP for a month, one PjpDay per calendar date. */
+    /** Create (or return) the TSO's beat plan (PJP) for a month, one PjpDay per calendar date. */
     public function openMonth(User $tso, int $year, int $month): Pjp
     {
         $pjp = Pjp::firstOrNew(['tso_id' => $tso->id, 'year' => $year, 'month' => $month]);
@@ -99,14 +101,14 @@ class PjpService
             $this->event($pjp, 'submitted', $from, 'submitted', $tso, 'TSO');
         });
 
-        $this->notify($pjp, $pjp->asm, "New PJP submitted by {$tso->name} for {$pjp->monthLabel()} — awaiting your review.");
+        $this->notify($pjp, $pjp->asm, "New beat plan submitted by {$tso->name} for {$pjp->monthLabel()} — awaiting your review.");
     }
 
     public function asmRequestRevision(Pjp $pjp, User $asm, string $comment): void
     {
         $this->assertStatus($pjp, ['submitted', 'resubmitted', 'asm_review']);
         $this->revision($pjp, $asm, 'ASM', 'asm_request_revision', $comment);
-        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} PJP requires revision (ASM): {$comment}");
+        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} beat plan requires revision (ASM): {$comment}");
     }
 
     public function asmApprove(Pjp $pjp, User $asm, ?string $comment): void
@@ -126,16 +128,16 @@ class PjpService
             $this->event($pjp, 'asm_approved', $from, 'forwarded_to_nsm', $asm, 'ASM', $comment);
         });
 
-        $this->notify($pjp, $pjp->nsm, "PJP for {$pjp->tso?->name} ({$pjp->monthLabel()}) approved by ASM — awaiting your final approval.");
-        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} PJP has been approved by ASM and forwarded to NSM.");
+        $this->notify($pjp, $pjp->nsm, "Beat plan for {$pjp->tso?->name} ({$pjp->monthLabel()}) approved by ASM — awaiting your final approval.");
+        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} beat plan has been approved by ASM and forwarded to NSM.");
     }
 
     public function nsmRequestRevision(Pjp $pjp, User $nsm, string $comment): void
     {
         $this->assertStatus($pjp, ['forwarded_to_nsm', 'nsm_review']);
         $this->revision($pjp, $nsm, 'NSM', 'nsm_request_revision', $comment);
-        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} PJP requires revision (NSM): {$comment}");
-        $this->notify($pjp, $pjp->asm, "PJP for {$pjp->tso?->name} ({$pjp->monthLabel()}) was returned for revision by NSM.");
+        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} beat plan requires revision (NSM): {$comment}");
+        $this->notify($pjp, $pjp->asm, "Beat plan for {$pjp->tso?->name} ({$pjp->monthLabel()}) was returned for revision by NSM.");
     }
 
     public function nsmReject(Pjp $pjp, User $nsm, ?string $comment): void
@@ -148,7 +150,7 @@ class PjpService
             $this->event($pjp, 'nsm_rejected', $from, 'rejected', $nsm, 'NSM', $comment);
         });
 
-        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} PJP was rejected by NSM.".($comment ? " Reason: {$comment}" : ''));
+        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} beat plan was rejected by NSM.".($comment ? " Reason: {$comment}" : ''));
     }
 
     public function nsmFinalApprove(Pjp $pjp, User $nsm, ?string $comment): void
@@ -168,15 +170,46 @@ class PjpService
             $this->event($pjp, 'nsm_final_approved', $from, 'final_approved', $nsm, 'NSM', $comment);
         });
 
-        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} PJP has received final approval.");
-        $this->notify($pjp, $pjp->asm, "PJP for {$pjp->tso?->name} ({$pjp->monthLabel()}) has been final-approved by NSM.");
+        $this->notify($pjp, $pjp->tso, "Your {$pjp->monthLabel()} beat plan has received final approval.");
+        $this->notify($pjp, $pjp->asm, "Beat plan for {$pjp->tso?->name} ({$pjp->monthLabel()}) has been final-approved by NSM.");
     }
 
-    /** TSO logs an actual visit against a planned day. */
-    public function logVisit(User $tso, PjpDay $day, string $rtCode, array $gps, ?string $note = null): PjpVisit
+    /**
+     * TSO logs an actual visit against a planned beat day. An effective visit
+     * carries the order lines taken; a non-effective one the reason no order
+     * was placed.
+     *
+     * @param  array{outcome?: ?string, items?: array<int, array{model?: ?string, qty?: int|string|null}>, reason?: ?string}  $outcome
+     */
+    public function logVisit(User $tso, PjpDay $day, string $rtCode, array $gps, ?string $note = null, array $outcome = []): PjpVisit
     {
         if ($day->pjp->tso_id !== $tso->id) {
             abort(403);
+        }
+
+        if (! $day->retailers()->where('rt_code', $rtCode)->exists()) {
+            throw new RuntimeException("{$rtCode} is not on this day's beat.");
+        }
+
+        $kind = $outcome['outcome'] ?? null;
+        $lines = [];
+        $reason = null;
+
+        if ($kind === PjpVisit::EFFECTIVE) {
+            $lines = $this->orderLines($outcome['items'] ?? []);
+            if ($lines === []) {
+                throw new RuntimeException('Add at least one product with a quantity to record the order.');
+            }
+        } elseif ($kind === PjpVisit::NON_EFFECTIVE) {
+            $reason = $outcome['reason'] ?? null;
+            if (! array_key_exists((string) $reason, config('pjp.no_order_reasons'))) {
+                throw new RuntimeException('Choose why no order was placed.');
+            }
+            if ($reason === 'other' && trim((string) $note) === '') {
+                throw new RuntimeException('Describe the reason in the remarks.');
+            }
+        } elseif ($kind !== null) {
+            throw new RuntimeException('Unknown visit outcome.');
         }
 
         $visit = PjpVisit::updateOrCreate(
@@ -188,7 +221,11 @@ class PjpService
                 'latitude' => $gps['latitude'] ?? null,
                 'longitude' => $gps['longitude'] ?? null,
                 'accuracy' => $gps['accuracy'] ?? null,
-                'note' => $note,
+                'note' => $note !== null ? (mb_substr(trim($note), 0, 2000) ?: null) : null,
+                'outcome' => $kind,
+                'order_items' => $lines ?: null,
+                'order_value' => $lines ? round(array_sum(array_column($lines, 'amount')), 2) : null,
+                'no_order_reason' => $reason,
             ],
         );
 
@@ -206,6 +243,60 @@ class PjpService
         }
 
         return $visit;
+    }
+
+    /**
+     * Normalises order lines: known running models only, positive quantities,
+     * duplicates merged, priced at each model's current list price.
+     *
+     * @param  array<int, array{model?: ?string, qty?: int|string|null}>  $items
+     * @return list<array{model: string, qty: int, price: ?float, amount: float}>
+     */
+    public function orderLines(array $items): array
+    {
+        $quantities = [];
+        foreach ($items as $item) {
+            $model = trim((string) ($item['model'] ?? ''));
+            $qty = (int) ($item['qty'] ?? 0);
+            if ($model !== '' && $qty > 0) {
+                $quantities[$model] = min(100000, ($quantities[$model] ?? 0) + $qty);
+            }
+        }
+
+        if ($quantities === []) {
+            return [];
+        }
+
+        $known = DeviceModel::whereIn('name', array_keys($quantities))->pluck('name')->all();
+        $prices = $this->currentPrices($known);
+
+        $lines = [];
+        foreach ($quantities as $model => $qty) {
+            if (! in_array($model, $known, true)) {
+                continue;
+            }
+            $price = $prices[$model] ?? null;
+            $lines[] = ['model' => $model, 'qty' => $qty, 'price' => $price, 'amount' => round(($price ?? 0) * $qty, 2)];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Latest list price per model effective today.
+     *
+     * @param  list<string>  $models
+     * @return array<string, float>
+     */
+    public function currentPrices(array $models): array
+    {
+        return ModelPrice::query()
+            ->whereIn('model', $models)
+            ->whereDate('effective_from', '<=', now(config('pjp.timezone'))->toDateString())
+            ->orderBy('effective_from')->orderBy('id')
+            ->get(['model', 'price'])
+            ->mapWithKeys(fn (ModelPrice $p): array => [$p->model => (float) $p->price])
+            ->all();
     }
 
     // ---------------------------------------------------------------
@@ -236,7 +327,7 @@ class PjpService
     private function assertStatus(Pjp $pjp, array $expected): void
     {
         if (! in_array($pjp->status, $expected, true)) {
-            throw new RuntimeException('This PJP is no longer at that stage ('.$pjp->statusLabel().').');
+            throw new RuntimeException('This beat plan is no longer at that stage ('.$pjp->statusLabel().').');
         }
     }
 

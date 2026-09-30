@@ -1,5 +1,5 @@
 <x-mail::message>
-# PJP — {{ $pjp->monthLabel() }}
+# Beat Plan — {{ $pjp->monthLabel() }}
 
 {{ $body }}
 
@@ -8,6 +8,6 @@
 **Planned days:** {{ $pjp->planned_days }} · **Planned visits:** {{ $pjp->planned_visits }}
 
 <x-mail::subcopy>
-Sent automatically by DM System. Open the PJP in the app to act on it.
+Sent automatically by DM System. Open the beat plan in the app to act on it.
 </x-mail::subcopy>
 </x-mail::message>
