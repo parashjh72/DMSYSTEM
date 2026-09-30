@@ -10,6 +10,7 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
     </style>
+    <x-pwa-head />
     @vite(['resources/css/app.css'])
 </head>
 <body class="h-full bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">

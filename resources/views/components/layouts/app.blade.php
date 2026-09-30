@@ -11,6 +11,7 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; }
     </style>
+    <x-pwa-head />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -345,6 +346,7 @@
         </button>
     </nav>
 </div>
+<x-pwa-install />
 @can('attendance.self')
     <x-field-tracker />
 @endcan

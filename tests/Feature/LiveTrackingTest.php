@@ -83,12 +83,49 @@ class LiveTrackingTest extends TestCase
         $this->assertSame(1, LocationPing::where('tso_attendance_id', $attendance->id)->count());
     }
 
-    public function test_pings_are_refused_once_checked_out(): void
+    public function test_offline_pings_sync_after_check_out_but_later_ones_are_dropped(): void
     {
-        $this->checkIn($this->tso, now()->subMinute()->toDateTimeString());
+        $attendance = $this->checkIn($this->tso, now()->subMinutes(10)->toDateTimeString());
 
-        $this->actingAs($this->tso)->postJson(route('tracking.pings'), ['pings' => [$this->ping(27.72, 85.33, 1)]])
-            ->assertStatus(409)->assertJson(['tracking' => false]);
+        $this->actingAs($this->tso)->postJson(route('tracking.pings'), ['pings' => [
+            $this->ping(27.7262450, 85.3240450, 40),  // taken on duty while offline
+            $this->ping(27.7362450, 85.3240450, 1),   // after check-out
+        ]])->assertOk()->assertJson(['tracking' => false, 'accepted' => 1]);
+
+        $this->assertSame(1, LocationPing::where('tso_attendance_id', $attendance->id)->count());
+    }
+
+    public function test_pings_synced_next_day_are_filed_under_the_day_they_were_taken(): void
+    {
+        $yesterday = TsoAttendance::create([
+            'user_id' => $this->tso->id,
+            'attendance_date' => now(config('attendance.timezone'))->subDay()->toDateString(),
+            'check_in_at' => now()->subDay()->subHours(3),
+            'check_in_latitude' => 27.7172450,
+            'check_in_longitude' => 85.3240450,
+            'check_out_at' => now()->subDay(),
+            'status' => 'checked_out',
+        ]);
+        $today = $this->checkIn($this->tso);
+
+        $this->actingAs($this->tso)->postJson(route('tracking.pings'), ['pings' => [
+            ['lat' => 27.7262450, 'lng' => 85.3240450, 'accuracy' => 10.0, 't' => now()->subDay()->subHour()->getTimestampMs()],
+            $this->ping(27.7262450, 85.3340450, 30),
+        ]])->assertOk()->assertJson(['tracking' => true, 'accepted' => 2]);
+
+        $this->assertSame(1, LocationPing::where('tso_attendance_id', $yesterday->id)->count());
+        $this->assertSame(1, LocationPing::where('tso_attendance_id', $today->id)->count());
+    }
+
+    public function test_a_batch_delivered_twice_is_stored_once(): void
+    {
+        $attendance = $this->checkIn($this->tso);
+        $batch = ['pings' => [$this->ping(27.7262450, 85.3240450, 60), $this->ping(27.7362450, 85.3240450, 50)]];
+
+        $this->actingAs($this->tso)->postJson(route('tracking.pings'), $batch)->assertJson(['accepted' => 2]);
+        $this->actingAs($this->tso)->postJson(route('tracking.pings'), $batch)->assertJson(['accepted' => 0]);
+
+        $this->assertSame(2, LocationPing::where('tso_attendance_id', $attendance->id)->count());
     }
 
     public function test_non_field_users_cannot_send_pings(): void

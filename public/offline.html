@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#4f46e5">
+    <title>Offline · DMS</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
+        .card { max-width: 22rem; margin: 1rem; padding: 1.5rem; border-radius: 1rem; background: #fff; border: 1px solid #e2e8f0; text-align: center; }
+        h1 { font-size: 1.1rem; margin: .75rem 0 .5rem; }
+        p { font-size: .85rem; color: #64748b; line-height: 1.5; }
+        .duty { margin-top: .75rem; padding: .75rem; border-radius: .75rem; background: #eff6ff; color: #1e3a8a; font-size: .8rem; line-height: 1.5; text-align: left; }
+        .duty strong { display: block; margin-bottom: .25rem; }
+        .hint { margin-top: .35rem; color: #3b82f6; }
+        button { margin-top: .75rem; border: 0; border-radius: .75rem; padding: .6rem 1.2rem; background: #4f46e5; color: #fff; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="/icons/icon-192.png" width="56" height="56" alt="" style="border-radius:14px">
+        <h1>You're offline</h1>
+        <p id="msg">Pages need an internet connection. Reconnect mobile data or Wi-Fi and try again.</p>
+        <div id="duty" class="duty" hidden>
+            <strong>On duty — recording your location offline</strong>
+            <span id="queued">0</span> location points saved on this phone. They sync automatically when data is back.
+            <div class="hint">Keep this screen open for continuous tracking.</div>
+        </div>
+        <button onclick="location.reload()">Try again</button>
+    </div>
+    <script src="/js/field-tracker.js"></script>
+    <script>
+        window.addEventListener('field-tracker-status', (e) => {
+            document.getElementById('queued').textContent = e.detail.queued;
+        });
+        window.DmsTracker.bootOffline().then((onDuty) => {
+            if (! onDuty) return;
+            document.getElementById('duty').hidden = false;
+            document.getElementById('msg').textContent = 'Pages need an internet connection, but your duty tracking continues.';
+        });
+        // Back online: return to the app.
+        window.addEventListener('online', () => setTimeout(() => location.reload(), 1500));
+    </script>
+</body>
+</html>

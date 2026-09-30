@@ -422,27 +422,53 @@ window.attendanceTracker = function($wireInstance, config) {
         </div>
     @endif
 
-    {{-- Live route tracking status (driven by the global field tracker) --}}
+    {{-- Live route tracking status (driven by public/js/field-tracker.js) --}}
     @if ($record && ! $record->isCheckedOut() && config('tracking.enabled'))
-        <div wire:key="tracking-status-{{ $record->id }}"
-             x-data="{ state: window.__fieldTracker?.state ?? 'off', message: null, lastSentAt: window.__fieldTracker?.lastSentAt ?? null, queued: 0 }"
-             @field-tracker-status.window="state = $event.detail.state; message = $event.detail.message; lastSentAt = $event.detail.lastSentAt; queued = $event.detail.queued"
-             class="rounded-2xl border px-4 py-3 text-xs flex items-center justify-between gap-3"
-             :class="state === 'error' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-sky-50 border-sky-200 text-sky-800'">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <span class="relative flex h-2.5 w-2.5 shrink-0">
-                    <span x-show="state === 'on'" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="state === 'on' ? 'bg-sky-500' : 'bg-amber-500'"></span>
-                </span>
-                <div class="min-w-0">
-                    <div class="font-bold" x-text="state === 'error' ? (message || 'Live tracking paused') : 'Live route tracking is on'">Live route tracking is on</div>
-                    <div class="text-[11px] opacity-80">Keep this app open while you work so your route and distance are recorded.</div>
+        <div wire:key="tracking-status-{{ $record->id }}" wire:ignore
+             x-data="{
+                state: window.DmsTracker?.state ?? 'off',
+                message: null,
+                lastSentAt: window.DmsTracker?.lastSentAt ?? null,
+                queued: window.DmsTracker?.queued ?? 0,
+                awake: false,
+                keepAwake: window.DmsTracker?.keepAwakePreferred?.() ?? true,
+                wakeLockSupported: 'wakeLock' in navigator,
+                update(d) { Object.assign(this, { state: d.state, message: d.message, lastSentAt: d.lastSentAt, queued: d.queued, awake: d.awake, keepAwake: d.keepAwake }); },
+             }"
+             @field-tracker-status.window="update($event.detail)"
+             class="rounded-2xl border px-4 py-3 text-xs space-y-2"
+             :class="{
+                'bg-sky-50 border-sky-200 text-sky-800': state === 'on',
+                'bg-violet-50 border-violet-200 text-violet-800': state === 'offline',
+                'bg-amber-50 border-amber-200 text-amber-800': state === 'error' || state === 'off',
+             }">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="relative flex h-2.5 w-2.5 shrink-0">
+                        <span x-show="state === 'on' || state === 'offline'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="state === 'offline' ? 'bg-violet-400' : 'bg-sky-400'"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5" :class="{ 'bg-sky-500': state === 'on', 'bg-violet-500': state === 'offline', 'bg-amber-500': state === 'error' || state === 'off' }"></span>
+                    </span>
+                    <div class="min-w-0">
+                        <div class="font-bold" x-text="{
+                            on: 'Live route tracking is on',
+                            offline: 'No data — recording location offline',
+                            error: message || 'Live tracking paused',
+                            off: 'Starting live tracking…',
+                        }[state] || 'Live route tracking'">Live route tracking is on</div>
+                        <div class="text-[11px] opacity-80" x-show="state !== 'offline'">Points are saved on this phone first and synced automatically.</div>
+                        <div class="text-[11px] opacity-80" x-show="state === 'offline'">Keep working — points sync by themselves when mobile data returns.</div>
+                    </div>
+                </div>
+                <div class="shrink-0 text-right text-[11px] font-semibold opacity-80">
+                    <template x-if="lastSentAt"><div x-text="'Synced ' + new Date(lastSentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })"></div></template>
+                    <template x-if="queued > 0"><div x-text="queued + ' waiting to sync'"></div></template>
                 </div>
             </div>
-            <div class="shrink-0 text-right text-[11px] font-semibold opacity-80">
-                <template x-if="lastSentAt"><span x-text="'Synced ' + new Date(lastSentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })"></span></template>
-                <template x-if="queued > 0"><div x-text="queued + ' pending'"></div></template>
-            </div>
+            <label x-show="wakeLockSupported" class="flex items-center gap-2 border-t border-current/10 pt-2 text-[11px] font-medium cursor-pointer">
+                <input type="checkbox" class="h-3.5 w-3.5 rounded" :checked="keepAwake" @change="window.DmsTracker?.setKeepAwake($event.target.checked)">
+                <span>Keep screen on while on duty (most reliable tracking)</span>
+                <span x-show="awake" class="ml-auto opacity-70">Screen kept on</span>
+            </label>
         </div>
     @endif
 

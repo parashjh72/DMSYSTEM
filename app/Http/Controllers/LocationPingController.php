@@ -7,23 +7,22 @@ use App\Services\LocationTrackingService;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Receives the GPS breadcrumbs a checked-in field user's browser queues in the
- * background. Answers `tracking: false` once the user is no longer checked in,
- * which tells the client to stop.
+ * Receives the GPS breadcrumbs a field user's phone queued during duty —
+ * live, or synced late after an offline stretch. Each ping is filed under the
+ * duty period it was taken in; `tracking: false` tells the client the user is
+ * no longer checked in, so it stops collecting.
  */
 class LocationPingController extends Controller
 {
     public function __invoke(StoreLocationPingsRequest $request, LocationTrackingService $tracking): JsonResponse
     {
-        $attendance = config('tracking.enabled') ? $tracking->openAttendanceFor($request->user()) : null;
-
-        if (! $attendance) {
-            return response()->json(['tracking' => false, 'accepted' => 0], 409);
+        if (! config('tracking.enabled')) {
+            return response()->json(['tracking' => false, 'accepted' => 0]);
         }
 
         return response()->json([
-            'tracking' => true,
-            'accepted' => $tracking->record($attendance, $request->validated('pings')),
+            'accepted' => $tracking->recordForUser($request->user(), $request->validated('pings')),
+            'tracking' => $tracking->openAttendanceFor($request->user()) !== null,
         ]);
     }
 }

@@ -28,6 +28,42 @@ class LocationTrackingService
     }
 
     /**
+     * Stores breadcrumbs a phone queued while offline, each against the duty
+     * period (check-in to check-out) it was taken in. Pings can arrive hours
+     * late — after check-out, or the next morning — once data is back on.
+     *
+     * @param  array<int, array<string, mixed>>  $pings
+     */
+    public function recordForUser(User $user, array $pings): int
+    {
+        $lookbackDays = (int) config('tracking.offline_sync_days');
+        $attendances = TsoAttendance::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('check_in_at')
+            ->whereDate('attendance_date', '>=', Carbon::now(config('attendance.timezone'))->subDays($lookbackDays)->toDateString())
+            ->orderBy('check_in_at')
+            ->get();
+
+        $kept = 0;
+        foreach ($attendances as $attendance) {
+            $from = $attendance->check_in_at->copy()->subMinutes(2)->getTimestampMs();
+            $until = ($attendance->check_out_at ?? now())->copy()->addMinute()->getTimestampMs();
+
+            $belonging = array_values(array_filter($pings, function (array $ping) use ($from, $until): bool {
+                $t = isset($ping['t']) ? (int) $ping['t'] : now()->getTimestampMs();
+
+                return $t >= $from && $t <= $until;
+            }));
+
+            if ($belonging !== []) {
+                $kept += $this->record($attendance, $belonging);
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
      * Stores a batch of breadcrumbs against an attendance day and returns how
      * many were kept. Fixes outside the working window, with poor accuracy, or
      * implying an impossible speed are dropped.
@@ -64,7 +100,20 @@ class LocationTrackingService
             $anchor = $this->lastAnchor($attendance);
             $kept = 0;
 
+            // A batch can be delivered twice (page and service worker racing after
+            // reconnecting); a fix already stored for the same instant is skipped.
+            $seen = LocationPing::query()
+                ->where('tso_attendance_id', $attendance->id)
+                ->whereBetween('recorded_at', [$normalised->first()['at']->copy()->subSecond(), $normalised->last()['at']->copy()->addSecond()])
+                ->pluck('recorded_at')
+                ->mapWithKeys(fn (Carbon $at): array => [$at->getTimestamp() => true])
+                ->all();
+
             foreach ($normalised as $ping) {
+                if (isset($seen[$ping['at']->getTimestamp()])) {
+                    continue;
+                }
+                $seen[$ping['at']->getTimestamp()] = true;
                 $segment = null;
 
                 if ($anchor === null) {

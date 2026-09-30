@@ -29,6 +29,12 @@ return [
     'max_batch' => 500,
 
     /*
+    | Pings a phone queued while offline are still accepted for duty periods
+    | up to this many days back, once mobile data returns.
+    */
+    'offline_sync_days' => (int) env('TRACKING_OFFLINE_SYNC_DAYS', 3),
+
+    /*
     | Stops: staying within `stop_radius_metres` for `stop_minutes` or more.
     */
     'stop_radius_metres' => (float) env('TRACKING_STOP_RADIUS', 100),
