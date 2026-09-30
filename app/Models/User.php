@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -35,7 +36,7 @@ class User extends Authenticatable
         return $this->hasMany(TsoAttendance::class);
     }
 
-    public function todayAttendance(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function todayAttendance(): HasOne
     {
         return $this->hasOne(TsoAttendance::class)->whereDate('attendance_date', now(config('attendance.timezone'))->toDateString());
     }
@@ -54,6 +55,36 @@ class User extends Authenticatable
 
         return static::role('ASM')->get()
             ->first(fn (self $asm) => array_intersect($asm->scopedRdCodes(), $codes) !== []);
+    }
+
+    /**
+     * Ids of the people an ASM manages, plus their own: explicit reports, and
+     * TSOs with no explicit ASM whose RD codes resolve to this ASM (the same
+     * rule as resolveAsm()).
+     *
+     * @return list<int>
+     */
+    public function teamMemberIds(): array
+    {
+        $asms = static::role('ASM')->get();
+
+        $viaRdCodes = static::role('TSO')->with('reportsTo.roles')->get()
+            ->filter(function (self $tso) use ($asms): bool {
+                if ($tso->reportsTo && $tso->reportsTo->hasRole('ASM')) {
+                    return false;
+                }
+                $codes = $tso->scopedRdCodes();
+
+                return $codes !== []
+                    && $asms->first(fn (self $asm) => array_intersect($asm->scopedRdCodes(), $codes) !== [])?->id === $this->id;
+            })
+            ->pluck('id');
+
+        return $this->subordinates()->pluck('id')
+            ->merge($viaRdCodes)
+            ->push($this->id)
+            ->map(fn ($id): int => (int) $id)
+            ->unique()->values()->all();
     }
 
     /** The NSM this user's chain rolls up to — explicit link, else the sole NSM. */

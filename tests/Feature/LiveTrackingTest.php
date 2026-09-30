@@ -182,6 +182,29 @@ class LiveTrackingTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_asm_sees_tsos_linked_by_rd_code_and_can_open_their_path(): void
+    {
+        $asm = User::factory()->create(['scoped_rd_codes' => ['RD-7']]);
+        $asm->assignRole('ASM');
+        $this->tso->update(['scoped_rd_codes' => ['RD-7']]);
+        $this->checkIn($this->tso);
+
+        $this->actingAs($asm)->get(route('tracking', ['user' => $this->tso->id]))
+            ->assertOk()
+            ->assertSee('Salesman GPS Path');
+    }
+
+    public function test_link_to_someone_outside_the_team_opens_the_overview(): void
+    {
+        $asm = User::factory()->create();
+        $asm->assignRole('ASM');
+
+        $this->actingAs($asm)->get(route('tracking', ['user' => $this->tso->id]))
+            ->assertOk()
+            ->assertDontSee('Salesman GPS Path')
+            ->assertDontSee($this->tso->name);
+    }
+
     public function test_tso_cannot_open_the_tracking_page(): void
     {
         $this->actingAs($this->tso)->get(route('tracking'))->assertForbidden();

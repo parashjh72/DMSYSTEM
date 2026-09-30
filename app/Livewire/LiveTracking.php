@@ -38,7 +38,11 @@ class LiveTracking extends Component
     {
         abort_unless(auth()->user()?->can('tracking.view'), 403);
         $this->date = $this->validDate($this->date) ?? $this->today();
-        $this->guardUser();
+
+        // A link to someone outside the viewer's team opens the team overview instead of an error.
+        if (! $this->canSeeUser()) {
+            $this->userId = null;
+        }
     }
 
     public function updatedDate(): void
@@ -90,13 +94,19 @@ class LiveTracking extends Component
             return null;
         }
 
-        return $me->subordinates()->pluck('id')->push($me->id)->all();
+        return $me->teamMemberIds();
+    }
+
+    private function canSeeUser(): bool
+    {
+        $visible = $this->visibleUserIds();
+
+        return $this->userId === null || $visible === null || in_array((int) $this->userId, $visible, true);
     }
 
     private function guardUser(): void
     {
-        $visible = $this->visibleUserIds();
-        abort_if($this->userId !== null && $visible !== null && ! in_array($this->userId, $visible, true), 403);
+        abort_unless($this->canSeeUser(), 403);
     }
 
     private function isToday(): bool

@@ -56,7 +56,7 @@ class AttendanceReport extends Component
             return null;
         }
 
-        return $me->subordinates()->pluck('id')->push($me->id)->all();
+        return $me->teamMemberIds();
     }
 
     private function baseQuery()
