@@ -71,6 +71,20 @@ class CronController extends Controller
             ]);
         }
 
+        if (request()->has('migrate_status')) {
+            Artisan::call('migrate:status', ['--pending' => true]);
+
+            return response(Artisan::output() ?: 'Nothing pending.', 200, ['Content-Type' => 'text/plain']);
+        }
+
+        if (request()->has('migrate')) {
+            Artisan::call('migrate', ['--force' => true]);
+            $output = Artisan::output();
+            Artisan::call('optimize:clear');
+
+            return response($output."\n".Artisan::output(), 200, ['Content-Type' => 'text/plain']);
+        }
+
         if (request()->has('view_attendances')) {
             return response()->json([
                 'rows' => \App\Models\TsoAttendance::with('user:id,name,email')->latest()->take(20)->get(),
