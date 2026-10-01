@@ -108,5 +108,4 @@
         </div>
     </div>
 
-    <div>{{ $pjps->links() }}</div>
 </div>

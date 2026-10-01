@@ -33,7 +33,7 @@ class BeatPlanVisitTest extends TestCase
         parent::setUp();
         // Mid-day local time, so "today" and "two hours ago" fall on the same attendance date.
         $this->travelTo(Carbon::parse('2026-06-15 13:00', config('attendance.timezone')));
-        foreach (['pjp.create', 'pjp.report', 'exports.view'] as $perm) {
+        foreach (['pjp.create', 'pjp.report', 'pjp.asm_review', 'exports.view'] as $perm) {
             Permission::findOrCreate($perm);
         }
         Role::findOrCreate('TSO')->givePermissionTo('pjp.create');
@@ -132,6 +132,17 @@ class BeatPlanVisitTest extends TestCase
             ->test(TodayBeat::class)
             ->call('openVisit', 'RT-999')
             ->assertNotFound();
+    }
+
+    public function test_beat_report_tab_renders_for_managers(): void
+    {
+        Permission::findOrCreate('pjp.access');
+        Role::findByName('ASM')->givePermissionTo('pjp.asm_review');
+
+        $this->actingAs($this->asm)->get(route('pjp', ['tab' => 'report']))
+            ->assertOk()
+            ->assertSee('Plan adherence')
+            ->assertSee('Party visits');
     }
 
     public function test_report_shows_visits_frequency_and_reasons_for_the_asm_team_only(): void
