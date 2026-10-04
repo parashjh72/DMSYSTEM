@@ -9,7 +9,7 @@ use Illuminate\Contracts\Database\Query\Builder;
  * `scoped_rd_codes` set may only see sales_activation_records whose `rd_code`
  * is in that list; Super Admin / Admin / NSM are unrestricted.
  *
- * Applied at every read entry point (reports, stock/sellout, quick reports,
+ * Applied at every read entry point (dashboard, reports, stock/sellout, quick reports,
  * IMEI search, data explorer, and every export — the scope is frozen into
  * queued export and scheduled-report payloads so the worker applies it too).
  */

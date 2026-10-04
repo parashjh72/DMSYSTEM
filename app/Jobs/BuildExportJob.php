@@ -42,7 +42,11 @@ class BuildExportJob implements ShouldQueue
         $export = ExportJobModel::where('uuid', $this->exportUuid)->firstOrFail();
         $export->update(['status' => 'processing', 'processed_rows' => 0]);
 
-        $format = $export->format === 'xlsx' ? 'xlsx' : 'csv';
+        // Belt-and-braces: raw record exports stream as CSV even if a stored
+        // job predates the ExportService guard (see queue()).
+        $format = $export->type === 'records'
+            ? 'csv'
+            : ($export->format === 'xlsx' ? 'xlsx' : 'csv');
         $disk = Storage::disk($export->disk);
         $relative = 'exports/'.$export->uuid.'.'.$format;
         $absolute = $disk->path($relative);

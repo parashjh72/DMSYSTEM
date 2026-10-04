@@ -78,6 +78,25 @@ class ReportService
     /** Date-wise sell-through report. */
     public function dateWise(ReportFilters $f, int $perPage = 50): LengthAwarePaginator
     {
+        if ($f->isEmpty()) {
+            // Unfiltered: roll up the (st_date, model)-grain summary instead of
+            // scanning the raw table — instant regardless of raw-table size.
+            return DB::table('daily_activation_summary')
+                ->selectRaw('st_date,
+                    SUM(total_imei) AS total_imei,
+                    SUM(activated) AS activated,
+                    SUM(not_activated) AS not_activated,
+                    SUM(lag_d0) AS lag_d0,
+                    SUM(lag_d1_7) AS lag_d1_7,
+                    SUM(lag_d8_15) AS lag_d8_15,
+                    SUM(lag_d16_30) AS lag_d16_30,
+                    SUM(lag_d31_plus) AS lag_d31_plus')
+                ->whereNotNull('st_date')
+                ->groupBy('st_date')
+                ->orderByDesc('st_date')
+                ->paginate($perPage);
+        }
+
         $q = DB::table('sales_activation_records')
             ->selectRaw('st_date, '.self::RAW_BUCKETS)
             ->whereNotNull('st_date')
@@ -130,6 +149,21 @@ class ReportService
     /** ST -> activation lag distribution for the current filter. One row, all buckets. */
     public function lagDistribution(ReportFilters $f): object
     {
+        if ($f->isEmpty()) {
+            // Unfiltered: sum the lag buckets from rd_summary instead of
+            // aggregating the whole raw table on every Reports page load.
+            return DB::table('rd_summary')->selectRaw('
+                COALESCE(SUM(total_imei), 0) AS total_imei,
+                COALESCE(SUM(activated), 0) AS activated,
+                COALESCE(SUM(not_activated), 0) AS not_activated,
+                COALESCE(SUM(lag_d0), 0) AS lag_d0,
+                COALESCE(SUM(lag_d1_7), 0) AS lag_d1_7,
+                COALESCE(SUM(lag_d8_15), 0) AS lag_d8_15,
+                COALESCE(SUM(lag_d16_30), 0) AS lag_d16_30,
+                COALESCE(SUM(lag_d31_plus), 0) AS lag_d31_plus
+            ')->first() ?? (object) [];
+        }
+
         $q = DB::table('sales_activation_records')->selectRaw(self::RAW_BUCKETS);
         $f->apply($q);
 

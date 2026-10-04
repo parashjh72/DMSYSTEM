@@ -16,8 +16,11 @@ class ExportService
         $filters->rdScope = $filters->rdScope ?: (RecordScope::rdCodes() ?? []);
 
         $export = ExportJob::create([
+            // Raw IMEI exports are unbounded (millions of rows): XLSX would
+            // materialise every row in PHP memory and OOM the worker, so they
+            // are always built as streamed CSV regardless of what was asked.
             'type' => $type,
-            'format' => in_array($format, ['csv', 'xlsx'], true) ? $format : 'csv',
+            'format' => $type === 'records' ? 'csv' : (in_array($format, ['csv', 'xlsx'], true) ? $format : 'csv'),
             'filters' => $filters->toArray(),
             'status' => 'pending',
             'created_by' => $userId,
