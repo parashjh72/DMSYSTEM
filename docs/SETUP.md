@@ -48,7 +48,7 @@ If you cannot keep a worker running, **an import will sit in "Queued" forever**.
 Add a per-minute cron that drains the queue and exits:
 
 ```
-* * * * * cd /home/USER/domains/dms.parashojha.com/public_html && \
+* * * * * cd /home/USER/domains/dms.gajabsystem.com/public_html && \
   /usr/bin/php artisan queue:work --stop-when-empty --max-time=50 \
   --queue=imports,summaries,exports,default >> /dev/null 2>&1
 ```
@@ -82,7 +82,7 @@ CRON_TOKEN=<long-random-string>
 then `php artisan config:clear`. A per-minute cron of:
 
 ```
-* * * * * curl -s "https://dms.parashojha.com/cron/<long-random-string>" >/dev/null 2>&1
+* * * * * curl -s "https://dms.gajabsystem.com/cron/<long-random-string>" >/dev/null 2>&1
 ```
 
 hits `GET /cron/{token}`, which runs `schedule:run` (and therefore the queue

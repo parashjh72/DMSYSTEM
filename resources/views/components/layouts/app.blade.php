@@ -160,7 +160,7 @@
                         </div>
                         <div>
                             <div class="text-sm font-bold tracking-tight text-slate-900">DM<span class="text-indigo-600">System</span></div>
-                            <div class="text-[10px] text-slate-400 font-medium">dms.parashojha.com</div>
+                            <div class="text-[10px] text-slate-400 font-medium">dms.gajabsystem.com</div>
                         </div>
                     </div>
                     <button type="button" @click="mobileNav = false" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
@@ -253,7 +253,7 @@
                     <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Environment</span>
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">
                         <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                        dms.parashojha.com
+                        dms.gajabsystem.com
                     </span>
                 </div>
                 <div class="flex items-center gap-4 text-xs font-medium text-slate-500">

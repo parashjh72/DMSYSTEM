@@ -47,7 +47,7 @@
                 </div>
                 <div>
                     <label class="label text-xs font-semibold text-gray-700">SMTP Username</label>
-                    <input class="input text-xs font-mono" wire:model="username" autocomplete="off" placeholder="noreply@dms.parashojha.com">
+                    <input class="input text-xs font-mono" wire:model="username" autocomplete="off" placeholder="noreply@dms.gajabsystem.com">
                 </div>
                 <div>
                     <label class="label text-xs font-semibold text-gray-700">SMTP Password</label>
@@ -56,7 +56,7 @@
                 </div>
                 <div>
                     <label class="label text-xs font-semibold text-gray-700">From Email Address</label>
-                    <input class="input text-xs font-mono" wire:model="from_address" placeholder="noreply@dms.parashojha.com">
+                    <input class="input text-xs font-mono" wire:model="from_address" placeholder="noreply@dms.gajabsystem.com">
                     @error('from_address')<p class="text-[11px] text-rose-600 mt-0.5">{{ $message }}</p>@enderror
                 </div>
                 <div>

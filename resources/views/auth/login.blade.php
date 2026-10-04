@@ -28,7 +28,7 @@
             <p class="mt-1 text-xs text-slate-400 font-medium">Distribution Management &amp; Activation Platform</p>
             <div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1 text-[11px] font-medium text-slate-300">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>dms.parashojha.com</span>
+                <span>dms.gajabsystem.com</span>
             </div>
         </div>
 

@@ -254,7 +254,7 @@
                     } catch (e) {
                         this.error = {
                             'no-key': 'Google Maps API key is not configured. Add one in Settings → Map settings.',
-                            'auth': 'Google Maps authorization failed (gm_authFailure). In Google Cloud Console: ensure Maps JavaScript API is enabled, billing is active, and this domain (https://dms.parashojha.com/*) is authorized in API key restrictions.',
+                            'auth': 'Google Maps authorization failed (gm_authFailure). In Google Cloud Console: ensure Maps JavaScript API is enabled, billing is active, and this domain (https://dms.gajabsystem.com/*) is authorized in API key restrictions.',
                             'load-failed': 'Google Maps failed to load due to a network error or script blocker.',
                         }[e.message] || 'Google Maps failed to load (' + e.message + ').';
                         return;
