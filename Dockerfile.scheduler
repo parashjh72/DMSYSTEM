@@ -1,0 +1,47 @@
+# ------------------------------------------------------------------
+# DMSYSTEM — scheduler image for Coolify
+# Same build as the web image, but the container runs Laravel's
+# schedule:work (per-minute cron) instead of nginx. The app's
+# routes/console.php already drains the queue from the scheduler
+# (queue:work --stop-when-empty every minute), so this one process
+# covers cron + queue + nightly jobs. No domain needed.
+# ------------------------------------------------------------------
+
+# Stage 1: build frontend assets with Vite (kept for image parity)
+FROM node:22-alpine AS frontend
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY vite.config.js ./
+COPY resources ./resources
+COPY public ./public
+RUN npm run build
+
+# Stage 2: runtime
+FROM serversideup/php:8.4-fpm-nginx AS runtime
+
+USER root
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+COPY --chown=www-data:www-data . /var/www/html
+COPY --chown=www-data:www-data --from=frontend /app/public/build /var/www/html/public/build
+
+WORKDIR /var/www/html
+
+ENV COMPOSER_ALLOW_SUPERUSER=1 \
+    COMPOSER_CACHE_DIR=/tmp/composer-cache
+
+RUN composer install --no-dev --optimize-autoloader --no-progress --no-interaction \
+    && php artisan storage:link \
+    && chown -R www-data:www-data /var/www/html \
+    && chmod -R ug+rwx storage bootstrap/cache \
+    && rm -rf /tmp/composer-cache
+
+USER www-data
+
+# Graceful shutdown for the scheduler loop.
+STOPSIGNAL SIGTERM
+
+# Run Laravel's scheduler in the foreground (checks every minute).
+CMD ["php", "/var/www/html/artisan", "schedule:work"]
