@@ -188,4 +188,56 @@
             </div>
         </div>
     @endif
+
+    {{-- 3. Zero-stock RT — activated units with no sell-through record (data anomaly) --}}
+    @if ($type === 'zero_stock' && $rows)
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
+            <div class="card">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Retailers Flagged</div>
+                <div class="mt-1 text-2xl font-extrabold text-rose-700">{{ number_format($rows->total()) }}</div>
+            </div>
+            <div class="card">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Activated Units (page)</div>
+                <div class="mt-1 text-2xl font-extrabold text-emerald-700">{{ number_format($rows->sum('activated')) }}</div>
+            </div>
+            <div class="card">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">What this means</div>
+                <div class="mt-1 text-xs font-medium text-slate-600">These retailers show activations but no sell-through records — usually a missing ST import.</div>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-xs">
+                    <thead>
+                        <tr class="bg-slate-50/80 text-slate-500">
+                            <th class="th">RT Code</th>
+                            <th class="th">Retailer</th>
+                            <th class="th">RD Code</th>
+                            <th class="th">Distributor</th>
+                            <th class="th text-right">Total Units</th>
+                            <th class="th text-right">Activated</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse ($rows as $r)
+                            <tr class="hover:bg-slate-50/70 transition-colors">
+                                <td class="td font-mono font-semibold text-indigo-600">{{ $r->rt_code }}</td>
+                                <td class="td font-medium text-slate-900">{{ $r->rt_name ?: '—' }}</td>
+                                <td class="td font-mono text-slate-500">{{ $r->rd_code }}</td>
+                                <td class="td text-slate-600">{{ $r->rd_name ?: '—' }}</td>
+                                <td class="td text-right font-mono">{{ number_format($r->total) }}</td>
+                                <td class="td text-right font-mono font-bold text-emerald-700">{{ number_format($r->activated) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="py-12 text-center text-slate-400 text-xs">No zero-stock retailers — every retailer's activations are backed by sell-through records.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if ($rows->hasPages())
+                <div class="border-t border-slate-100 px-4 py-3">{{ $rows->links() }}</div>
+            @endif
+        </div>
+    @endif
 </div>
